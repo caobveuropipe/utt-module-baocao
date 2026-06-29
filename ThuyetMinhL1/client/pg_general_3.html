@@ -1,0 +1,153 @@
+<script>
+  let pg_general_3_cacheListThang = null;
+  let pg_general_3_cacheNgayCongChuan = null;
+  let pg_general_3_cacheLuongCoBan = null;
+  let pg_general_3_cacheTienAnCa = null;
+  let pg_general_3_cacheDataStatusTinhLuong = null;
+
+  let pg_general_3_cacheDataLuongAnCa = null;
+
+  window.addEventListener("load", functionInit, true);
+
+
+  function preventFormSubmit() {
+    var forms = document.querySelectorAll('form');
+    for (var i = 0; i < forms.length; i++) {
+      forms[i].addEventListener('submit', function (event) {
+        event.preventDefault();
+      });
+    }
+  }
+
+
+  function functionInit(openSpinner = true, isFirstLoad = true) {
+    preventFormSubmit();
+
+    if (openSpinner) {
+      $('#spinnerModal').modal('show');
+    }
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        if (result.status === "success") {
+
+          pg_general_3_cacheListThang = result.listThang;
+          pg_general_3_cacheNgayCongChuan = result.NgayCongChuan;
+          pg_general_3_cacheLuongCoBan = result.LuongCoBan;
+          pg_general_3_cacheTienAnCa = result.TienAnCa;
+          pg_general_3_cacheDataStatusTinhLuong = result.dataStatusTinhLuong;
+
+
+          // tạo droplist tháng
+          pg_general_3_populateDropdown("modal_dataluong_2_ChonThang", pg_general_3_cacheListThang);
+
+          // Sử dụng google.script.url.getLocation để lấy tham số URL chính xác trong môi trường GAS
+          google.script.url.getLocation(function (location) {
+            var thangParam = location.parameter.thang;
+
+            if (thangParam) {
+              // Kiểm tra xem giá trị có tồn tại trong dropdown không trước khi set
+              if ($('#modal_dataluong_2_ChonThang option[value="' + thangParam + '"]').length > 0) {
+                $('#modal_dataluong_2_ChonThang').val(thangParam).trigger('change');
+                if (isFirstLoad) {
+                  // Gọi hàm tạo thuyết minh -> KHÔNG tắt spinner ở đây, để hàm kia lo
+                  modal_dataluong_3_tinhLuong();
+                } else {
+                  $('#spinnerModal').modal('hide');
+                }
+              } else {
+                $('#spinnerModal').modal('hide');
+              }
+            } else {
+              $('#spinnerModal').modal('hide');
+            }
+          });
+
+        } else if (result.status === "no permission") {
+          $('#spinnerModal').modal('hide');
+          digicoreToast('Bạn không có quyền xem', 'error');
+        } else {
+          console.error("Lỗi từ server: ", result.message);
+          $('#spinnerModal').modal('hide');
+        }
+      })
+      .withFailureHandler(function (error) {
+        console.error("Lỗi API:", error);
+        $('#spinnerModal').modal('hide');
+      })
+      .pg1_ed1_getAllData();
+
+  };
+
+
+  // Lắng nghe sự kiện đóng tab để cảnh báo nếu chưa lưu
+  window.addEventListener('beforeunload', function (e) {
+    var trangThaiElement = document.getElementById('modal_dataluong_2_trangthaiaction');
+    if (trangThaiElement) {
+      var trangThaiAction = trangThaiElement.innerText.trim();
+      if (trangThaiAction === "Đang sửa") {
+        e.preventDefault();
+        e.returnValue = 'Dữ liệu chưa được lưu. Bạn có chắc chắn muốn rời đi?';
+      }
+    }
+  });
+
+
+
+  /**NHÓM HÀM DÙNG CHUNG CHO CÁC MODAL*/
+  //Đoạn code này dùng để tạo các dropdown để chọn
+  function pg_general_3_populateDropdown(dropdownId, values) {
+    var $dropdown = $("#" + dropdownId);
+
+    // Xóa tất cả tùy chọn cũ
+    $dropdown.empty();
+
+    // Thêm placeholder trước khi thêm các tùy chọn mới
+    let placeholderText = $dropdown.attr("title") || "Chọn một giá trị";
+    $dropdown.append(new Option(placeholderText, "", false, false));
+
+    // Thêm các tùy chọn mới
+    values.forEach(function (value) {
+      $dropdown.append(new Option(value, value));
+    });
+
+    // Cập nhật select2 sau khi thay đổi danh sách
+    $dropdown.val(null).trigger("change");
+  }
+
+
+  // Trả về tháng hiện tại theo định dạng "TMM.YYYY"
+  function pg_general_3_getTodayMonthStr() {
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    return `T${month}.${year}`;
+  }
+
+
+  // Kiểm tra tháng có tồn tại trong cache
+  function pg_general_3_isMonthInCache(datachotcong, monthStr) {
+    return datachotcong.some((row, i) => i !== 0 && row[1] === monthStr);
+  }
+
+  // Chuyển "T04.2025" → 202504
+  function pg_general_3_convertThangTonumber(kyLuongStr) {
+    const [thang, nam] = kyLuongStr.substring(1).split('.').map(Number);
+    return nam * 100 + thang;
+  }
+
+
+
+  // Lắng nghe sự kiện đóng tab để cảnh báo nếu chưa lưu
+  window.addEventListener('beforeunload', function (e) {
+    var trangThaiElement = document.getElementById('modal_dataluong_2_trangthaiaction');
+    if (trangThaiElement) {
+      var trangThaiAction = trangThaiElement.innerText.trim();
+      if (trangThaiAction === "Đang sửa") {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    }
+  });
+
+</script>

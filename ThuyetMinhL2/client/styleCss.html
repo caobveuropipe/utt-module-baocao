@@ -1,0 +1,184 @@
+<style>
+  //Page Home
+    .container-dark {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center; /* Căn giữa các button trong container */
+      width: 100%;
+      height: 100vh; /* Đảm bảo chiếm toàn bộ chiều cao màn hình */
+      text-align: center;
+    }
+    .d-flex {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center; /* Căn giữa các button */
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+    .square-button {
+      width: 120px; /* Đặt chiều rộng cho button vuông */
+      height: 120px; /* Đặt chiều cao cho button vuông */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 0;
+      margin: 10px;
+      box-sizing: border-box;
+      flex-shrink: 0;
+      flex-grow: 0;
+      min-width: 120px;
+      font-size: 14px; /* Kích thước chữ */
+      border-radius: 15px; /* Bo góc cho button */
+    }
+  /* Điều chỉnh màu chữ và nền */
+    .btn-info {
+      background-color: #00695c !important; /* Màu nền */#17a2b8
+      border-color: #00695c !important; /* Màu viền */
+      
+    }
+    .btn-info:hover {
+      background-color: white !important; /* Màu nền khi hover */#138496
+      border-color: #138496; /* Màu viền khi hover */
+      color: black !important;  //màu chữ khi hover
+    }
+  /* Định dạng icon lớn */
+    .icon-large {
+      font-size: 3em !important; /* Tăng kích thước icon */
+      display: block; /* Đảm bảo icon sẽ được đặt trên cùng */
+      margin-bottom: 8px; /* Khoảng cách giữa icon và chữ */
+    }
+    /* Căn chỉnh văn bản nằm dưới icon */
+    .button-text {
+      display: block; /* Đảm bảo chữ sẽ nằm dưới icon */
+      text-align: center; /* Căn giữa chữ */
+      font-size: 0.9em; /* Cỡ chữ của văn bản */
+    }
+  //modal full screen
+    .full-screen-modal .modal-dialog {
+      max-width: 100%; // Đảm bảo modal chiếm toàn bộ chiều rộng 
+      width: 100%;
+      height: 100vh; // Chiều cao toàn màn hình 
+      margin: 0; // Loại bỏ margin mặc định 
+      padding: 0; // Loại bỏ padding mặc định 
+      display: flex; // Để căn chỉnh nội dung 
+      flex-direction: column;
+      
+    }
+
+    .full-screen-modal .modal-content {
+      height: 100%; // Nội dung modal chiếm toàn bộ chiều cao modal 
+      display: flex;
+      flex-direction: column;
+    }
+
+    .full-screen-modal .modal-body {
+      flex-grow: 1; // Phần body chiếm toàn bộ không gian còn lại 
+      //overflow-y: hidden; // Cuộn nếu nội dung quá dài 
+    }
+
+    .modal-content input,
+    .modal-content button,
+    .modal-content select {
+        transform: scale(0.9);
+    }
+    .modal-content select {
+        transform: scale(0.9); /* Thu nhỏ kích thước dropdown */
+        width: 100% !important; /* Giảm chiều rộng */
+    }
+    .select2-container {
+        font-size: 13px !important; /* Giảm kích thước chữ */
+        //width: auto !important; /* Giảm chiều rộng */
+        min-width: 7.5rem !important; /* Đảm bảo độ rộng tối thiểu */
+        transform: scale(0.90); /* Thu nhỏ toàn bộ */
+        transform-origin: left center; /* Giữ vị trí */
+        z-index: 50 !important; /* Cao hơn modal của Bootstrap */
+        line-height: 1.5;
+    }
+
+    .select2-selection__placeholder {
+        white-space: nowrap !important; /* Tránh placeholder bị co ngắn */
+    }
+
+    .select2-selection__clear {
+        position: absolute;
+        right: 10px; /* Dịch nút clear sang phải để dễ nhấn */
+    }
+    
+    /* Áp dụng kích thước nhỏ cho button */
+    .btn-small {
+      height: auto; /* Tương đương với select2--small */
+      width: auto; /* Tương đương với select2--small */
+      padding: 5px 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    table th, table td {
+        font-size: 13px !important;
+    }
+  /*Vị trí của toast*/
+    #errorToast {
+        position: fixed;
+        bottom: 0%;
+        right: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 5000; /* Đảm bảo nó nổi trên các phần khác */
+    }
+
+  /* Trường hợp không có quyền - icon màu xám, không thể click */
+    .no-permission {
+        color: #A9A9A9 !important; /* Màu xám */
+        cursor: not-allowed !important;; /* Không cho phép click */
+    }
+
+  /* Trường hợp có quyền chỉnh sửa (EDIT) */
+    .edit-only {
+        color: #ffa500 !important; /* Màu cam */
+        cursor: pointer; /* Biểu tượng bàn tay khi có quyền chỉnh sửa */
+        transition: color 0.2s ease-in-out;
+    }
+
+  /* Mặc định các icon có quyền */
+    .fa-pen-to-square {
+        cursor: pointer; /* Biểu tượng bàn tay khi có quyền */
+        transition: color 0.2s ease-in-out;
+    }
+
+  /* Thêm hiệu ứng hover */
+    .fa-pen-to-square:hover {
+        color: #e69500; /* Màu tối hơn khi hover */
+    }
+
+    .fa-trash{
+      cursor: pointer; /* Biểu tượng bàn tay khi có quyền */
+        transition: color 0.2s ease-in-out;
+    }
+    .fa-trash:hover {
+        color: #e69500; /* Màu tối hơn khi hover */
+    }
+  /* Trường hợp có quyền chỉnh sửa và xóa (ALL) */
+    .action-icon {
+        //color: #B22222 !important; /* Đỏ cho xóa */
+        cursor: pointer; /* Biểu tượng bàn tay khi có quyền */
+        transition: color 0.2s ease-in-out;
+    }
+
+  /* Hiệu ứng hover */
+    .action-icon:hover {
+        color: #8B0000; /* Màu tối hơn khi hover */
+    }
+
+    .edit-only:hover {
+        color: #e69500; /* Màu cam đậm hơn khi hover */
+    }
+
+      
+    .right-align {
+      text-align: right;
+    }
+
+        
+</style>

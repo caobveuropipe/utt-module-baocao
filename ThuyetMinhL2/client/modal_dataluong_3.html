@@ -1,0 +1,1747 @@
+<script>
+  /**CÁC HÀM PHỤ*/
+  function modal_dataluong_3_Reset() {
+    var trangThaiDuLieu = $('#modal_dataluong_2_trangthaidulieu').text();
+    var trangThaiAction = $('#modal_dataluong_2_trangthaiaction').text();
+
+    if (trangThaiDuLieu === "tính lương kỳ mới" || trangThaiAction === "Đang sửa") {
+      Swal.fire({
+        title: 'Chú ý!',
+        text: 'Bảng tính lương này có dòng đang sửa chưa được lưu vào data. Bạn có tiếp tục đóng không?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Có',
+        cancelButtonText: 'Không'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          modal_dataluong_3_resetTableAndFilters();
+        }
+      });
+    } else {
+      modal_dataluong_3_resetTableAndFilters();
+    }
+  }
+
+  /**NHÓM HÀM TẠO GIAO DIỆN BAN ĐẦU*/
+  //TẠO SELECT2
+  $(document).ready(function () {
+    $("#modal_dataluong_2_ChonThang, #modal_dataluong_2_Hoten_filter, #modal_dataluong_2_hopdong_filter, #modal_dataluong_2_donvi_filter").each(function () {
+      $(this).select2({
+        theme: "bootstrap-5",
+        allowClear: true,
+        width: 'style', // Dùng 'style' thay vì 'resolve' để giữ nguyên kích thước
+        placeholder: $(this).attr("title"), // Đặt placeholder đúng
+        //dropdownParent: $("#modal_dataluong_2_Modal"), // Fix lỗi hiển thị trong modal
+      }).on("select2:clear", function () {
+        // Thay vì đặt giá trị null, hãy đặt lại placeholder
+        $(this).val("").trigger("change");
+      });
+    });
+  });
+
+
+  /**
+   * CREATE THE DATA TABLE
+   * */
+
+  function modal_dataluong_3_resetTableAndFilters() {
+    $('#modal_dataluong_2_trangthaiaction').text('');
+    // Reset các bộ lọc ngoài bảng (dropdown filter)
+    const externalFilters = [
+      '#modal_dataluong_2_Hoten_filter',
+      '#modal_dataluong_2_hopdong_filter',
+      '#modal_dataluong_2_donvi_filter',
+      '#modal_dataluong_2_SoNguoi',
+      '#modal_dataluong_2_SoTien'
+
+    ];
+
+    externalFilters.forEach(function (selector) {
+      if ($(selector).length) {
+        $(selector).val('').trigger('change');
+      }
+    });
+
+    // Thu gọn các bộ lọc (collapse)
+    const filterCollapseButtons = [
+      '#modal_dataluong_2_menu'
+    ];
+
+    filterCollapseButtons.forEach(function (selector) {
+      if ($(selector).length) {
+        // Nếu bộ lọc đang mở, ẩn nó đi
+        $(selector).collapse('hide');
+      }
+    });
+
+    var tableId = '#tableDataLuong1';
+    var tableDivId = '#modal_dataluong_3_dataTableLuong1_div';
+
+    // Kiểm tra bảng đã tồn tại và destroy nó
+    if ($.fn.DataTable.isDataTable(tableId)) {
+      // Destroy table
+      $(tableId).DataTable().clear().destroy();
+      // Xóa toàn bộ nội dung của div chứa bảng
+      $(tableDivId).empty();
+    }
+  }
+
+  async function modal_dataluong_3_tinhLuong() {
+    document.getElementById('modal_dataluong_3_dataTableLuong1_div').innerHTML = "";
+
+    if ($.fn.DataTable.isDataTable('#tableDataLuong1')) {
+      $('#tableDataLuong1').DataTable().destroy();
+    }
+
+    // Bước 1: lấy tháng chọn
+    let currentMonthStr = $('#modal_dataluong_2_ChonThang').val();
+    if (!currentMonthStr) {
+      digicoreToast('Vui lòng chọn tháng trước khi tính lương', 'warning')
+      return;
+    }
+
+    // Bước 2: kiểm tra tháng chọn nếu đã có tính lương thì gọi hàm lấy dữ liệu tính lương
+    // Kiểm tra currentMonthStr trong cached
+    const foundRow = (typeof pg_general_3_cacheDataStatusTinhLuong !== 'undefined' && pg_general_3_cacheDataStatusTinhLuong)
+      ? pg_general_3_cacheDataStatusTinhLuong.find(row => row[0] === currentMonthStr)
+      : null;
+
+    if (foundRow && foundRow[1] === 'Đã tạo thuyết minh') {
+      const resultAsk = await Swal.fire({
+        title: 'Bảng thuyết minh tháng ' + currentMonthStr + ' đã tồn tại',
+        text: 'Bạn muốn xem lại hay tạo bảng mới?',
+        icon: 'warning',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        denyButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Xem lại',
+        denyButtonText: 'Tạo bảng mới',
+        cancelButtonText: 'Hủy',
+        showCloseButton: true,
+        allowOutsideClick: true,
+      });
+
+      if (resultAsk.isConfirmed) {
+        // Người dùng chọn Xem lại
+        $('#spinnerModal').modal('show');
+        google.script.run
+          .withSuccessHandler(function (result) {
+            //console.log("Data xem lại: ", result.dataLuongAnCa)
+            //console.log("Status: ", result.status)
+            if (result.status === "success") {
+
+              pg_general_3_cacheDataLuongAnCa = result.dataLuongAnCa || [];
+              // Gọi vẽ bảng lương ở đây, sau khi có dữ liệu
+              modal_dataluong_3_TaoBangLuong(pg_general_3_cacheDataLuongAnCa);
+              $('#spinnerModal').modal('hide');
+            } else if (result.status === "no permission") {
+              $('#spinnerModal').modal('hide');
+              digicoreToast('Bạn không có quyền xem', 'error');
+            } else {
+              console.error("Lỗi từ server: ", result.message);
+            }
+          })
+          .withFailureHandler(function (error) {
+            console.error("Lỗi API:", error);
+          })
+          .modal_dataluong_1_getDataLuongAnCa(currentMonthStr, 'DataLuongAnCa');
+
+        return;
+      } else if (resultAsk.isDenied) {
+        // Người dùng chọn Tạo bảng mới -> Tiếp tục xuống dưới
+        $('#spinnerModal').modal('show');
+      } else {
+        // Người dùng chọn Hủy hoặc đóng popup (bấm X hoặc ra ngoài)
+        return;
+      }
+    } else {
+      $('#spinnerModal').modal('show');
+    }
+
+    // Nếu CHƯA TÍNH LƯƠNG hoặc người dùng chọn TÍNH BỔ SUNG
+    google.script.run
+      .withSuccessHandler(function (result) {
+        if (result.status === "success") {
+          pg_general_3_cacheDataLuongAnCa = result.dataLuongAnCa || []; //result.dataLuongAnCa?.dataLuongAnCa || [];
+
+          //Bước 6: Xóa các thiết lập bảng cũ trước khi tạo bảng mới
+          modal_dataluong_3_Reset();
+
+          // Gọi vẽ bảng lương ở đây, sau khi có dữ liệu
+          modal_dataluong_3_TaoBangLuong(pg_general_3_cacheDataLuongAnCa);
+
+          // Set trạng thái hành động thành "Đang sửa" để kích hoạt cảnh báo đóng tab
+          $('#modal_dataluong_2_trangthaiaction').text('Đang sửa');
+
+          $('#spinnerModal').modal('hide');
+
+          // Hiển thị thông báo để tạo tương tác người dùng -> Kích hoạt beforeunload
+          Swal.fire({
+            title: 'Hoàn thành',
+            text: 'Dữ liệu đã được tạo. Vui lòng kiểm tra và bấm LƯU lại trước khi rời đi.',
+            icon: 'success',
+            confirmButtonText: 'Đã hiểu'
+          });
+
+        } else if (result.status === "no permission") {
+          $('#spinnerModal').modal('hide');
+          digicoreToast('Bạn không có quyền xem', 'error');
+        } else {
+          console.error("Lỗi từ server: ", result.message);
+        }
+      })
+      .withFailureHandler(function (error) {
+        console.error("Lỗi API:", error);
+      })
+      .modal_dataluong_1_tinhLuongAnCa(currentMonthStr, 'TinhLuongAnCa');
+  }
+
+  //Đoạn code này dùng để tạo bảng và đưa dữ liệu từ data đã lọc theo phân quyền đưa lên bảng
+  function modal_dataluong_3_TaoBangLuong(dataArray) {
+    //console.log(dataArray)
+    if (!dataArray || !Array.isArray(dataArray) || dataArray.length === 0) {
+      console.error("Dữ liệu không hợp lệ!");
+      return;
+    }
+
+    var headers = ['Trạng thái', 'ID', 'Mã CB', 'Họ và tên', 'Lương và truy lĩnh', 'Lương và truy lĩnh kỳ trước', 'Tăng', 'Giảm', 'Ghi chú', 'Phân loại'];
+    var tableData = dataArray//.slice(1);
+
+    var tableHtml = `<div'>
+      <table class='table table-striped table-bordered' style='font-size:0.9em; width:100%;' id='tableDataLuong1'>
+        <thead><tr>
+          <th scope='col'>#</th>`;
+
+    headers.forEach((header, colIndex) => {
+      tableHtml += `<th scope='col' style="text-align: center; vertical-align: middle;">${header}</th>`;
+    });
+
+    tableHtml += `</tr></thead><tbody>`;
+
+    tableData.forEach((row) => {
+      tableHtml += `<tr>`;
+      //Cột xóa
+      tableHtml += `<td style="text-align: center">
+                      <i class="fa fa-sharp fa-solid fa-trash btn btn-sm btn-light" 
+                        style="font-size:15px;color:#adb5bd;" 
+                        onclick="modal_dataluong_3_delRow(this)">
+                      </i>
+                    </td>`;
+
+      // 1) Cột TRẠNG THÁI (sinh thêm, dựa vào ID = row[0])
+      var idValue = row[0] ?? "";
+      var statusText = (idValue === '' || idValue === null || idValue === undefined)
+        ? 'Chưa lưu'
+        : 'Đã lưu';
+      tableHtml += `<td class="col-status" style="text-align:center; vertical-align:middle;">${statusText}</td>`;
+
+      row.forEach((cellData, colIndex) => {
+        var cellData = row[colIndex] ?? "";
+
+        if (colIndex === 7) {
+          // Cột Ghi chú - editable, căn trái, cho phép text & number
+          tableHtml += `<td contenteditable="true" class="editable-note" style="text-align: left;" data-original="${cellData ?? ""}">${cellData ?? ""}</td>`;
+        } else
+          if (colIndex === 5 || colIndex === 6) { // Ăn ca, Còn lĩnh
+            tableHtml += `<td style="text-align: right;">${cellData ?? 0}</td>`;
+          } else {
+            tableHtml += `<td>${cellData ?? ""}</td>`;
+          }
+      });
+
+      tableHtml += `</tr>`;
+    });
+
+    tableHtml += `</tbody></table></div>`;
+
+    $('#modal_dataluong_3_dataTableLuong1_div').html(tableHtml);
+
+    // Hàm xóa dòng
+    window.modal_dataluong_3_delRow = function (element) {
+      const table = $('#tableDataLuong1').DataTable();
+      const row = $(element).closest('tr');
+
+      Swal.fire({
+        title: 'Xác nhận xóa?',
+        text: "Bạn không thể hoàn tác thao tác này!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Xóa',
+        cancelButtonText: 'Hủy'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          table.row(row).remove().draw();
+          document.getElementById('modal_dataluong_2_trangthaiaction').value = "Đang sửa"
+          Swal.fire('Đã xóa!', 'Dòng đã được xóa khỏi bảng.', 'success');
+        }
+      });
+    };
+
+    // Cập nhật footer
+    /*function updateFooterCount() {
+      var soDong = 0;
+      var columnIndexCheck = 5;  // Cột Họ tên
+      var columnIndexSum = 9;   // Cột "Còn lĩnh"
+      var tongSoTien = 0;
+
+      $('#tableDataLuong1 tbody tr').each(function () {
+        var cellText = $(this).find('td').eq(columnIndexCheck).text().trim();
+        if (cellText !== '') {
+          soDong++;
+        }
+
+        var cellValue = $(this).find('td').eq(columnIndexSum).text().trim();
+        if (cellValue) {
+          // Xử lý định dạng số kiểu vi-VN: Xóa dấu phẩy (,) phân tách hàng nghìn
+          var parsedValue = parseFloat(cellValue.replace(/,/g, '').replace(/\./g, ''));
+          if (!isNaN(parsedValue)) {
+            tongSoTien += parsedValue;
+          }
+        }
+      });
+
+      $('#modal_dataluong_2_SoNguoi').val(soDong); // Hoặc đổi id nếu cần
+      $('#modal_dataluong_2_SoTien').val(tongSoTien.toLocaleString('en-US'));
+    }*/
+
+
+
+    // Khởi tạo DataTable
+    $('#tableDataLuong1').DataTable({
+      destroy: true,
+      responsive: false,
+      stateSave: true,
+      select: true,
+      ordering: true,
+      pageLength: 10,
+      lengthMenu: [[10, 25, 50, 100, -1], ['10', '25', '50', '100', 'Tất cả']],
+      dom: "<'row'<'col-6'l><'col-6'f>>" +
+        "<'row'<'col-sm-12'tr>>" +
+        "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      language: {
+        lengthMenu: "_MENU_ ",
+        zeroRecords: "Không tìm thấy",
+        info: "Hiển thị _START_ đến _END_ trong _TOTAL_ dòng",
+        infoEmpty: "Không có dữ liệu",
+        infoFiltered: "(lọc từ _MAX_ dòng)",
+        search: '<i class="fas fa-search"></i>:',
+        paginate: {
+          first: "Đầu",
+          previous: '<i class="fas fa-chevron-left"></i>',
+          next: '<i class="fas fa-chevron-right"></i>',
+          last: "Cuối"
+        }
+      },
+      initComplete: function () {
+        var table = this.api();
+
+        const columnMappings = {
+          0: '#modal_dataluong_2_Hoten_filter',
+          3: '#modal_dataluong_2_hopdong_filter',
+          9: '#modal_dataluong_2_donvi_filter'
+        };
+
+        Object.keys(columnMappings).forEach(function (columnIdx) {
+          const column = table.column(parseInt(columnIdx) + 1); // +1 vì có thêm cột Xóa
+          const select = $(columnMappings[columnIdx]);
+
+          // Xóa các option cũ trước khi thêm mới
+          select.empty();
+
+          select.append('<option value="">Tất cả</option>');
+          column.data().unique().sort().each(function (d) {
+            select.append(`<option value="${d}">${d}</option>`);
+          });
+
+          select.on('change', function () {
+            column.search(this.value).draw();
+          });
+        });
+      },
+      columnDefs: [
+        {
+          targets: [5, 6, 7, 8],
+          className: 'all right-align',
+          render: function (data, type, row, meta) {
+            if (type === 'display' || type === 'filter') {
+              return data.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            }
+            return data;
+          }
+        },
+        { targets: 1, className: "tableDataLuong-col-stt" },
+        { targets: 2, className: "tableDataLuong-col-id" },
+        { targets: 3, className: "tableDataLuong-col-kyluong" },
+        { targets: 10, className: "tableDataLuong-col-donvi" },
+      ]
+    });
+
+    //updateFooterCount();
+
+    // Sự kiện cập nhật khi người dùng chỉnh sửa
+    $('#tableDataLuong1')
+      .on('change', '.phan-loai-select', function () {
+        $('#tableDataLuong1').DataTable().draw();
+      })
+      .on('blur', 'td[contenteditable="true"]', function () {
+        $('#tableDataLuong1').DataTable().draw();
+      });
+
+    $('#modal_dataluong_2_trangthaiaction').text('');
+    //Cập nhật hàm update khi có filter hoặc search
+    $('#searchInput').on('input', function () {
+      var value = $(this).val().toLowerCase();
+      $('#tableDataLuong1 tbody tr').filter(function () {
+        $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+      });
+      //updateFooterCount(); // Gọi lại sau khi filter
+    });
+    $('#tableDataLuong1').on('draw.dt', function () {
+      //updateFooterCount();
+    });
+
+    //Thêm sự kiện thay đổi cột truy lĩnh
+    $('#tableDataLuong1 tbody').on('blur', 'td.editable-number', function () {
+      var cell = $(this);
+      var newValue = cell.text().trim().replace(/,/g, '');
+      var isValidNumber = !isNaN(newValue) && newValue !== '';
+
+      if (!isValidNumber) {
+        Swal.fire('Lỗi!', 'Chỉ được nhập số.', 'error');
+        cell.text('0');
+        newValue = 0;
+      }
+
+      // Format lại số (dấu phẩy) và cập nhật vào ô
+      var parsedValue = parseFloat(newValue) || 0;
+      cell.text(parsedValue.toLocaleString('en-US'));
+
+      // Tính: Còn lĩnh = Ăn ca + Truy lĩnh
+      var row = cell.closest('tr');
+      var valueAnCa = row.find('td').eq(9).text().trim().replace(/,/g, '');
+      var valueTruyLinh = row.find('td').eq(10).text().trim().replace(/,/g, '');
+
+      var valueConLinh = (parseFloat(valueAnCa) || 0) + (parseFloat(valueTruyLinh) || 0);
+      row.find('td').eq(11).text(valueConLinh.toLocaleString('en-US'));
+
+      // Cập nhật lại footer
+      //updateFooterCount();
+    });
+
+    // Sự kiện thay đổi cột Ghi chú
+    $('#tableDataLuong1 tbody').on('blur', 'td.editable-note', function () {
+      var cell = $(this);
+      var newValue = cell.text().trim();
+      var originalValue = (cell.attr('data-original') || '').trim();
+
+      // So sánh giá trị mới với giá trị ban đầu
+      if (newValue !== originalValue) {
+        // Cập nhật trạng thái thành "Chưa lưu"
+        var row = cell.closest('tr');
+        row.find('td.col-status').text('Chưa lưu');
+        $('#modal_dataluong_2_trangthaiaction').text('Đang sửa');
+      }
+    });
+  }
+
+
+  function formatNumberCell(cell) {
+    let value = cell.innerText.trim();
+
+    // Xóa dấu phẩy và kiểm tra nếu là số
+    let number = Number(value.replace(/,/g, ''));
+
+    if (!isNaN(number)) {
+      cell.innerText = number.toLocaleString('en-US');
+    } else {
+      // Nếu không phải số, xóa nội dung ô
+      cell.innerText = '';
+    }
+  }
+
+
+  function modal_dataluong_3_onEditStart() {
+    $('#modal_dataluong_2_trangthaiaction').text("Đang sửa");
+
+    // KHÔNG xử lý trong lúc gõ input nữa
+
+    // Khi rời ô mới xử lý
+    $(document).off('blur', '.table td[contenteditable="true"]').on('blur', '.table td[contenteditable="true"]', function () {
+      var value = $(this).text().trim();
+
+      // Xử lý: chỉ giữ số và 1 dấu chấm
+      value = value.replace(/[^0-9.]/g, '');
+
+      var parts = value.split('.');
+      if (parts.length > 2) {
+        value = parts[0] + '.' + parts.slice(1).join('');
+      }
+
+      var number = parseFloat(value);
+
+      if (isNaN(number)) number = 0;
+
+      // Format lại đẹp: 2 số lẻ
+      $(this).text(number.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 6 }));
+    });
+  }
+
+  /**LƯU tính lương*/
+  //Steap 1: Lấy dữ liệu từ data table tableDataLuong1
+  function modal_dataluong_3_getDataFromTable() {
+    const table = $('#tableDataLuong1').DataTable();
+
+    // 🔴 Sort theo cột "Đơn vị" (index 7 vì có cột # ở đầu) trước khi lưu
+    table.order([7, 'asc']).draw();
+
+    const rows = table.rows({ search: 'applied' }).nodes(); // ✅ lấy toàn bộ DOM dòng (không bị giới hạn bởi phân trang)
+
+    const allData = [];
+
+    $(rows).each(function () {
+      const row = [];
+      $(this).find('td').each(function (index) {
+        // Bỏ cột (xóa, STT, ID), lấy từ 3 đến 11
+        if (index >= 3 && index <= 11) {
+          const text = $(this).text().replace(/,/g, '').trim();
+          row.push(text);
+        }
+      });
+
+      if (row.some(cell => cell !== "")) {
+        allData.push(row);
+      }
+    });
+
+    return allData;
+  }
+
+  //Step 2: ghi dữ liệu vào sheet
+  async function modal_dataluong_3_luuTinhLuong() {
+    let currentMonthStr = $('#modal_dataluong_2_ChonThang').val();
+    const targetMonthStr = currentMonthStr || pg_general_3_getTodayMonthStr();
+
+    //A- Kiểm tra targetMonthStr trong cachedMonthData
+    const foundRow = (typeof pg_general_3_cacheDataStatusTinhLuong !== 'undefined' && pg_general_3_cacheDataStatusTinhLuong)
+      ? pg_general_3_cacheDataStatusTinhLuong.find(row => row[0] === targetMonthStr)
+      : null;
+
+    if (foundRow && foundRow[1] === 'Đã tạo thuyết minh') {
+      const result = await Swal.fire({
+        title: 'Dữ liệu đã chốt',
+        text: 'Dữ liệu cho tháng này Đã tạo thuyết minh. Bạn có muốn xóa dữ liệu cũ để ghi đè không?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Có, xóa và ghi đè',
+        cancelButtonText: 'Không, hủy bỏ'
+      });
+
+      if (!result.isConfirmed) {
+        return; // Dừng toàn bộ xử lý
+      }
+
+      $('#spinnerModal').modal('show');
+      // Nếu người dùng chọn Có, thực hiện xóa dữ liệu cũ
+      try {
+        await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(() => resolve())
+            .withFailureHandler(error => {
+              console.error('Lỗi khi xóa dữ liệu cũ:', error);
+              digicoreToast('Lỗi khi xóa dữ liệu', 'error');
+              reject(error);
+            })
+            .modal_dataluong_1_xoaDuLieu(targetMonthStr);
+        });
+      } catch (error) {
+        $('#spinnerModal').modal('hide');
+        return; // Dừng nếu xóa lỗi
+      }
+    } else {
+      $('#spinnerModal').modal('show');
+    }
+
+    //B- Get dữ liệu trên table
+    const allData = modal_dataluong_3_getDataFromTable();
+    if (!allData || allData.length === 0) {
+      $('#spinnerModal').modal('hide');
+      digicoreToast("Không có dữ liệu để lưu", "warning");
+      return;
+    }
+
+    let countSuccess = 0;
+    let countFailure = 0;
+
+    function checkCompletion() {
+      if (countSuccess === 1) {
+        digicoreToast("Dữ liệu đã được lưu thành công", "success");
+      } else if (countFailure > 0) {
+        digicoreToast("Lỗi khi lưu dữ liệu", "error");
+      }
+    }
+
+    //C- Lưu dữ liệu allData vào file tính lương
+    google.script.run
+      .withSuccessHandler(function (result) {
+        if (result.status === "success") {
+          $('#spinnerModal').modal('hide');
+          digicoreToast("Dữ liệu đã được lưu thành công", "success");
+
+          // ✅ Cập nhật cột trạng thái thành "Đã lưu"
+          $('#tableDataLuong1 tbody tr').each(function () {
+            $(this).find('td.col-status').text('Đã lưu');
+          });
+
+          functionInit(false);
+        } else if (result.status === "no permission") {
+          $('#spinnerModal').modal('hide');
+          digicoreToast('Bạn không có quyền lưu', 'error');
+        } else {
+          console.error("Lỗi từ server: ", result.message);
+        }
+      })
+      .withFailureHandler(function (error) {
+        console.error("Lỗi API:", error);
+      })
+      .modal_dataluong_3_saveToSheet(allData, targetMonthStr);
+  }
+
+  /**XÓA DỮ LIỆU TRONG DATA tính lương VÀ DATA CHỐT NHÂN SỰ*/
+  async function modal_dataluong_3_xoaAllTinhLuong() {
+    let currentMonthStr = $('#modal_dataluong_2_ChonThang').val();
+    const targetMonthStr = currentMonthStr || pg_general_3_getTodayMonthStr();
+
+    //A- Kiểm tra targetMonthStr trong cachedMonthData
+    const foundRow = pg_general_3_cacheDataStatusTinhLuong.find(row => row[0] === targetMonthStr);
+
+    if (foundRow && foundRow[1] === 'Đã tạo thuyết minh') {
+      const result = await Swal.fire({
+        title: 'Xóa dữ liệu đã lưu',
+        text: `Bạn có muốn xóa dữ liệu thuyết minh đã lưu của tháng ${targetMonthStr} không?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Có, xóa',
+        cancelButtonText: 'Không, hủy bỏ'
+      });
+
+      if (!result.isConfirmed) {
+        Swal.fire('Đã hủy', 'Dữ liệu không thay đổi.', 'info');
+        return; // Dừng toàn bộ xử lý
+      }
+
+      //Bật spinner
+      $('#spinnerModal').modal('show');
+      // Nếu người dùng chọn Có, thực hiện xóa dữ liệu cũ
+      try {
+        await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(() => {
+              resolve();// Đánh dấu promise hoàn tất
+              $('#spinnerModal').modal('hide');
+              modal_dataluong_3_Reset();
+              functionInit(false, false);
+              digicoreToast('Xóa thành công', 'success');
+            })
+            .withFailureHandler(error => {
+              console.error('Lỗi khi xóa dữ liệu cũ:', error);
+              digicoreToast('Lỗi khi xóa dữ liệu', 'error');
+              reject(error);
+            })
+            .modal_dataluong_1_xoaDuLieu(targetMonthStr);
+        });
+
+      } catch (error) {
+        return;
+        console.log('Lỗi khi xóa data' + error);
+      }
+    }
+  }
+
+  /**TẠO BẢNG IN*/
+  //Step 1: Lấy dữ liệu in từ data table tableDataLuong1
+  function modal_dataluong_3_getPrintDataFromTable() {
+    const table = $('#tableDataLuong1').DataTable();
+    const rows = table.rows({ 'search': 'applied' }).nodes(); // Lấy tất cả DOM rows
+
+    const skipCols = [0, 1, 2]; // 🛠️ Danh sách các cột cần bỏ qua hoàn toàn
+
+    const allData = [];
+
+    $(rows).each(function () {
+      const rowData = [];
+      $(this).find('td').each(function (index) {
+        if (skipCols.includes(index)) return; // Bỏ qua cột không cần lấy
+
+        let value;
+        const input = $(this).find('input');
+        if (input.length) {
+          value = input.val().trim();
+        } else {
+          value = $(this).text().trim();
+        }
+
+        // ❌ Không remove dấu phẩy nữa
+        rowData.push(value);
+      });
+
+      if (rowData.some(cell => cell !== "")) {
+        allData.push(rowData);
+      }
+    });
+
+    return allData;
+  }
+
+  /**IN BẢNG THUYẾT MINH LƯƠNG*/
+  function modal_dataluong_3_luuPrintLuong() {
+    let targetMonthStr = $('#modal_dataluong_2_ChonThang').val();
+
+    // Kiểm tra xem đã chọn tháng chưa
+    if (!targetMonthStr) {
+      digicoreToast('Vui lòng chọn tháng trước khi in', 'warning');
+      return;
+    }
+
+    // Kiểm tra trạng thái chốt lương
+    const foundRow = pg_general_3_cacheDataStatusTinhLuong ? pg_general_3_cacheDataStatusTinhLuong.find(row => row[0] === targetMonthStr) : null;
+    const trangThai = foundRow ? foundRow[1] : "";
+
+    if (trangThai !== "Đã tạo thuyết minh") {
+      digicoreToast('Tháng ' + targetMonthStr + ' chưa tạo thuyết minh. Vui lòng tạo và lưu trước khi in.', 'warning');
+      return;
+    }
+
+    // Convert kỳ lương: T01.2025 → tháng=1, năm=2025
+    const [thangStr, namStr] = targetMonthStr.replace(/^T/, "").split(".");
+    const vThang = parseInt(thangStr, 10);
+    const vNam = namStr;
+
+    // BƯỚC 1: Chọn Khu vực
+    Swal.fire({
+      title: 'Chọn Khu vực in',
+      text: 'Bạn muốn in dữ liệu của khu vực nào?',
+      icon: 'question',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: 'Hà Nội',
+      denyButtonText: 'Phú Thọ',
+      cancelButtonText: 'Tất cả',
+      confirmButtonColor: '#3085d6',
+      denyButtonColor: '#6e7881',
+      cancelButtonColor: '#28a745',
+      showCloseButton: true,
+      allowOutsideClick: true,
+    }).then((regionResult) => {
+      let selectedRegion = "";
+      if (regionResult.isConfirmed) {
+        selectedRegion = "Hà Nội";
+      } else if (regionResult.isDenied) {
+        selectedRegion = "Phú Thọ";
+      } else if (regionResult.dismiss === Swal.DismissReason.cancel) {
+        selectedRegion = "Tất cả";
+      } else {
+        return;
+      }
+
+      // BƯỚC 2: Chọn loại bảng in
+      Swal.fire({
+        title: 'Chọn loại bảng in',
+        text: `Khu vực: ${selectedRegion}. Bạn muốn in phần nào?`,
+        icon: 'question',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'Phần 1 - bảng đi ngân hàng',
+        denyButtonText: 'Phần 2 - bảng thuyết minh',
+        cancelButtonText: 'Hủy',
+        confirmButtonColor: '#3085d6',
+        denyButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        showCloseButton: true,
+        allowOutsideClick: true,
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // ===== PHẦN 1: BẢNG ĐI NGÂN HÀNG =====
+          $('#spinnerModal').modal('show');
+
+          google.script.run
+            .withSuccessHandler(function (response) {
+              $('#spinnerModal').modal('hide');
+
+              if (response.status === "success") {
+                const rows = response.dataPrint;
+
+                if (!rows || rows.length === 0) {
+                  digicoreToast("Không có dữ liệu đi ngân hàng để in!", "warning");
+                  return;
+                }
+
+                // Gọi function in cho phần 1
+                openPrintWindow_diNganHang(rows, vThang, vNam);
+
+              } else if (response.status === "no permission") {
+                digicoreToast('Bạn không có quyền xem', 'error');
+              } else {
+                console.error("Lỗi từ server: ", response.message);
+                digicoreToast("Lỗi khi lấy dữ liệu!", "error");
+              }
+            })
+            .withFailureHandler(function (error) {
+              $('#spinnerModal').modal('hide');
+              console.error("Lỗi API:", error);
+              digicoreToast("Lỗi kết nối server!", "error");
+            })
+            .modal_dataluong_1_getDataPrint(targetMonthStr, 'diNganHang_DataPrint', selectedRegion);
+
+        } else if (result.isDenied) {
+          // ===== PHẦN 2: BẢNG THUYẾT MINH =====
+          $('#spinnerModal').modal('show');
+
+          // Bước 1: Load dữ liệu thuyết minh
+          google.script.run
+            .withSuccessHandler(function (response) {
+              if (response.status !== "success" || !response.dataPrint || response.dataPrint.length === 0) {
+                $('#spinnerModal').modal('hide');
+                if (response.status === "no permission") {
+                  digicoreToast('Bạn không có quyền xem', 'error');
+                } else {
+                  digicoreToast("Không có dữ liệu thuyết minh để in!", "warning");
+                }
+                return;
+              }
+
+              const printRows = response.dataPrint;
+              const totalSums = response.totalSums || null;
+
+              // Bước 2: Load config 4 dòng nhập tay
+              google.script.run
+                .withSuccessHandler(function (configResponse) {
+                  $('#spinnerModal').modal('hide');
+
+                  const configData = (configResponse.status === 'success' && configResponse.configData)
+                    ? configResponse.configData
+                    : [{ label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }];
+
+                  // Bước 3: Hiện Bootstrap Modal nhập 4 dòng
+                  showConfigThuyetMinhModal(configData, targetMonthStr, function (confirmedConfig, isModified) {
+                    // Bước 4: Chỉ lưu config nếu có thay đổi
+                    if (isModified) {
+                      $('#spinnerModal').modal('show');
+                      google.script.run
+                        .withSuccessHandler(function (saveResp) {
+                          $('#spinnerModal').modal('hide');
+                          if (saveResp.status !== 'success') {
+                            console.warn('Lưu config không thành công:', saveResp.message);
+                          }
+                          // Bước 5: Mở cửa sổ in 
+                          openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                        })
+                        .withFailureHandler(function (err) {
+                          $('#spinnerModal').modal('hide');
+                          console.error("Lỗi lưu config:", err);
+                          openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                        })
+                        .modal_dataluong_1_saveConfigThuyetMinh(targetMonthStr, confirmedConfig);
+                    } else {
+                      // KHÔNG có thay đổi -> In luôn
+                      openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                    }
+                  });
+                })
+                .withFailureHandler(function (err) {
+                  $('#spinnerModal').modal('hide');
+                  console.error("Lỗi load config:", err);
+                  // Vẫn cho nhập dù lỗi load
+                  const emptyConfig = [{ label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }];
+                  showConfigThuyetMinhModal(emptyConfig, targetMonthStr, function (confirmedConfig, isModified) {
+                    if (isModified) {
+                      $('#spinnerModal').modal('show');
+                      google.script.run
+                        .withSuccessHandler(function () {
+                          $('#spinnerModal').modal('hide');
+                          openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                        })
+                        .withFailureHandler(function () {
+                          $('#spinnerModal').modal('hide');
+                          openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                        })
+                        .modal_dataluong_1_saveConfigThuyetMinh(targetMonthStr, confirmedConfig);
+                    } else {
+                      openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                    }
+                  });
+                })
+                .modal_dataluong_1_loadConfigThuyetMinh(targetMonthStr);
+            })
+            .withFailureHandler(function (error) {
+              $('#spinnerModal').modal('hide');
+              console.error("Lỗi API:", error);
+              digicoreToast("Lỗi kết nối server!", "error");
+            })
+            .modal_dataluong_1_getDataPrint(targetMonthStr, 'coThayDoi_DataPrint', selectedRegion);
+        } else if (false && result.dismiss === Swal.DismissReason.cancel) {
+          // ===== TẠM THỜI: XUẤT EXCEL KIỂM TRA ĐI NGÂN HÀNG L2 =====
+          $('#spinnerModal').modal('show');
+
+          google.script.run
+            .withSuccessHandler(function (response) {
+              $('#spinnerModal').modal('hide');
+
+              if (response.status === "success" && response.downloadUrl) {
+                window.open(response.downloadUrl, '_blank');
+              } else if (response.status === "no permission") {
+                digicoreToast('Bạn không có quyền xem', 'error');
+              } else {
+                console.error("Lỗi từ server: ", response.message);
+                digicoreToast("Lỗi khi xuất Excel kiểm tra!", "error");
+              }
+            })
+            .withFailureHandler(function (error) {
+              $('#spinnerModal').modal('hide');
+              console.error("Lỗi API:", error);
+              digicoreToast("Lỗi kết nối server!", "error");
+            })
+            .modal_dataluong_1_exportDebugDiNganHangL2(targetMonthStr, selectedRegion);
+        }
+      });
+    });
+  }
+
+  /**
+   * HIỆN MODAL NHẬP 4 DÒNG THÔNG TIN BỔ SUNG
+   * @param {Array} configData Dữ liệu hiện có (4 dòng [{label, value},...])
+   * @param {string} monthStr Kỳ lương
+   * @param {Function} onConfirm Callback khi user bấm "Lưu & In"
+   */
+  function showConfigThuyetMinhModal(configData, monthStr, onConfirm) {
+    // Xóa modal cũ nếu có
+    $('#configThuyetMinhModal').remove();
+
+    // Hàm format dấu chấm khi nhập
+    function formatDots(val) {
+      if (!val) return "";
+      let num = val.toString().replace(/\D/g, ""); // Chỉ lấy số
+      return num.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    const modalHtml = `
+    <div class="modal fade" id="configThuyetMinhModal" tabindex="-1" role="dialog" data-backdrop="static">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fas fa-edit"></i> Thông tin bổ sung — Bảng Thuyết Minh ${monthStr}
+            </h5>
+            <button type="button" class="close" id="btnCloseConfigTop"><span>&times;</span></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-muted mb-3">
+              <small><i class="fas fa-info-circle"></i> Không bắt buộc nhập. Dòng trống sẽ không hiện trên bản in.</small>
+            </p>
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm">
+                <thead class="thead-light">
+                  <tr>
+                    <th style="width:5%">#</th>
+                    <th style="width:60%">Mô tả</th>
+                    <th style="width:35%">Số tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${[0, 1, 2, 3].map(i => {
+      const rawVal = configData[i]?.value || '';
+      const displayVal = formatDots(rawVal);
+      return `
+                  <tr>
+                    <td class="text-center font-weight-bold">(${i + 1})</td>
+                    <td><input type="text" class="form-control form-control-sm" id="cfgLabel${i}"
+                         value="${(configData[i]?.label || '').replace(/"/g, '&quot;')}"
+                         placeholder="Nhập mô tả..."></td>
+                    <td><input type="text" class="form-control form-control-sm cfg-money-input" id="cfgValue${i}"
+                         style="text-align: right !important;"
+                         value="${displayVal}"
+                         placeholder="Nhập số tiền..."></td>
+                  </tr>`;
+    }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelConfig">
+              <i class="fas fa-times"></i> Hủy
+            </button>
+            <button type="button" class="btn btn-primary" id="btnSaveAndPrintConfig">
+              <i class="fas fa-print"></i> Lưu &amp; In
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    $('body').append(modalHtml);
+
+    // Sự kiện format số tiền khi nhập
+    $('.cfg-money-input').on('input', function () {
+      const formatted = formatDots($(this).val());
+      $(this).val(formatted);
+    });
+
+    // Hỗ trợ nhấn Enter để Lưu & In
+    $('#configThuyetMinhModal input').on('keypress', function (e) {
+      if (e.which === 13) $('#btnSaveAndPrintConfig').trigger('click');
+    });
+
+    // Xử lý nút "Lưu & In"
+    $('#btnSaveAndPrintConfig').on('click', function () {
+      let isModified = false;
+      const confirmedConfig = [0, 1, 2, 3].map(i => {
+        const lbl = ($('#cfgLabel' + i).val() || '').trim();
+        const valWithDots = $('#cfgValue' + i).val() || '';
+        const rawVal = valWithDots.replace(/\./g, '').trim();
+
+        // So sánh với bản gốc để check xem có thay đổi không
+        const originalLabel = (configData[i]?.label || '').trim();
+        const originalValue = (configData[i]?.value || '').trim();
+
+        if (lbl !== originalLabel || rawVal !== originalValue) {
+          isModified = true;
+        }
+
+        return {
+          label: lbl,
+          value: rawVal
+        };
+      });
+
+      $('#configThuyetMinhModal').modal('hide');
+
+      // Sau khi modal ẩn hoàn toàn thì mới gọi callback
+      $('#configThuyetMinhModal').one('hidden.bs.modal', function () {
+        $(this).remove();
+        if (typeof onConfirm === 'function') onConfirm(confirmedConfig, isModified);
+      });
+    });
+
+    // Xử lý nút Hủy & Nút X (Đóng)
+    $('#btnCancelConfig, #btnCloseConfigTop').on('click', function () {
+      $('#configThuyetMinhModal').modal('hide');
+    });
+
+    // Đảm bảo xóa khỏi DOM khi đóng bằng bất kỳ cách nào
+    $('#configThuyetMinhModal').on('hidden.bs.modal', function () {
+      $(this).remove();
+    });
+
+    $('#configThuyetMinhModal').modal('show');
+  }
+
+  /**
+   * MỞ CỬA SỔ IN: THUYẾT MINH LƯƠNG
+   * @param {Array<Array>} rows Dữ liệu lương từ server
+   * @param {number} thangT Tháng hiện tại (T)
+   * @param {string} nam Năm
+   * @param {Array} configLines 4 dòng nhập tay [{label, value}, ...]
+   */
+  function openPrintWindow_ThuyetMinh(rows, thangT, nam, configLines, totalSums) {
+    // Tính tháng T-1
+    let thangT1 = thangT - 1;
+    let namT1 = nam;
+    if (thangT1 === 0) {
+      thangT1 = 12;
+      namT1 = parseInt(nam) - 1;
+    }
+
+    // ✅1. CSS in ấn - tối ưu A4
+    const css = `
+    <style>
+      @page {
+        size: A4 landscape;
+        margin-top: 25mm;
+        margin-bottom: 25mm;
+        margin-left: 25mm;
+        margin-right: 20mm;
+      }
+
+
+      
+      body {
+        font-family: "Times New Roman", Times, serif;
+        font-size: 12px;
+        color: #000;
+        line-height: 1.2;
+      }
+
+      /* === A. TIÊU ĐỀ === */
+      .header-section {
+        margin-bottom: 10px;
+      }
+      
+      .header-title {
+        font-weight: 700;
+        font-size: 14px;
+        text-align: left;
+        margin-bottom: 8px;
+      }
+
+      .header-info {
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+
+      /* === B. BẢNG DỮ LIỆU === */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 8px;
+        table-layout: fixed;
+      }
+
+      thead {
+        display: table-header-group;
+      }
+
+      tbody {
+        display: table-row-group;
+      }
+
+      tfoot {
+        display: table-footer-group;
+      }
+
+      th, td {
+        border: 1px solid #000;
+        padding: 4px 6px;
+        vertical-align: middle;
+        text-align: center;
+        word-wrap: break-word;
+      }
+
+      th {
+        font-weight: 700;
+        background-color: #f0f0f0;
+      }
+
+      /* Cột số căn phải */
+      .num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Cột họ tên căn trái */
+      td:nth-child(3) {
+        text-align: left;
+      }
+
+      tr {
+        page-break-inside: avoid;
+      }
+
+      /* === C. PHẦN TỔNG HỢP === */
+      .summary-section {
+        margin: 12px 0;
+        font-size: 13px;
+      }
+
+      .summary-line {
+        margin: 4px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+
+      .summary-label {
+        text-align: left;
+        flex: 1;
+      }
+
+      .summary-value {
+        text-align: right;
+        font-weight: 600;
+        margin-left: 20px;
+      }
+
+      /* === D. PHẦN CHỮ KÝ === */
+      .signature-section {
+        margin-top: 20px;
+      }
+
+      .signature-date {
+        text-align: center;
+        font-style: italic;
+        margin-bottom: 8px;
+      }
+
+      .signature-row {
+        display: flex;
+        justify-content: space-between;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .signature-col {
+        flex: 1;
+        padding: 0 8px;
+      }
+
+      .signature-title {
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      .signature-subtitle {
+        font-style: italic;
+        font-size: 12px;
+        margin-bottom: 60px;
+      }
+
+      .signature-placeholder {
+        font-style: italic;
+        color: #666;
+        font-size: 11px;
+      }
+
+      .signature-name {
+        font-weight: 600;
+        margin-top: 4px;
+      }
+
+      /* CSS IN – @media print */
+      @media print {
+        body {
+          zoom: 0.95;
+        }
+
+        th, td {
+          border: 0.5pt solid #000;
+        }
+
+        thead th {
+          background-color: #f0f0f0 !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .page-break {
+          page-break-before: always;
+        }
+      }
+    </style>`;
+
+    // ✅2. Phần A - TIÊU ĐỀ
+    const headerHtml = `
+    <div class="header-section">
+      <div class="header-title">Phần II: Thuyết minh tăng giảm thu nhập tăng thêm tháng ${thangT}/${nam}</div>
+    </div>`;
+
+    // ✅3. Phần B - BẢNG DỮ LIỆU với thead, tbody
+    const theadHtml = `
+    <thead>
+      <tr>
+        <th style="width: 5%;">STT</th>
+        <th style="width: 6%;">Mã ĐT</th>
+        <th style="width: 21%;">Họ và tên</th>
+        <th style="width: 12.5%;">Lương và T.Lĩnh<br>(tháng ${thangT}/${nam})</th>
+        <th style="width: 12.5%;">Lương và T.Lĩnh<br>(tháng ${thangT1})/${namT1}</th>
+        <th style="width: 11%;">Tăng</th>
+        <th style="width: 11%;">Giảm</th>
+        <th style="width: 21%;">Ghi chú</th>
+      </tr>
+      <tr>
+        <th style="font-weight: normal; font-size: 10px;">(1)</th>
+        <th style="font-weight: normal; font-size: 10px;">(2)</th>
+        <th style="font-weight: normal; font-size: 10px;">(3)</th>
+        <th style="font-weight: normal; font-size: 10px;">(4)</th>
+        <th style="font-weight: normal; font-size: 10px;">(5)</th>
+        <th style="font-weight: normal; font-size: 10px;">(6)</th>
+        <th style="font-weight: normal; font-size: 10px;">(7)</th>
+        <th style="font-weight: normal; font-size: 10px;">(8)</th>
+      </tr>
+    </thead>`;
+
+    // Xử lý dữ liệu từ rows
+    // rows có cấu trúc: [STT, MãCB, Họ tên, Mã ngạch, Ăn ca, Truy lĩnh, Còn lĩnh]
+    // Chuyển đổi sang: [STT, MãĐT, Họ tên, Lương T, Lương T-1, Tăng, Giảm, Ghi chú]
+
+    let tongLuongT = 0;
+    let tongLuongT1 = 0;
+    let tongTang = 0;
+    let tongGiam = 0;
+
+    const tbodyHtml = rows.map((r, idx) => {
+      // Lấy dữ liệu từ row (giả sử cấu trúc: [STT, MãCB, Họ tên, Mã ngạch, Ăn ca, Truy lĩnh, Còn lĩnh])
+      const stt = idx + 1;
+      const maCanBo = (r[1] || '').toString().replace(/^CB/i, ''); // Bỏ chữ "CB"
+      const hoTen = r[2] || '';
+
+      // Giả sử: Còn lĩnh (cột 6) = Lương tháng T
+      const luongT = parseFloat(String(r[3] || 0).replace(/[,.]/g, '')) || 0;
+
+      // Lương T-1: giả sử = Ăn ca (cột 4) - cần điều chỉnh theo dữ liệu thực tế
+      const luongT1 = parseFloat(String(r[4] || 0).replace(/[,.]/g, '')) || 0;
+
+      // Tính tăng/giảm
+      const chenhLech = luongT - luongT1;
+      const tang = chenhLech > 0 ? chenhLech : 0;
+      const giam = chenhLech < 0 ? Math.abs(chenhLech) : 0;
+
+      const ghiChu = r[7];
+
+      // Cộng dồn tổng
+      tongLuongT += luongT;
+      tongLuongT1 += luongT1;
+      tongTang += tang;
+      tongGiam += giam;
+
+      // Format số: dùng dấu chấm phân cách hàng nghìn
+      const formatNum = (val) => {
+        if (!val || val === 0) return 0;
+        return val.toLocaleString('de-DE');
+      };
+
+      return `
+      <tr>
+        <td>${stt}</td>
+        <td>${maCanBo}</td>
+        <td style="text-align: left;">${hoTen}</td>
+        <td class="num">${formatNum(luongT)}</td>
+        <td class="num">${formatNum(luongT1)}</td>
+        <td class="num">${formatNum(tang)}</td>
+        <td class="num">${formatNum(giam)}</td>
+        <td>${ghiChu}</td>
+      </tr>`;
+    }).join('');
+
+    // ✅ Thêm dòng tổng cộng
+    const totalRowHtml = `
+      <tr style="font-weight: bold; font-size: 12px;">
+        <td colspan="3" style="text-align: center;">Tổng cộng</td>
+        <td class="num" style="text-align: right;">${tongLuongT.toLocaleString('de-DE')}</td>
+        <td class="num" style="text-align: right;">${tongLuongT1.toLocaleString('de-DE')}</td>
+        <td class="num" style="text-align: right;">${tongTang.toLocaleString('de-DE')}</td>
+        <td class="num" style="text-align: right;">${tongGiam.toLocaleString('de-DE')}</td>
+        <td></td>
+      </tr>`;
+
+    const tableHtml = `
+    <table>
+      ${theadHtml}
+      <tbody>
+        ${tbodyHtml}
+        ${totalRowHtml}
+      </tbody>
+    </table>`;
+
+    // ✅4. Phần C - TỔNG HỢP: khớp mục II. THU NHẬP TĂNG THÊM trong Tổng hợp lương
+    const finalLuongT = (totalSums && typeof totalSums.totalLuongT === 'number') ? totalSums.totalLuongT : tongLuongT;
+    const finalLuongT1 = (totalSums && typeof totalSums.totalLuongT1 === 'number') ? totalSums.totalLuongT1 : tongLuongT1;
+    const tangGiamTheoCot = tongTang - tongGiam;
+    const tangGiam = finalLuongT - finalLuongT1;
+    if (Math.abs(tangGiamTheoCot - tangGiam) > 1) {
+      console.warn('Chênh lệch tăng/giảm Thuyết minh L2 không khớp tổng TNTT thực tế', {
+        tangGiamTheoCot,
+        tangGiamTheoTong: tangGiam,
+        tongTang,
+        tongGiam,
+        finalLuongT,
+        finalLuongT1
+      });
+    }
+    const formatNum = (val) => val.toLocaleString('de-DE');
+
+    const summaryHtml = `
+<table style="border: none; width: 100%;">
+  <tbody>
+    <tr style="border: none;">
+      <td colspan="4" style="border: none; text-align: left; padding-left: 0; font-size: 13px;">
+        Tổng lương và truy lĩnh tháng ${thangT1}/${namT1} của CB:
+      </td>
+      <td style="border: none; text-align: right; font-weight: 600;">
+        ${formatNum(finalLuongT1)}
+      </td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+    </tr>
+
+    <tr style="border: none; magin-top: 5px;">
+      <td colspan="4" style="border: none; text-align: left; padding-left: 0; font-size: 13px;">
+        Lương tháng ${thangT}/${nam} ${tangGiam >= 0 ? 'tăng' : 'giảm'} so với tháng ${thangT1}/${namT1} là:
+      </td>
+      <td style="border: none; text-align: right; font-weight: 600;">
+        ${tangGiam >= 0 ? formatNum(tangGiam) : formatNum(Math.abs(tangGiam))}
+      </td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+    </tr>
+
+    <tr style="border: none;">
+      <td colspan="4" style="border: none; text-align: left; padding-left: 0; font-size: 13px;">
+        Tổng lương và truy lĩnh tháng ${thangT}/${nam}:
+      </td>
+      <td style="border: none; text-align: right; font-weight: 600;">
+        ${formatNum(finalLuongT)}
+      </td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+    </tr>
+
+    ${(() => {
+        const safeConfigLines = (configLines && Array.isArray(configLines)) ? configLines : [];
+        return safeConfigLines
+          .map((line, i) => {
+            const label = (line.label || '').trim();
+            const value = (line.value || '').trim();
+            if (!label && !value) return '';
+            let displayValue = value;
+            const numVal = parseFloat(String(value).replace(/[,.]/g, ''));
+            if (!isNaN(numVal) && numVal !== 0) {
+              displayValue = numVal.toLocaleString('de-DE');
+            }
+            return `
+    <tr style="border: none;">
+      <td colspan="4" style="border: none; text-align: left; padding-left: 20px; font-size: 13px;">
+        ${label}
+      </td>
+      <td style="border: none; text-align: right; font-weight: 600;">
+        ${displayValue}
+      </td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+      <td style="border: none;"></td>
+    </tr>`;
+          })
+          .filter(row => row !== '')
+          .join('');
+      })()}
+  </tbody>
+</table>`;
+
+
+
+
+    // ✅5. Phần D - CHỮ KÝ (2 HÀNG, 3 CỘT MỖI HÀNG)
+    // ✅5. Phần D - CHỮ KÝ — chỉ giữ "Người lập bảng" căn trái
+    const signatureHtml = `
+    <div style="margin-top: 20px; text-align: left;">
+      <div style="display: inline-block; text-align: center;">
+        <div style="font-weight: 700; font-size: 13px;">Người lập bảng</div>
+        <div style="font-style: italic; font-size: 12px;">(Ký, ghi họ tên)</div>
+      </div>
+    </div>`;
+
+    // ✅6. HTML hoàn chỉnh
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Thuyết minh lương - Tháng ${thangT}/${nam}</title>
+      ${css}
+    </head>
+    <body>
+      ${headerHtml}
+      ${tableHtml}
+      ${summaryHtml}
+      ${signatureHtml}
+    </body>
+    </html>`;
+
+    // ✅7. Mở cửa sổ in
+    const printWin = window.open("", "_blank");
+    if (!printWin) {
+      alert("Trình duyệt đang chặn popup. Hãy cho phép popup để in.");
+      return;
+    }
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
+
+    // Kích hoạt in khi cửa sổ con tải xong
+    printWin.onload = function () {
+      setTimeout(function () {
+        printWin.print();
+      }, 100);
+    };
+  }
+
+  /**
+   * MỞ CỬA SỔ IN: BẢNG ĐI NGÂN HÀNG
+   * @param {Array<Array>} rows Dữ liệu lương từ server
+   * @param {number} thangT Tháng hiện tại (T)
+   * @param {string} nam Năm
+   */
+  function openPrintWindow_diNganHang(rows, thangT, nam) {
+    // ✅1. CSS in ấn - tối ưu A4 — CẬP NHẬT: tăng độ ưu tiên cho .num
+    const css = `
+  <style>
+    @page {
+      size: A4 landscape;
+      margin-top: 25mm;
+      margin-bottom: 25mm;
+      margin-left: 25mm;
+      margin-right: 20mm;
+    }
+
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12px;
+      color: #000;
+      line-height: 1.2;
+    }
+
+    /* ✅ Thêm vào phần CSS */
+    .header-section {
+      position: relative;
+      margin-bottom: 15px;
+      padding-right: 150px; /* Để tránh bị che bởi khối thông tin bên phải */
+    }
+    .header-title {
+      font-weight: 700; font-size: 14px; text-align: left; margin-bottom: 8px;
+    }
+
+    table {
+      width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: fixed;
+    }
+
+    thead { display: table-header-group; }
+    tbody { display: table-row-group; }
+
+    th, td {
+      border: 1px solid #000; padding: 4px 6px; vertical-align: middle; text-align: center;
+      word-wrap: break-word;
+    }
+
+    th {
+      font-weight: 700; background-color: #f0f0f0;
+    }
+
+    /* 🔥 CẬP NHẬT: .num — căn phải MẠNH HƠN */
+    .num {
+      text-align: right !important;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Họ tên (cột thứ 2) — chỉ áp dụng cho dòng thường */
+    tbody tr:not(.total-row) td:nth-child(2) {
+      text-align: left !important;
+    }
+
+    tr { page-break-inside: avoid; }
+
+    .total-row td {
+      font-weight: bold;
+    }
+
+    @media print {
+      body { zoom: 0.95; }
+      th, td { border: 0.5pt solid #000; }
+      thead th {
+        background-color: #f0f0f0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      /* Nếu muốn tạo khoảng trống cho chữ ký ở góc trên bên phải */
+      .header-section {
+        padding-right: 150px;
+      }
+    }
+    
+
+  </style>`;
+
+    // ✅2. Tiêu đề - CẬP NHẬT THEO MẪU HÌNH
+    const headerHtml = `
+<div class="header-section">
+  <div style="text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 5px;">
+    BẢNG THANH TOÁN CHO ĐỐI TƯỢNG THỤ HƯỞNG
+  </div>
+  <div style="text-align: center; font-size: 12px; margin-bottom: 10px;">
+    (Kèm theo giấy rút dự toán/ ủy nhiệm chi số <span style="display: inline-block; width: 80px; border-bottom: 1px solid #000; text-align: center;">&nbsp;</span>)
+    &nbsp;&nbsp;&nbsp;
+    Ngày <span style="display: inline-block; width: 20px; border-bottom: 1px solid #000; text-align: center;">&nbsp;</span>
+    &nbsp;&nbsp;&nbsp;
+    Tháng <span style="display: inline-block; width: 20px; border-bottom: 1px solid #000; text-align: center;">&nbsp;</span>
+    &nbsp;&nbsp;&nbsp;
+    năm <span style="display: inline-block; width: 30px; border-bottom: 1px solid #000; text-align: center;">&nbsp;</span>
+  </div>
+
+  <div style="margin-bottom: 5px;">
+    <span style="font-weight: bold;">1. Đơn vị sử dụng ngân sách</span>
+    &nbsp;&nbsp;<span style="border-bottom: 1px solid #000; padding: 0 5px;">Trường Đại học Công nghệ GTVT</span>
+  </div>
+
+  <div style="margin-bottom: 5px;">
+    <span style="font-weight: bold;">2. Mã đơn vị</span>
+    &nbsp;&nbsp;<span style="border-bottom: 1px solid #000; padding: 0 5px;">1055621</span>
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <span style="font-weight: bold;">3. Tài khoản thanh toán của đơn vị mở tại ngân hàng thương mại</span>
+    &nbsp;&nbsp;<span style="border-bottom: 1px solid #000; padding: 0 5px;">Ngân hàng SHB - chi nhánh Hà Nội</span>
+  </div>
+
+  <div style="border-top: 1px solid #000; padding-top: 5px; margin-bottom: 10px;">
+    <span style="font-weight: bold;">I- Nội dung thanh toán</span>
+    &nbsp;&nbsp;<span style="border-bottom: 1px solid #000; padding: 0 5px;">Thu nhập tăng thêm tháng ${thangT}/${nam}</span>
+  </div>
+
+  <!-- Thông tin bên phải (Mẫu số 09, Mã hiệu, Số) -->
+  <div style="position: absolute; top: 10px; right: 20px; text-align: right; font-size: 12px;">
+    <div><strong>Mẫu số 09</strong></div>
+    <div>Mã hiệu: <span style="display: inline-block; width: 80px; border-bottom: 1px solid #000; text-align: center;">&nbsp;</span></div>
+    <div>Số: <span style="display: inline-block; width: 80px; border-bottom: 1px solid #000; text-align: center;">&nbsp;</span></div>
+  </div>
+</div>`;
+
+
+    // ✅3. Thead
+    const theadHtml = `
+  <thead>
+    <tr>
+      <th rowspan="2" style="width: 5%;">STT</th>
+      <th rowspan="2" style="width: 20%;">Họ và tên</th>
+      <th colspan="2" style="width: 20%;">Tài khoản ngân hàng</th>
+      <th rowspan="2" style="width: 12%;">Tổng số</th>
+      <th colspan="3" style="width: 43%;">Chi tiết</th>
+    </tr>
+    <tr>
+      <th style="width: 12%;">Số tài khoản người được hưởng</th>
+      <th style="width: 8%;">Tên ngân hàng</th>
+      <th style="width: 15%;">Lương và phụ cấp theo lương</th>
+      <th style="width: 14%;">Tiền công lao động TX theo HĐ</th>
+      <th style="width: 14%;">Tiền TNTT</th>
+    </tr>
+    <tr>
+      <th style="font-weight: normal; font-size: 10px;">(1)</th>
+      <th style="font-weight: normal; font-size: 10px;">(2)</th>
+      <th style="font-weight: normal; font-size: 10px;">(3)</th>
+      <th style="font-weight: normal; font-size: 10px;">(4)</th>
+      <th style="font-weight: normal; font-size: 10px;">(5)</th>
+      <th style="font-weight: normal; font-size: 10px;">(6)</th>
+      <th style="font-weight: normal; font-size: 10px;">(7)</th>
+      <th style="font-weight: normal; font-size: 10px;">(8)</th>
+    </tr>
+  </thead>`;
+
+    // ✅4. Xử lý dữ liệu
+    let tongTongSo = 0;
+    let tongLuongPhuCap = 0;
+    let tongTienCongLD = 0;
+    let tongTNTT = 0;
+
+    const formatNum = (val) => {
+      if (val == null || val === '') return '';
+      const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[,.]/g, '')) || 0;
+      return num.toLocaleString('de-DE');
+    };
+
+    let personCounter = 1;
+    const tbodyHtml = rows.map((r, idx) => {
+      const hoTen = (r[1] || '').trim();
+      const isTotalRow = hoTen.includes("TỔNG");
+      const stt = isTotalRow ? "" : personCounter++;
+
+      const soTaiKhoan = r[2] || '';
+      const tenNganHang = r[3] || '';
+
+      // 📌 Giả sử: r[4]=lương, r[5]=tiền công, r[6]=TNTT — BẠN CẦN ĐIỀU CHỈNH THEO DATA THỰC!
+      const luongPhuCap = parseFloat(String(r[4] || 0).replace(/[,.]/g, '')) || 0;
+      //const tienCongLD   = parseFloat(String(r[5] || 0).replace(/[,.]/g, '')) || 0;
+      const luongPhuCap_khac = 0;
+      const tienCongLD = 0;
+      const tntt = luongPhuCap; //parseFloat(String(r[6] || 0).replace(/[,.]/g, '')) || 0;
+      const tongSo = luongPhuCap //+ tienCongLD + tntt;
+
+      // Chỉ cộng dồn nếu KHÔNG phải dòng tổng
+      if (!/^[Tt]ổng/i.test(hoTen)) {
+        tongTongSo += tongSo;
+        tongLuongPhuCap += luongPhuCap_khac;
+        tongTienCongLD += tienCongLD;
+        tongTNTT += tntt;
+      }
+
+      // ✅ DÒNG TỔNG → gộp 4 cột, các cột tiền đều có class="num" và style="text-align:right"
+      if (/^[Tt]ổng/i.test(hoTen)) {
+        return `
+        <tr class="total-row">
+          <td colspan="4" style="text-align: center; font-weight: bold;">${hoTen}</td>
+          <td class="num" style="text-align: right;">${formatNum(tongSo)}</td>
+          <td class="num" style="text-align: right;">${formatNum(luongPhuCap_khac)}</td>
+          <td class="num" style="text-align: right;">${formatNum(tienCongLD)}</td>
+          <td class="num" style="text-align: right;">${formatNum(tntt)}</td>
+        </tr>`;
+      } else {
+        // ✅ DÒNG THƯỜNG
+        return `
+        <tr>
+          <td>${stt}</td>
+          <td style="text-align: left;">${hoTen}</td>
+          <td>${soTaiKhoan}</td>
+          <td>${tenNganHang}</td>
+          <td class="num" style="text-align: right;">${formatNum(tongSo)}</td>
+          <td class="num" style="text-align: right;">${formatNum(luongPhuCap_khac)}</td>
+          <td class="num" style="text-align: right;">${formatNum(tienCongLD)}</td>
+          <td class="num" style="text-align: right;">${formatNum(tntt)}</td>
+        </tr>`;
+      }
+    }).join('');
+
+    // ✅ Dòng tổng cộng (chỉ thêm nếu chưa có dòng "Tổng" nào)
+    const hasTongRow = rows.some(r => /^[Tt]ổng/i.test((r[1] || '').trim()));
+    const finalTotalRow = !hasTongRow ? `
+    <tr class="total-row">
+      <td colspan="4" style="text-align: center; font-weight: bold;">Tổng cộng</td>
+      <td class="num" style="text-align: right;">${formatNum(tongTongSo)}</td>
+      <td class="num" style="text-align: right;">${formatNum(tongLuongPhuCap)}</td>
+      <td class="num" style="text-align: right;">${formatNum(tongTienCongLD)}</td>
+      <td class="num" style="text-align: right;">${formatNum(tongTNTT)}</td>
+    </tr>
+  ` : '';
+
+    const tableHtml = `
+  <table>
+    ${theadHtml}
+    <tbody>
+      ${tbodyHtml}
+      ${finalTotalRow}
+    </tbody>
+  </table>`;
+
+    // ✅ HTML hoàn chỉnh
+    const html = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <title>Bảng chuyển lương - Tháng ${thangT}/${nam}</title>
+    ${css}
+  </head>
+  <body>
+    ${headerHtml}
+    ${tableHtml}
+  </body>
+  </html>`;
+
+    // ✅ In
+    const printWin = window.open("", "_blank");
+    if (!printWin) {
+      alert("Trình duyệt đang chặn popup. Hãy cho phép popup để in.");
+      return;
+    }
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
+
+    printWin.onload = () => setTimeout(() => printWin.print(), 100);
+  }
+</script>

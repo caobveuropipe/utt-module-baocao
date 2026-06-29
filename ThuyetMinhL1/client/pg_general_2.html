@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PHẦN MỀM TÍNH LƯƠNG - MODULE THUYẾT MINH LƯƠNG 1</title>
+
+  <?!= include('modal_library'); ?>
+  <?!= include('pg_general_3'); ?>
+  <?!= include('modal_dataluong_3'); ?>
+  <?!= include('styleCss'); ?>
+
+  <style>
+    body {
+      background-color: #FFFFFF;
+      /* #002200;#0e1538;#777777;#333; Màu nền tối */
+      color: #044f4f;
+      /* #FFFFFF; Màu chữ trắng */
+      font-family: Arial, sans-serif;
+      /* Đặt font chữ */
+      height: 100%;
+    }
+
+    .disabled-select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      border: 1px solid transparent;
+      background-color: #f8f9fa;
+    }
+
+    .custom-tooltip {
+      display: none;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 500px;
+      background-color: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      padding: 8px;
+      border-radius: 5px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      z-index: 1000;
+      white-space: pre-line;
+    }
+
+    .info-icon:hover+.custom-tooltip {
+      display: block;
+    }
+
+    /* Menu list ẩn mặc định */
+    .menu-list {
+      list-style: none;
+      margin: 0;
+      padding: 5px 10px;
+      background: #f8f9fa;
+      border: 1px solid #ccc;
+      position: absolute;
+      top: 20px;
+      right: 0;
+      display: none;
+      z-index: 100;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+      min-width: 120px;
+      width: 200px;
+    }
+
+    .menu-list li {
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    .menu-list li:hover {
+      background: #e0f7fa;
+    }
+
+    /* Hover vào dòng chữ mới hiện menu */
+    .menu-hover:hover .menu-list {
+      display: block;
+    }
+
+    #modal_dataluong_3_dataTableLuong1_div,
+    #tableDataLuong1 {
+      table-layout: auto !important;
+    }
+
+    .tableDataLuong-col-stt {
+      text-align: center;
+    }
+
+    .tableDataLuong-col-id {
+      display: none;
+    }
+
+    /* .tableDataLuong-col-kyluong { display: none; } */
+    .tableDataLuong-col-donvi {
+      max-width: 280px;
+    }
+  </style>
+</head>
+
+<body
+  style="background-color: #E0FFFA !important; display: flex; flex-direction: column; height: 100vh; overflow: hidden; margin: 0;">
+  <div class="header"
+    style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; background-color: #E0FFFA; flex-shrink: 0; width: 100%; padding: 10px 0;">
+    <div class="row w-100" style="margin-top: 10px;">
+      <div class="col d-flex justify-content-center align-items-center position-relative">
+        <h5 class="m-0 d-flex align-items-center" style="color: #00695c; font-weight: bold; text-align: center;">
+          BẢNG THUYẾT MINH THAY ĐỔI LƯƠNG 1
+          <div style="position: relative; display: inline-block; margin-left: 8px;">
+            <i class="fas fa-info-circle info-icon" style="cursor: pointer; color: #007bff; font-size: 1.2rem;"></i>
+            <div class="custom-tooltip" style="font-weight: normal; text-align: left;">
+              CÁC BƯỚC TẠO THUYẾT MINH<br>
+              Bước 1. Lấy danh sách nhân sự từ data chốt công, loại bảng lương là Lương 1.<br>
+              Bước 2. Ghép với dữ liệu từ data chốt nhân sự trong tháng<br>
+              Bước 3. Tính các hệ số và tiền các cột Tổng lương thưởng, các cột bảo hiểm, khoản trừ ...
+            </div>
+          </div>
+        </h5>
+
+        <!-- Menu hover -->
+        <div class="position-absolute end-0 me-5 menu-hover"
+          style="cursor: pointer; color: #007bff; text-decoration: underline; font-size: 0.9rem;"
+          title="Đi đến trang khác"> Đi đến trang khác
+
+          <ul class="menu-list">
+            <li title="Đi đến trang chủ" onclick="goToHomepage()">Trang chủ</li>
+
+            <li title="Đi đến trang chốt công"
+              onclick="goToLink('https://script.google.com/macros/s/AKfycbwy5o0zXfNPq4Yi9kGvcPAdQY1dGueOqmjFGNIWVwl49J6ckdhsQX7EaE1nLS83Tgbw/exec')">
+              Trang thông tin nhân sự</li>
+
+            <li title="Đi đến trang chốt công"
+              onclick="goToLink('https://script.google.com/macros/s/AKfycbwxxB9vd61okTadFowB66kyl1VOHWa7DUd3Ff7Q1g15mKM9XbBqylw72QK0doevqySg/exec')">
+              Trang chốt công</li>
+
+            <li title="Đi đến trang tính lương 1"
+              onclick="goToLink('https://script.google.com/macros/s/AKfycbwWE1R003887M4NbS1Ybqy7Mz3zAoujaTTwwu-Geqz9ggpf02qPzAoWgTNgCvkWgFZSmA/exec')">
+              Tính lương 1</li>
+
+            <li title="Đi đến trang tính lương 2"
+              onclick="goToLink('https://script.google.com/macros/s/AKfycbxLcckAYY-A8rJ_uO20TSJHhNwi8H4al3vLMWh9TaTkK-gBFB5mOJbmomxyRAWTjMFMqA/exec')">
+              Tính lương 2</li>
+
+            <li title="Đi đến trang tính truy thu truy lĩnh Lương 1"
+              onclick="goToLink('https://script.google.com/macros/s/AKfycbx1Z5wh9a0_hWRnN3JgBe2ymsLUURJGdDWq-Bme5MYLOUoF1XsqHJPTB4osCLh3Dz6P/exec')">
+              Truy thu, truy lĩnh Lương 1</li>
+
+            <li title="Đi đến trang tính truy thu truy lĩnh lương 2"
+              onclick="goToLink('https://script.google.com/macros/s/AKfycbw3opz6Lz7rmqciC99fcOBWwkbtmEWpvDcF33B20FXGdmSkUNahfqXaWQyxxTmrun8fbg/exec')">
+              Truy thu, truy lĩnh lương 2</li>
+
+            <li title="Đi đến trang Setup" onclick="goToLink('url')">Setup</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container-fluid">
+      <!-- Dòng 1: Các element còn lại -->
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3 pb-1 border-bottom">
+        <button class="btn btn-secondary btn-sm" type="button" onclick="goBackToClient()">
+          <i class="fas fa-arrow-left"></i> Quay lại
+        </button>
+
+        <select class="form-select btn-sm select2--small" style="width: 150px; max-width: 250px;"
+          name="modal_dataluong_2_ChonThang" id="modal_dataluong_2_ChonThang" title="Chọn tháng">
+          <option value="">Chọn tháng</option>
+        </select>
+
+        <button class="btn btn-info btn-sm btn-outline-light" type="button" onclick="modal_dataluong_3_tinhLuong();">
+          <i class="fas fa-check"></i> Tạo thuyết minh
+        </button>
+
+        <button class="btn btn-info btn-sm btn-outline-light" type="button" onclick="modal_dataluong_3_luuTinhLuong();">
+          <i class="fas fa-save"></i> Lưu
+        </button>
+
+        <button class="btn btn-danger btn-sm btn-outline-light" type="button"
+          onclick="modal_dataluong_3_xoaAllTinhLuong();">
+          <i class="fas fa-trash"></i> Xóa data
+        </button>
+
+        <button class="btn btn-info btn-sm btn-outline-light" type="button" data-bs-toggle="collapse"
+          data-bs-target="#modal_dataluong_2_menu" aria-expanded="false" aria-controls="menu">
+          <i class="fa-solid fa-filter"></i> Bộ lọc
+        </button>
+
+        <button class="btn btn-info btn-sm btn-outline-light" type="button"
+          onclick="modal_dataluong_3_luuPrintLuong();">
+          <i class="fa-solid fa-print"></i> In
+        </button>
+
+        <button class="btn btn-info btn-sm btn-outline-light" type="button" style="display: none;"
+          onclick="modal_dataluong_3_PrintTongHopAnCa();">
+          <i class="fa-solid fa-print"></i> In bảng TH
+        </button>
+
+        <div class="dropdown" style="display: none;">
+          <button class="btn btn-sm btn-success dropdown-toggle d-flex align-items-center" type="button"
+            data-bs-toggle="dropdown" aria-expanded="false" id="modal_dataluong_2_export">
+            <i class="fa-solid fa-download me-1"></i> Export
+          </button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" id="modal_dataluong_2_excelfull"><i class="fa-regular fa-file-excel me-1"></i>
+                Excel</a></li>
+            <li><a class="dropdown-item" id="modal_dataluong_2_csv"><i class="fa-solid fa-file-csv me-1"></i> Csv</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Dòng 2: 2 input trạng thái, chia đều -->
+      <div class="row mb-2">
+        <div class="col-md-6">
+          <div id="modal_dataluong_2_trangthaidulieu" style="display: none;">
+            Trạng thái dữ liệu trong data
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div id="modal_dataluong_2_trangthaiaction" style="color: red; font-weight: bold; padding-left: 10px;">
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal body -->
+  <div class="modal-body" style="flex: 1 1 auto; overflow-y: auto; background-color: #E0FFFA; width: 100%;">
+    <!-- Menu lọc -->
+    <div class="collapse bg-light mb-2 rounded-4 border-0" id="modal_dataluong_2_menu">
+      <div class="card shadow-sm border-0">
+        <div class="card-body" style="width: auto;background-color: #E0FFFA;">
+          <!--<hr style="margin-top: 5px; margin-bottom: 8px"> -->
+          <div class="d-flex flex-nowrap justify-content-space-evenly align-items-center overflow-auto py-1">
+
+            <div style="width: 220px;">
+              <div class="font-weight-bold" style="text-align: center; margin-bottom: 4px;">Trạng thái</div>
+              <div style="display: flex; justify-content: center;">
+                <select class="form-select select2--small" name="modal_dataluong_2_Hoten_filter"
+                  id="modal_dataluong_2_Hoten_filter" title="Trạng thái dữ liệu" style="width: 220px;">
+                  <option value="">Trạng thái: Tất cả</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="width: 220px;">
+              <div class="font-weight-bold" style="text-align: center; margin-bottom: 4px;">Họ và tên</div>
+              <div style="display: flex; justify-content: center;">
+                <select class="form-select select2--small" name="modal_dataluong_2_hopdong_filter"
+                  id="modal_dataluong_2_hopdong_filter" title="Họ tên cb,gv" style="width: 220px;">
+                  <option value="">Họ và tên: Tất cả</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="width: 220px;">
+              <div class="font-weight-bold" style="text-align: center; margin-bottom: 4px;">Phân loại</div>
+              <div style="display: flex; justify-content: center;">
+                <select class="form-select select2--small" name="modal_dataluong_2_donvi_filter"
+                  id="modal_dataluong_2_donvi_filter" title="Phân loại" style="width: 220px;">
+                  <option value="">Phân loại: Tất cả</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: none; width: 220px;">
+              <div class="font-weight-bold" style="text-align: center; margin-bottom: 4px;">Số nhân sự</div>
+              <div style="display: flex; justify-content: center;">
+                <input type="text" style="text-align: center; width: 220px;" class="form-control"
+                  id="modal_dataluong_2_SoNguoi" readonly>
+              </div>
+            </div>
+
+            <div style="display: none; width: 220px;">
+              <div class="font-weight-bold" style="text-align: center; margin-bottom: 4px;">Tổng ăn ca</div>
+              <div style="display: flex; justify-content: center;">
+                <input type="text" style="text-align: center; width: 220px;" class="form-control"
+                  id="modal_dataluong_2_SoTien" readonly>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nội dung chính -->
+    <div id="errorToast" class="toast align-items-end text-bg-danger border-0" role="alert" aria-live="assertive"
+      aria-atomic="true" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+      <div class="d-flex">
+        <div class="toast-body text-center" id="errorToastMessage"></div>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+    <div id="modal_dataluong_2_scrollContainer" style="height: 100%; overflow-y: auto; padding: 5px 0;">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <!-- Đây phải là DIV -->
+          <div id="modal_dataluong_3_dataTableLuong1_div"></div>
+
+          <div id="errorMessage" style="color: red; text-align: center; font-weight: bold;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <script>
+    // Hàm điều hướng về trang chủ
+    function goToHomepage() {
+      window.location.href = 'https://script.google.com/macros/s/AKfycbxQpBWe-GyNan4lX7aNg59QP3-jx2JwPTdxI2HWOyWlN5P1xq_GFhHduHLFk8vGs4dhmQ/exec';
+    }
+
+    //Hàm điều hướng tới url
+    function goToLink(url) {
+      window.location.href = url;
+    }
+
+    // Hàm quay lại client với kiểm tra dữ liệu chưa lưu
+    function goBackToClient() {
+      var trangThaiElement = document.getElementById('modal_dataluong_2_trangthaiaction');
+      if (trangThaiElement) {
+        var trangThaiAction = trangThaiElement.innerText.trim();
+        if (trangThaiAction === "Đang sửa") {
+          Swal.fire({
+            title: 'Dữ liệu chưa lưu',
+            text: "Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn quay lại không?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Quay lại',
+            cancelButtonText: 'Hủy'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              window.location.href = 'https://script.google.com/macros/s/AKfycbxQpBWe-GyNan4lX7aNg59QP3-jx2JwPTdxI2HWOyWlN5P1xq_GFhHduHLFk8vGs4dhmQ/exec';
+            }
+          });
+          return;
+        }
+      }
+      // Nếu không có gì thay đổi thì quay về luôn
+      window.location.href = 'https://script.google.com/macros/s/AKfycbxQpBWe-GyNan4lX7aNg59QP3-jx2JwPTdxI2HWOyWlN5P1xq_GFhHduHLFk8vGs4dhmQ/exec';
+    }
+  </script>
+
+  <?!= include('modal_spinner_2'); ?>
+  <?!= include('ele_toast_2'); ?>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</body>
+
+</html>

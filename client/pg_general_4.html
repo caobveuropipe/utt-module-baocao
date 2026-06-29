@@ -1,0 +1,612 @@
+<script>
+    /**
+     * Hàm dùng chung để xuất các loại báo cáo từ server
+     * @param {string} type - Loại báo cáo (định nghĩa trong ROUTE_MAP của Code.js)
+     * @param {string} label - Tên hiển thị của báo cáo để thông báo cho người dùng
+     */
+    async function pg_general_4_exportReportGeneric(type, label, locationParam = null, formatParam = null) {
+        try {
+            // Lấy tháng đã chọn
+            const monthStr = $('#modal_dataluong_2_ChonThang').val();
+            // Lấy địa phương: nếu có tham số truyền vào thì dùng, không thì mặc định 'All'
+            const location = locationParam || 'All';
+
+            // Kiểm tra đã chọn tháng chưa
+            if (!monthStr) {
+                digicoreToast('Vui lòng chọn tháng trước khi xuất báo cáo', 'warning');
+                return;
+            }
+
+            let format = formatParam;
+
+            // Nếu chưa có định dạng thì mới hỏi
+            if (!format) {
+                // --- CHỌN ĐỊNH DẠNG XUẤT ---
+                const resultSwal = await Swal.fire({
+                    title: 'Tùy chọn xuất báo cáo',
+                    html: `Vui lòng chọn định dạng cho <b>${label}</b><br>Kỳ tháng: <b>${monthStr}</b>`,
+                    icon: 'info',
+                    iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+                    showCancelButton: true,
+                    showDenyButton: true,
+                    confirmButtonColor: '#ef4444', // Red for PDF
+                    denyButtonColor: '#22c55e',    // Green for Excel
+                    cancelButtonColor: '#94a3b8',
+                    confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
+                    denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
+                    cancelButtonText: 'Hủy bỏ'
+                });
+
+                if (resultSwal.isConfirmed) format = 'pdf';
+                else if (resultSwal.isDenied) format = 'xlsx';
+
+                if (!format) return;
+            }
+
+            // Hiển thị spinner với nút hủy
+            currentAbortController = new AbortController();
+            const signal = currentAbortController.signal;
+
+            digicoreSpinner.show(`Đang tạo báo cáo ${label}...`, () => {
+                if (currentAbortController) currentAbortController.abort();
+            });
+
+            // Tạo URL API với parameters
+            const apiUrl = `${url_api_doGet}?type=${type}&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}&exportFormat=${format}`;
+
+            // Gọi API
+            const response = await fetch(apiUrl, { signal });
+            const result = await response.json();
+
+            // Ẩn spinner
+            digicoreSpinner.hide();
+            currentAbortController = null;
+
+            if (result.status === 'success') {
+                // Mở URL download trong tab mới
+                window.open(result.downloadUrl, '_blank');
+                digicoreToast(`Đang tải file ${label} tháng ${monthStr}...`, 'success');
+            } else if (result.status === 'no permission') {
+                digicoreToast('Bạn không có quyền xuất báo cáo này', 'error');
+            } else {
+                digicoreToast('Lỗi khi tạo báo cáo: ' + (result.message || 'Không rõ'), 'error');
+            }
+        } catch (error) {
+            digicoreSpinner.hide();
+            currentAbortController = null;
+
+            if (error.name === 'AbortError') {
+                console.log('Fetch aborted by user');
+                return;
+            }
+
+            console.error(`Lỗi khi xuất ${label}:`, error);
+            digicoreToast('Lỗi kết nối server: ' + error.message, 'error');
+        }
+    }
+
+    // --- CÁC HÀM GỌI TỪ GIAO DIỆN (WRAPPERS) ---
+
+    // Nhóm Đi Kho Bạc
+    /**
+     * Xuất Bảng tổng hợp lương: Chọn địa phương & định dạng
+     */
+    function pg_general_4_exportBangTongHopLuong() {
+        const monthStr = $('#modal_dataluong_2_ChonThang').val();
+        if (!monthStr) {
+            digicoreToast('Vui lòng chọn tháng trước khi xuất báo cáo', 'warning');
+            return;
+        }
+
+        let optionsHtml = `<option value="All">Tất cả địa phương</option>`;
+        if (typeof pg_general_3_cacheListDiaPhuong !== 'undefined' && pg_general_3_cacheListDiaPhuong) {
+            pg_general_3_cacheListDiaPhuong.forEach(loc => {
+                optionsHtml += `<option value="${loc}">Cơ sở ${loc}</option>`;
+            });
+        }
+
+        Swal.fire({
+            title: 'Tổng hợp lương',
+            html: `
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất báo cáo tổng hợp lương tháng ${monthStr}</p>
+                    <select id="swal-location-select-thl" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `,
+            icon: 'info',
+            iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#ef4444',
+            denyButtonColor: '#22c55e',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
+            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
+            cancelButtonText: 'Hủy bỏ',
+            preConfirm: () => {
+                return document.getElementById('swal-location-select-thl').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed || result.isDenied) {
+                const format = result.isConfirmed ? 'pdf' : 'xlsx';
+                const location = document.getElementById('swal-location-select-thl').value;
+                pg_general_4_exportReportGeneric('taoBangTongHopLuong', 'báo cáo tổng hợp lương', location, format);
+            }
+        });
+    }
+
+    /**
+     * Xuất báo cáo Tổng hợp bảo hiểm: Hiển thị hộp thoại chọn địa phương trước khi xuất
+     */
+    function pg_general_4_exportBangTongHopBaoHiem() {
+        const monthStr = $('#modal_dataluong_2_ChonThang').val();
+        if (!monthStr) {
+            digicoreToast('Vui lòng chọn tháng trước khi xuất báo cáo', 'warning');
+            return;
+        }
+
+        // Tạo options HTML từ cache danh sách địa phương
+        let optionsHtml = `<option value="All">Tất cả địa phương</option>`;
+        if (typeof pg_general_3_cacheListDiaPhuong !== 'undefined' && pg_general_3_cacheListDiaPhuong) {
+            pg_general_3_cacheListDiaPhuong.forEach(loc => {
+                optionsHtml += `<option value="${loc}">Cơ sở ${loc}</option>`;
+            });
+        }
+
+        Swal.fire({
+            title: 'Tổng hợp bảo hiểm',
+            html: `
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Vui lòng chọn địa phương và định dạng xuất báo cáo bảo hiểm tháng ${monthStr}</p>
+                    <select id="swal-location-select" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `,
+            icon: 'info',
+            iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#ef4444', // Red for PDF
+            denyButtonColor: '#22c55e',    // Green for Excel
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
+            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
+            cancelButtonText: 'Hủy bỏ',
+            focusConfirm: false,
+            preConfirm: () => {
+                return document.getElementById('swal-location-select').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed || result.isDenied) {
+                const format = result.isConfirmed ? 'pdf' : 'xlsx';
+                const location = document.getElementById('swal-location-select').value;
+                pg_general_4_exportReportGeneric('taoBangTongHopBaoHiem', 'báo cáo tổng hợp bảo hiểm', location, format);
+            }
+        });
+    }
+    /**
+     * Xuất Bảng tổng hợp các khoản trừ: Chọn địa phương & định dạng
+     */
+    function pg_general_4_exportBangTongHopKhoanTru() {
+        const monthStr = $('#modal_dataluong_2_ChonThang').val();
+        if (!monthStr) {
+            digicoreToast('Vui lòng chọn tháng trước khi xuất báo cáo', 'warning');
+            return;
+        }
+
+        let optionsHtml = `<option value="All">Tất cả địa phương</option>`;
+        if (typeof pg_general_3_cacheListDiaPhuong !== 'undefined' && pg_general_3_cacheListDiaPhuong) {
+            pg_general_3_cacheListDiaPhuong.forEach(loc => {
+                optionsHtml += `<option value="${loc}">Cơ sở ${loc}</option>`;
+            });
+        }
+
+        Swal.fire({
+            title: 'Tổng hợp các khoản trừ',
+            html: `
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất báo cáo các khoản trừ tháng ${monthStr}</p>
+                    <select id="swal-location-select-khoantru" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `,
+            icon: 'info',
+            iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#ef4444',
+            denyButtonColor: '#22c55e',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
+            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
+            cancelButtonText: 'Hủy bỏ',
+            preConfirm: () => {
+                return document.getElementById('swal-location-select-khoantru').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed || result.isDenied) {
+                const format = result.isConfirmed ? 'pdf' : 'xlsx';
+                const location = document.getElementById('swal-location-select-khoantru').value;
+                pg_general_4_exportReportGeneric('taoBangTongHopKhoanTru', 'báo cáo các khoản trừ', location, format);
+            }
+        });
+    }
+
+    /**
+     * Xuất Bảng đi kho bạc (Tổng hợp chuyển khoản): Chọn địa phương & định dạng
+     */
+    function pg_general_4_exportBangTongHopCk() {
+        const monthStr = $('#modal_dataluong_2_ChonThang').val();
+        if (!monthStr) {
+            digicoreToast('Vui lòng chọn tháng trước khi xuất báo cáo', 'warning');
+            return;
+        }
+
+        let optionsHtml = `<option value="All">Tất cả địa phương</option>`;
+        if (typeof pg_general_3_cacheListDiaPhuong !== 'undefined' && pg_general_3_cacheListDiaPhuong) {
+            pg_general_3_cacheListDiaPhuong.forEach(loc => {
+                optionsHtml += `<option value="${loc}">Cơ sở ${loc}</option>`;
+            });
+        }
+
+        Swal.fire({
+            title: 'Bảng đi kho bạc',
+            html: `
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất bảng đi kho bạc tháng ${monthStr}</p>
+                    <select id="swal-location-select-ck" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `,
+            icon: 'info',
+            iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#6366f1',
+            denyButtonColor: '#22c55e',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="fas fa-print"></i> In',
+            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
+            cancelButtonText: 'Hủy bỏ',
+            preConfirm: () => {
+                return document.getElementById('swal-location-select-ck').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed || result.isDenied) {
+                const format = result.isConfirmed ? 'pdf' : 'xlsx';
+                const location = document.getElementById('swal-location-select-ck').value;
+                if (result.isConfirmed) {
+                    printBangTongHopCk(location);
+                } else {
+                    pg_general_4_exportReportGeneric('tongHopCk', 'bảng đi kho bạc', location, 'xlsx');
+                }
+            }
+        });
+    }
+
+    /**
+     * Xuất Bảng tổng hợp KPCĐ: Chọn địa phương & định dạng
+     */
+    function pg_general_4_exportBangTongHopKPCD() {
+        const monthStr = $('#modal_dataluong_2_ChonThang').val();
+        if (!monthStr) {
+            digicoreToast('Vui lòng chọn tháng trước khi xuất báo cáo', 'warning');
+            return;
+        }
+
+        let optionsHtml = `<option value="All">Tất cả địa phương</option>`;
+        if (typeof pg_general_3_cacheListDiaPhuong !== 'undefined' && pg_general_3_cacheListDiaPhuong) {
+            pg_general_3_cacheListDiaPhuong.forEach(loc => {
+                optionsHtml += `<option value="${loc}">Cơ sở ${loc}</option>`;
+            });
+        }
+
+        Swal.fire({
+            title: 'Tổng hợp KPCĐ',
+            html: `
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất báo cáo KPCĐ tháng ${monthStr}</p>
+                    <select id="swal-location-select-kpcd" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `,
+            icon: 'info',
+            iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#ef4444',
+            denyButtonColor: '#22c55e',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
+            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
+            cancelButtonText: 'Hủy bỏ',
+            preConfirm: () => {
+                return document.getElementById('swal-location-select-kpcd').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed || result.isDenied) {
+                const format = result.isConfirmed ? 'pdf' : 'xlsx';
+                const location = document.getElementById('swal-location-select-kpcd').value;
+                pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo KPCĐ', location, format);
+            }
+        });
+    }
+
+    // Nhóm Hạch Toán
+    /**
+     * Xuất Bảng hạch toán bảo hiểm: Chọn địa phương & định dạng
+     */
+    function pg_general_4_exportBangHachToanBaoHiem() {
+        pg_general_4_exportReportWithLocation('taoBangHachToanBaoHiem', 'hạch toán bảo hiểm');
+    }
+
+    /**
+     * Xuất Bảng hạch toán KPCĐ: Chọn địa phương & định dạng
+     */
+    function pg_general_4_exportBangHachToanKPCD() {
+        pg_general_4_exportReportWithLocation('taoBangHachToanKPCD', 'hạch toán KPCĐ');
+    }
+
+    /**
+     * Xuất Bảng phân bổ tiền lương và BHXH: Chọn địa phương & định dạng
+     */
+    function pg_general_4_exportBangPhanBoLuongBHXH() {
+        pg_general_4_exportReportWithLocation('taoBangPhanBoLuongBHXH', 'phân bổ tiền lương và BHXH');
+    }
+
+    /**
+     * Xuất Bảng hạch toán lương và truy lĩnh: Chọn địa phương & định dạng
+     */
+    function pg_general_4_exportBangHachToanLuongVaTruyLinh() {
+        pg_general_4_exportReportWithLocation('taoBangHachToanLuongVaTruyLinh', 'hạch toán lương và truy lĩnh');
+    }
+
+    /**
+     * Hàm helper hiển thị dialog chọn khu vực cho nhóm Hạch toán
+     */
+    function pg_general_4_exportReportWithLocation(type, label) {
+        const monthStr = $('#modal_dataluong_2_ChonThang').val();
+        if (!monthStr) {
+            digicoreToast('Vui lòng chọn tháng trước khi xuất báo cáo', 'warning');
+            return;
+        }
+
+        let optionsHtml = `<option value="All">Tất cả địa phương</option>`;
+        if (typeof pg_general_3_cacheListDiaPhuong !== 'undefined' && pg_general_3_cacheListDiaPhuong) {
+            pg_general_3_cacheListDiaPhuong.forEach(loc => {
+                optionsHtml += `<option value="${loc}">Cơ sở ${loc}</option>`;
+            });
+        }
+
+        Swal.fire({
+            title: label,
+            html: `
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất <b>${label}</b> tháng ${monthStr}</p>
+                    <select id="swal-location-select-generic" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `,
+            icon: 'info',
+            iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#ef4444',
+            denyButtonColor: '#22c55e',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
+            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
+            cancelButtonText: 'Hủy bỏ',
+            preConfirm: () => {
+                return document.getElementById('swal-location-select-generic').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed || result.isDenied) {
+                const format = result.isConfirmed ? 'pdf' : 'xlsx';
+                const location = document.getElementById('swal-location-select-generic').value;
+                pg_general_4_exportReportGeneric(type, label, location, format);
+            }
+        });
+    }
+
+    /**
+     * Xuất Bảng trừ KPCĐ và các quỹ: Chọn địa phương & định dạng
+     */
+    function pg_general_4_exportBangTruKPCDVaCacQuy() {
+        const monthStr = $('#modal_dataluong_2_ChonThang').val();
+        if (!monthStr) {
+            digicoreToast('Vui lòng chọn tháng trước khi xuất báo cáo', 'warning');
+            return;
+        }
+
+        let optionsHtml = `<option value="All">Tất cả địa phương</option>`;
+        if (typeof pg_general_3_cacheListDiaPhuong !== 'undefined' && pg_general_3_cacheListDiaPhuong) {
+            pg_general_3_cacheListDiaPhuong.forEach(loc => {
+                optionsHtml += `<option value="${loc}">Cơ sở ${loc}</option>`;
+            });
+        }
+
+        Swal.fire({
+            title: 'Trừ KPCĐ và Các quỹ',
+            html: `
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất báo cáo tháng ${monthStr}</p>
+                    <select id="swal-location-select-tqk" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `,
+            icon: 'info',
+            iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#6366f1',
+            denyButtonColor: '#22c55e',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="fas fa-print"></i> In',
+            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
+            cancelButtonText: 'Hủy bỏ',
+            preConfirm: () => {
+                return document.getElementById('swal-location-select-tqk').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed || result.isDenied) {
+                const location = document.getElementById('swal-location-select-tqk').value;
+                if (result.isConfirmed) {
+                    printBangTruKPCDVaCacQuy(location);
+                } else {
+                    pg_general_4_exportReportGeneric('taoBangTruKPCDVaCacQuy', 'báo cáo trừ KPCĐ và quỹ', location, 'xlsx');
+                }
+            }
+        });
+    }
+
+    /**
+     * Decode base64 to Blob (Dùng cho Xuất Excel Tổng Hợp Lương)
+     */
+    function base64ToBlob(base64, mimeType) {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        return new Blob([byteArray], { type: mimeType });
+    }
+
+    /**
+     * Xuất Bảng Tổng Hợp Lương (File XLSX Base64 an toàn qua Proxy)
+     */
+    function pg_general_4_exportTongHopExcelBase64() {
+        const monthStr = $('#modal_dataluong_2_ChonThang').val();
+        if (!monthStr) {
+            digicoreToast('Vui lòng chọn tháng trước khi xuất báo cáo', 'warning');
+            return;
+        }
+
+        let optionsHtml = `<option value="All">Tất cả địa phương</option>`;
+        if (typeof pg_general_3_cacheListDiaPhuong !== 'undefined' && pg_general_3_cacheListDiaPhuong) {
+            pg_general_3_cacheListDiaPhuong.forEach(loc => {
+                optionsHtml += `<option value="${loc}">Cơ sở ${loc}</option>`;
+            });
+        }
+
+        Swal.fire({
+            title: 'Tổng hợp File Lương (Excel)',
+            html: `
+                <div style="margin-top: 10px;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương để trích xuất file Excel lương tổng hợp 49 cột cho tháng ${monthStr}</p>
+                    <select id="swal-location-select-excel" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `,
+            icon: 'info',
+            iconHtml: '<i class="fas fa-file-excel"></i>',
+            showCancelButton: true,
+            confirmButtonColor: '#22c55e',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="fas fa-download"></i> Tải xuống',
+            cancelButtonText: 'Hủy bỏ',
+            preConfirm: () => {
+                return document.getElementById('swal-location-select-excel').value;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const location = result.value;
+                digicoreSpinner.show(`Đang trích xuất Excel tháng ${monthStr}... Quá trình có thể mất vài phút.`);
+
+                // Gọi proxy backend, không dùng API endpoint trực tiếp
+                google.script.run
+                    .withSuccessHandler(function (response) {
+                        digicoreSpinner.hide();
+                        if (response.status === 'success') {
+                            try {
+                                const blob = base64ToBlob(response.base64, response.mimeType);
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.style.display = 'none';
+                                a.href = url;
+                                a.download = response.filename;
+                                document.body.appendChild(a);
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+
+                                digicoreToast('Tải xuống Excel thành công!', 'success');
+
+                                if (response.warnings && response.warnings.length > 0) {
+                                    console.warn("Cảnh báo từ server:", response.warnings);
+                                    //digicoreToast('Có một số cảnh báo trong lúc tạo file, vui lòng xem console log', 'info');
+                                }
+                            } catch (e) {
+                                digicoreToast('Lỗi khi xử lý file tải xuống: ' + e.message, 'error');
+                            }
+                        } else if (response.status === 'no permission') {
+                            digicoreToast(response.message || 'Bạn không có quyền thực hiện chức năng này', 'error');
+                        } else {
+                            digicoreToast('Lỗi từ hệ thống: ' + (response.message || 'Không rõ'), 'error');
+                        }
+                    })
+                    .withFailureHandler(function (error) {
+                        digicoreSpinner.hide();
+                        console.error('Lỗi gọi hàm proxyExportExcel:', error);
+                        digicoreToast('Lỗi kết nối server: ' + error.message, 'error');
+                    })
+                    .proxyExportExcel(monthStr, location);
+            }
+        });
+    }
+
+    /**
+     * Xuất danh mục đơn vị: Chọn In hoặc Xuất Excel
+     */
+    function pg_general_4_exportDanhMucDonVi() {
+        Swal.fire({
+            title: 'Danh mục đơn vị',
+            text: 'Vui lòng chọn hình thức xuất danh mục đơn vị',
+            icon: 'info',
+            iconHtml: '<i class="fas fa-file-alt"></i>',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#6366f1', // Indigo for In
+            denyButtonColor: '#22c55e',    // Green for Excel
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: '<i class="fas fa-print"></i> In HTML',
+            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
+            cancelButtonText: 'Hủy bỏ'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                printDanhMucDonVi();
+            } else if (result.isDenied) {
+                // Xuất Excel
+                try {
+                    // Hiển thị spinner
+                    digicoreSpinner.show("Đang tạo tệp Excel danh mục đơn vị...");
+                    const apiUrl = `${url_api_doGet}?type=exportDanhMucDonVi&exportFormat=xlsx`;
+                    const response = await fetch(apiUrl);
+                    const resJson = await response.json();
+                    digicoreSpinner.hide();
+
+                    if (resJson.status === 'success') {
+                        window.open(resJson.downloadUrl, '_blank');
+                        digicoreToast('Đang tải tệp Excel danh mục đơn vị...', 'success');
+                    } else {
+                        digicoreToast('Lỗi khi xuất danh mục đơn vị: ' + (resJson.message || 'Không rõ'), 'error');
+                    }
+                } catch (error) {
+                    digicoreSpinner.hide();
+                    console.error('Lỗi khi xuất danh mục đơn vị:', error);
+                    digicoreToast('Lỗi kết nối: ' + error.message, 'error');
+                }
+            }
+        });
+    }
+
+</script>

@@ -1,0 +1,729 @@
+<script>
+  // --- KHAI BÁO BIẾN MÃ HÓA HTML (DÙNG CHUNG CHO TOÀN BỘ FILE) ---
+  var _L = String.fromCharCode(60); // Dấu <
+  var _G = String.fromCharCode(62); // Dấu >
+  var _S = _L + '/';                // Dấu </
+
+  // Các biến cache dữ liệu
+  let pg_general_3_cacheListThang = null;
+  let pg_general_3_cacheListDiaPhuong = ["Hà Nội", "Phú Thọ"];
+
+  window.addEventListener("load", functionInit, true);
+
+  function preventFormSubmit() {
+    var forms = document.querySelectorAll('form');
+    for (var i = 0; forms.length > i; i++) {
+      forms[i].addEventListener('submit', function (event) {
+        event.preventDefault();
+      });
+    }
+  }
+
+  function functionInit(openSpinner = true) {
+    preventFormSubmit();
+    if (openSpinner) digicoreSpinner.show("Đang khởi tạo dữ liệu...");
+    google.script.run
+      .withSuccessHandler(function (result) {
+        if (result.status === "success") {
+          pg_general_3_cacheListThang = result.listThang;
+          pg_general_3_populateDropdown("modal_dataluong_2_ChonThang", pg_general_3_cacheListThang);
+          if (result.listDiaPhuong) pg_general_3_cacheListDiaPhuong = result.listDiaPhuong;
+          digicoreSpinner.hide();
+        }
+      })
+      .pg1_ed1_getAllData();
+  }
+
+  function pg_general_3_populateDropdown(dropdownId, values) {
+    var $dropdown = $("#" + dropdownId);
+    $dropdown.empty().append(new Option($dropdown.attr("title") || "Chọn một giá trị", ""));
+    for (var i = 0; values.length > i; i++) {
+      $dropdown.append(new Option(values[i], values[i]));
+    }
+    if ($dropdown.hasClass("select2-hidden-accessible")) $dropdown.select2('destroy');
+    $dropdown.select2({ theme: "bootstrap-5", allowClear: true, width: 'style', placeholder: $dropdown.attr("title") });
+  }
+
+  // =================================================================================================
+  // --- 1. IN BẢNG CHUYỂN KHOẢN NGÂN HÀNG (LANDSCAPE) ---
+  // =================================================================================================
+  function printBangTongHopCk(location = 'All') {
+    const monthStr = $('#modal_dataluong_2_ChonThang').val();
+    if (!monthStr) { digicoreToast('Vui lòng chọn tháng', 'warning'); return; }
+
+    // Mở cửa sổ TRƯỚC khi gọi async để tránh trình duyệt chặn popup
+    const win = window.open('', '_blank');
+    if (!win) {
+      digicoreToast('Trình duyệt đã chặn popup. Vui lòng cho phép popup và thử lại.', 'warning');
+      return;
+    }
+    win.document.write('<html><body style="font-family:Arial;text-align:center;padding:50px"><p>Đang tải dữ liệu báo cáo...</p></body></html>');
+
+    digicoreSpinner.show("Đang truy vấn dữ liệu chuyển khoản...");
+    google.script.run
+      .withSuccessHandler(function (res) {
+        digicoreSpinner.hide();
+        if (res.status === "success") {
+          const content = generateCkHtml(res, location);
+          win.document.open();
+          win.document.write(content);
+          win.document.close();
+        } else {
+          win.close();
+          digicoreToast('Lỗi tải dữ liệu: ' + (res.message || 'Không xác định'), 'error');
+        }
+      })
+      .withFailureHandler(function (err) {
+        digicoreSpinner.hide();
+        win.close();
+        digicoreToast('Lỗi kết nối: ' + err.message, 'error');
+      })
+      .pg1_ed1_getPrintDataCk(monthStr, location);
+  }
+
+
+  function generateCkHtml(res, location = 'All') {
+    const fmt = (v) => {
+      if (v === null || v === undefined || v === "") return "0";
+      let n = Number(v);
+      return isNaN(n) ? v : n.toLocaleString('vi-VN');
+    };
+    let prevMonth = parseInt(res.month) - 1;
+    let prevYear = parseInt(res.year);
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear -= 1;
+    }
+    let prevMonthStr = String(prevMonth).padStart(2, '0');
+
+    let dataRowsHtml = [];
+
+    // Tạo các dòng dữ liệu
+    let sttCounter = 1;
+    res.data.forEach(r => {
+      let tongAtm = Number(r[5]) || 0;
+      if (tongAtm === 0) return; // Không hiển thị, không in dòng TỔNG ATM = 0
+
+      dataRowsHtml.push(_L + "tr" + _G +
+        _L + "td style='text-align:center;'>" + sttCounter++ + _S + "td" + _G +
+        _L + "td style='text-align:center;'>" + String(r[1]).replace(/^CB/i, '') + _S + "td" + _G +
+        _L + "td style='padding-left:3px;'>" + r[2] + _S + "td" + _G +
+        _L + "td style='text-align:left;padding-left:5px;'>" + r[3] + _S + "td" + _G +
+        _L + "td style='text-align:left;padding-left:5px;'>" + (r[4] || '') + _S + "td" + _G +
+        _L + "td style='text-align:right;font-weight:bold;'>" + fmt(r[5]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[6]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[7]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[8]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[9]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[10]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[11]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[12]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[13]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[14]) + _S + "td" + _G +
+        _L + "td style='text-align:right;'>" + fmt(r[15]) + _S + "td" + _G + // Cột 16: Thuế TNCN
+        _S + "tr" + _G);
+    });
+
+    // Tạo dòng tổng cộng các cột chi tiết
+    let extraTotalsHtml = "";
+    if (res.totals) {
+      res.totals.forEach(t => {
+        extraTotalsHtml += _L + "td style='text-align:right;font-size:8pt;font-weight:bold;'>" + fmt(t) + _S + "td" + _G;
+      });
+    }
+
+    // CSS cho trang in (Landscape)
+    let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:9.5pt;margin:0;padding:10px;background:#f1f5f9}" +
+      ".page-container{width:100%; margin:0; background:#fff; padding:0; box-sizing:border-box;}" +
+      "table{width:100%; border-collapse:collapse; table-layout:fixed; margin-top:5px;} th,td{border:1px solid #000; padding:3px 1px; overflow:hidden; word-break:break-word; font-size:8.2pt; line-height:1.1;}" +
+      "th{background:#f8fafc; font-weight:bold; text-align:center; vertical-align:middle; color:#000;}" +
+      "thead{display:table-header-group;}" +
+      "tr{page-break-inside:avoid; break-inside:avoid;}" +
+      ".report-header{margin-bottom:8px; font-family:'Times New Roman'; position:relative;}" +
+      ".school-info{font-weight:bold; font-size:9pt; text-align:left; margin-bottom:1px;}" +
+      ".report-title-section{text-align:center; margin:5px 0;}" +
+      ".report-title-main{text-transform:uppercase; font-weight:bold; font-size:11pt; margin-bottom:2px;}" +
+      ".report-title-sub{font-weight:bold; font-size:10pt;}" +
+      ".org-info-section{font-weight:bold; font-size:9pt; text-align:left; margin-top:5px;}" +
+      ".sig-section{width:100%; margin-top:10px; border:none; page-break-inside:avoid !important; break-inside:avoid !important;} .sig-section td{border:none; text-align:center; vertical-align:top; font-size:8.5pt; color:#000; padding:5px 0;}" +
+      ".margin-buffer{border:none !important; background:transparent !important;}" +
+      ".margin-buffer td{border:none !important;}" +
+      ".total-row{page-break-inside:avoid !important; break-inside:avoid !important; page-break-after:avoid !important; break-after:avoid-page !important;}" +
+      ".total-row td{font-weight:bold !important; font-size:7.5pt !important; white-space:nowrap !important;}" +
+      ".summary-signature-block{page-break-inside:avoid !important; break-inside:avoid !important; page-break-before:avoid; break-before:avoid; margin-top:0;}" +
+      ".summary-signature-block table{margin-top:0;}" +
+      ".page-container > table:first-of-type{page-break-after:avoid; break-after:avoid-page;}" +
+      "@media print{" +
+        "@page{size:A4 landscape; margin:15mm 10mm 15mm 15mm !important; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+        "body{background:#fff; padding:0; margin:0 !important;}" +
+        "thead{display:table-header-group;}" +
+        "tfoot{display:table-footer-group;}" +
+        ".page-container{width:100%; padding:0; box-shadow:none; margin:0; border-radius:0;}" +
+      "}";
+
+    const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G + _L + "title" + _G + "\u200E" + _S + "title" + _G + _L + "style" + _G + css + _S + "style" + _G + _S + "head" + _G;
+
+    // Build Table Header
+    const colgroupHtml =
+      _L + "colgroup" + _G +
+        _L + "col style='width:25px'>" + _S + "col" + _G +
+        _L + "col style='width:40px'>" + _S + "col" + _G +
+        _L + "col style='width:120px'>" + _S + "col" + _G +
+        _L + "col style='width:90px'>" + _S + "col" + _G +
+        _L + "col style='width:65px'>" + _S + "col" + _G +
+        _L + "col style='width:85px'>" + _S + "col" + _G +
+        _L + "col style='width:75px'>" + _S + "col" + _G +
+        _L + "col style='width:55px'>" + _S + "col" + _G +
+        _L + "col style='width:50px'>" + _S + "col" + _G +
+        _L + "col style='width:75px'>" + _S + "col" + _G +
+        _L + "col style='width:55px'>" + _S + "col" + _G +
+        _L + "col style='width:50px'>" + _S + "col" + _G +
+        _L + "col style='width:65px'>" + _S + "col" + _G +
+        _L + "col style='width:55px'>" + _S + "col" + _G +
+        _L + "col style='width:50px'>" + _S + "col" + _G +
+        _L + "col style='width:60px'>" + _S + "col" + _G +
+      _S + "colgroup" + _G;
+
+    const tHead =
+      colgroupHtml +
+      _L + "thead" + _G +
+      _L + "tr" + _G +
+      _L + "th rowspan='3'>STT" + _S + "th" + _G +
+      _L + "th rowspan='3'>MÃ CB" + _S + "th" + _G +
+      _L + "th rowspan='3'>HỌ VÀ TÊN" + _S + "th" + _G +
+      _L + "th rowspan='3'>SỐ TÀI KHOẢN" + _S + "th" + _G +
+      _L + "th rowspan='3'>TÊN NGÂN HÀNG" + _S + "th" + _G +
+      _L + "th rowspan='3'>TỔNG ATM" + _S + "th" + _G +
+      _L + "th colspan='9'>Trong đó" + _S + "th" + _G +
+      _L + "th rowspan='3'>THU THUẾ<br>TNCN<br>T" + prevMonthStr + "/" + prevYear + _S + "th" + _G +
+      _S + "tr" + _G +
+      _L + "tr" + _G +
+      _L + "th colspan='3'>LƯƠNG NGÂN SÁCH" + _S + "th" + _G +
+      _L + "th colspan='3'>THU NHẬP TĂNG THÊM" + _S + "th" + _G +
+      _L + "th colspan='3'>TIỀN ĂN CA" + _S + "th" + _G +
+      _S + "tr" + _G +
+      _L + "tr" + _G +
+      _L + "th>Tháng " + res.month + _S + "th" + _G + _L + "th>Truy lĩnh" + _S + "th" + _G + _L + "th>Truy thu" + _S + "th" + _G +
+      _L + "th>Tháng " + res.month + _S + "th" + _G + _L + "th>Truy lĩnh" + _S + "th" + _G + _L + "th>Truy thu" + _S + "th" + _G +
+      _L + "th>Tháng " + res.month + _S + "th" + _G + _L + "th>Truy lĩnh" + _S + "th" + _G + _L + "th>Truy thu" + _S + "th" + _G +
+      _S + "tr" + _G +
+      _L + "tr" + _G +
+      _L + "th>A" + _S + "th" + _G +
+      _L + "th>B" + _S + "th" + _G +
+      _L + "th>C" + _S + "th" + _G +
+      _L + "th>D" + _S + "th" + _G +
+      _L + "th>E" + _S + "th" + _G +
+      _L + "th style='font-size:7pt;'>1=2+3-4+5+6-7+8+9-10-11" + _S + "th" + _G +
+      _L + "th>2" + _S + "th" + _G + _L + "th>3" + _S + "th" + _G + _L + "th>4" + _S + "th" + _G +
+      _L + "th>5" + _S + "th" + _G + _L + "th>6" + _S + "th" + _G + _L + "th>7" + _S + "th" + _G +
+      _L + "th>8" + _S + "th" + _G + _L + "th>9" + _S + "th" + _G + _L + "th>10" + _S + "th" + _G +
+      _L + "th>11" + _S + "th" + _G +
+      _S + "tr" + _G +
+      _S + "thead" + _G +
+      _L + "tfoot" + _G + _S + "tfoot" + _G;
+
+    const rowsHtml = dataRowsHtml.join("");
+    const reportHeaderHtml =
+      _L + "div class='report-header'" + _G +
+        _L + "div class='school-info'" + _G + "TRÆ¯á»œNG Äáº I Há»ŒC CÃ”NG NGHá»† GIAO THÃ”NG Váº¬N Táº¢I" + _S + "div" + _G +
+        (location && location !== 'All' ? _L + "div class='school-info'" + _G + "CÆ¡ sá»Ÿ: " + location.toUpperCase() + _S + "div" + _G : "") +
+        _L + "div class='report-title-section'" + _G +
+          _L + "div class='report-title-main'" + _G + "DANH SÃCH CHUYá»‚N KHOáº¢N TIá»€N LÆ¯Æ NG, THU NHáº¬P TÄ‚NG THÃŠM, TRUY LÄ¨NH VÃ€ TRUY THU" + _S + "div" + _G +
+          _L + "div class='report-title-sub'" + _G + "THÃNG " + res.month + " NÄ‚M " + res.year + _S + "div" + _G +
+        _S + "div" + _G +
+        _L + "div class='org-info-section'" + _G + "TÃªn tá»• chá»©c: TRÆ¯á»œNG Äáº I Há»ŒC CÃ”NG NGHá»† GIAO THÃ”NG Váº¬N Táº¢I" + _S + "div" + _G +
+        _L + "div class='org-info-section'" + _G + "Sá»‘ TK: 366688889999" + _S + "div" + _G +
+      _S + "div" + _G;
+
+    const totalRowHtml =
+      _L + "tr class='total-row' style='background:#f9f9f9;'" + _G + _L + "td colspan='5' style='text-align:center;'>Tá»”NG Cá»˜NG" + _S + "td" + _G + _L + "td style='text-align:right;font-size:7.5pt;white-space:nowrap;'>" + fmt(res.totalAll) + _S + "td" + _G + extraTotalsHtml + _S + "tr" + _G;
+
+    const signatureHtml =
+      _L + "div class='summary-signature-block' style='page-break-inside:avoid; break-inside:avoid; margin-top:10px;'" + _G +
+        _L + "div style='text-align:left; font-weight:bold; font-style:italic; font-size:9.5pt; margin-bottom:8px;'" + _G + "Sá»‘ tiá»n báº±ng chá»¯: " + res.moneyInWords + _S + "div" + _G +
+        _L + "table class='sig-section' style='margin-top:2px; line-height:1.4;'" + _G +
+          _L + "tr" + _G +
+            _L + "td style='width:33%'><strong>NgÆ°á»i láº­p</strong>" + _S + "td" + _G +
+            _L + "td style='width:34%'><strong>Káº¿ toÃ¡n trÆ°á»Ÿng</strong>" + _S + "td" + _G +
+            _L + "td style='width:33%'>" + res.dateExport + _L + "br" + _G + "<strong>Ban GiÃ¡m hiá»‡u</strong>" + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G + _L + "td colspan='3' style='height:60px'>" + _S + "td" + _G + _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td style='text-align:left;'" + _G + "<strong>Pháº§n dÃ nh cho ngÃ¢n hÃ ng</strong>" + _L + "br" + _G + "<strong>I/ XÃ¡c nháº­n dÃ nh cho bá»™ pháº­n tiáº¿p nháº­n yÃªu cáº§u</strong>" + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td style='vertical-align:bottom;'" + _G + "HÃ  Ná»™i, ngÃ y &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; thÃ¡ng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; nÄƒm 20..." + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td" + _G + "<strong>CÃ¡n bá»™ tiáº¿p nháº­n</strong>" + _L + "br" + _G + _L + "i" + _G + "(KÃ½ vÃ  ghi rÃµ há» tÃªn)" + _S + "i" + _G + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td" + _G + "<strong>TrÆ°á»Ÿng bá»™ pháº­n tiáº¿p nháº­n</strong>" + _L + "br" + _G + _L + "i" + _G + "(KÃ½, ghi rÃµ há» tÃªn)" + _S + "i" + _G + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G + _L + "td colspan='3' style='height:60px'>" + _S + "td" + _G + _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td style='text-align:left;'" + _G + "<strong>II/ Pháº§n xÃ¡c nháº­n dÃ nh cho bá»™ pháº­n xá»­ lÃ½ yÃªu cáº§u</strong>" + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td style='vertical-align:bottom;'" + _G + "HÃ  Ná»™i, ngÃ y &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; thÃ¡ng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; nÄƒm 20..." + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td" + _G + "<strong>Giao dá»‹ch viÃªn</strong>" + _L + "br" + _G + _L + "i" + _G + "(KÃ½ vÃ  ghi rÃµ há» tÃªn)" + _S + "i" + _G + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td" + _G + "<strong>Kiá»ƒm soÃ¡t viÃªn</strong>" + _L + "br" + _G + _L + "i" + _G + "(KÃ½, ghi rÃµ há» tÃªn vÃ  Ä‘Ã³ng dáº¥u)" + _S + "i" + _G + _S + "td" + _G +
+          _S + "tr" + _G +
+        _S + "table" + _G +
+      _S + "div" + _G;
+
+    const firstPageRows = 23;
+    const nextPageRows = 28;
+    const chunks = [];
+    let rowOffset = 0;
+    chunks.push(dataRowsHtml.slice(rowOffset, rowOffset + firstPageRows));
+    rowOffset += firstPageRows;
+    while (rowOffset < dataRowsHtml.length) {
+      chunks.push(dataRowsHtml.slice(rowOffset, rowOffset + nextPageRows));
+      rowOffset += nextPageRows;
+    }
+    if (chunks.length === 0) chunks.push([]);
+
+    const fixedReportHeaderHtml =
+      _L + "div class='report-header'" + _G +
+        _L + "div class='school-info'" + _G + "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GIAO THÔNG VẬN TẢI" + _S + "div" + _G +
+        (location && location !== 'All' ? _L + "div class='school-info'" + _G + "Cơ sở: " + location.toUpperCase() + _S + "div" + _G : "") +
+        _L + "div class='report-title-section'" + _G +
+          _L + "div class='report-title-main'" + _G + "DANH SÁCH CHUYỂN KHOẢN TIỀN LƯƠNG, THU NHẬP TĂNG THÊM, TRUY LĨNH VÀ TRUY THU" + _S + "div" + _G +
+          _L + "div class='report-title-sub'" + _G + "THÁNG " + res.month + " NĂM " + res.year + _S + "div" + _G +
+        _S + "div" + _G +
+        _L + "div class='org-info-section'" + _G + "Tên tổ chức: TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GIAO THÔNG VẬN TẢI" + _S + "div" + _G +
+        _L + "div class='org-info-section'" + _G + "Số TK: 366688889999" + _S + "div" + _G +
+      _S + "div" + _G;
+
+    const fixedTotalRowHtml =
+      _L + "tr class='total-row' style='background:#f9f9f9;'" + _G + _L + "td colspan='5' style='text-align:center;'>TỔNG CỘNG" + _S + "td" + _G + _L + "td style='text-align:right;font-size:7.5pt;white-space:nowrap;'>" + fmt(res.totalAll) + _S + "td" + _G + extraTotalsHtml + _S + "tr" + _G;
+
+    const fixedSignatureHtml =
+      _L + "div style='page-break-inside:avoid; break-inside:avoid; margin-top:10px;'" + _G +
+        _L + "div style='text-align:left; font-weight:bold; font-style:italic; font-size:9.5pt; margin-bottom:8px;'" + _G + "Số tiền bằng chữ: " + res.moneyInWords + _S + "div" + _G +
+        _L + "table class='sig-section' style='margin-top:2px; line-height:1.4;'" + _G +
+          _L + "tr" + _G +
+            _L + "td style='width:33%'><strong>Người lập</strong>" + _S + "td" + _G +
+            _L + "td style='width:34%'><strong>Kế toán trưởng</strong>" + _S + "td" + _G +
+            _L + "td style='width:33%'>" + res.dateExport + _L + "br" + _G + "<strong>Ban Giám hiệu</strong>" + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G + _L + "td colspan='3' style='height:60px'>" + _S + "td" + _G + _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td style='text-align:left;'" + _G + "<strong>Phần dành cho ngân hàng</strong>" + _L + "br" + _G + "<strong>I/ Xác nhận dành cho bộ phận tiếp nhận yêu cầu</strong>" + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td style='vertical-align:bottom;'" + _G + "Hà Nội, ngày &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; năm 20..." + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td" + _G + "<strong>Cán bộ tiếp nhận</strong>" + _L + "br" + _G + _L + "i" + _G + "(Ký và ghi rõ họ tên)" + _S + "i" + _G + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td" + _G + "<strong>Trưởng bộ phận tiếp nhận</strong>" + _L + "br" + _G + _L + "i" + _G + "(Ký, ghi rõ họ tên)" + _S + "i" + _G + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G + _L + "td colspan='3' style='height:60px'>" + _S + "td" + _G + _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td style='text-align:left;'" + _G + "<strong>II/ Phần xác nhận dành cho bộ phận xử lý yêu cầu</strong>" + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td style='vertical-align:bottom;'" + _G + "Hà Nội, ngày &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; năm 20..." + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td" + _G + "<strong>Giao dịch viên</strong>" + _L + "br" + _G + _L + "i" + _G + "(Ký và ghi rõ họ tên)" + _S + "i" + _G + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td" + _G + "<strong>Kiểm soát viên</strong>" + _L + "br" + _G + _L + "i" + _G + "(Ký, ghi rõ họ tên và đóng dấu)" + _S + "i" + _G + _S + "td" + _G +
+          _S + "tr" + _G +
+        _S + "table" + _G +
+      _S + "div" + _G;
+
+    const pageNumberHtml = (pageIndex) =>
+      _L + "div class='print-page-number'" + _G + "Trang " + pageIndex + _S + "div" + _G;
+
+    let pagesHtml = "";
+    chunks.forEach((chunk, index) => {
+      const pageIndex = index + 1;
+      const rowsForPage = chunk.join("") + (index === chunks.length - 1 ? fixedTotalRowHtml : "");
+      pagesHtml +=
+        _L + "div class='print-page'" + _G +
+          (index === 0 ? fixedReportHeaderHtml : "") +
+          _L + "table" + _G + tHead + _L + "tbody" + _G + rowsForPage + _S + "tbody" + _G + _S + "table" + _G +
+          pageNumberHtml(pageIndex) +
+        _S + "div" + _G;
+    });
+
+    pagesHtml +=
+      _L + "div class='print-page'" + _G +
+        fixedSignatureHtml +
+        pageNumberHtml(chunks.length + 1) +
+      _S + "div" + _G;
+
+    const pagedBody = _L + "body onload='setTimeout(function(){window.print()},350)'" + _G +
+      _L + 'div class="page-container"' + _G +
+        pagesHtml +
+      _S + "div" + _G + _S + "body" + _G + _S + "html" + _G;
+
+    const body = _L + "body onload='setTimeout(function(){window.print()},350)'" + _G +
+      _L + "div class='page-number-footer'" + _G + _S + "div" + _G +
+      _L + 'div class="page-container"' + _G +
+      _L + "div class='report-header'" + _G +
+        _L + "div class='school-info'" + _G + "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GIAO THÔNG VẬN TẢI" + _S + "div" + _G +
+        (location && location !== 'All' ? _L + "div class='school-info'" + _G + "Cơ sở: " + location.toUpperCase() + _S + "div" + _G : "") +
+        _L + "div class='report-title-section'" + _G +
+          _L + "div class='report-title-main'" + _G + "DANH SÁCH CHUYỂN KHOẢN TIỀN LƯƠNG, THU NHẬP TĂNG THÊM, TRUY LĨNH VÀ TRUY THU" + _S + "div" + _G +
+          _L + "div class='report-title-sub'" + _G + "THÁNG " + res.month + " NĂM " + res.year + _S + "div" + _G +
+        _S + "div" + _G +
+        _L + "div class='org-info-section'" + _G + "Tên tổ chức: TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GIAO THÔNG VẬN TẢI" + _S + "div" + _G +
+        _L + "div class='org-info-section'" + _G + "Số TK: 366688889999" + _S + "div" + _G +
+      _S + "div" + _G +
+      _L + "table" + _G + tHead + _L + "tbody" + _G + rowsHtml +
+      _L + "tr class='total-row' style='background:#f9f9f9;'" + _G + _L + "td colspan='5' style='text-align:center;'>TỔNG CỘNG" + _S + "td" + _G + _L + "td style='text-align:right;font-size:7.5pt;white-space:nowrap;'>" + fmt(res.totalAll) + _S + "td" + _G + extraTotalsHtml + _S + "tr" + _G +
+      _S + "tbody" + _G + _S + "table" + _G +
+      _L + "div class='summary-signature-block' style='page-break-inside:avoid; break-inside:avoid; margin-top:10px;'" + _G +
+        _L + "div style='text-align:left; font-weight:bold; font-style:italic; font-size:9.5pt; margin-bottom:8px;'" + _G + "Số tiền bằng chữ: " + res.moneyInWords + _S + "div" + _G +
+        _L + "table class='sig-section' style='margin-top:2px; line-height:1.4;'" + _G +
+          _L + "tr" + _G +
+            _L + "td style='width:33%'><strong>Người lập</strong>" + _S + "td" + _G +
+            _L + "td style='width:34%'><strong>Kế toán trưởng</strong>" + _S + "td" + _G +
+            _L + "td style='width:33%'>" + res.dateExport + _L + "br" + _G + "<strong>Ban Giám hiệu</strong>" + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G + _L + "td colspan='3' style='height:60px'>" + _S + "td" + _G + _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td style='text-align:left;'" + _G + "<strong>Phần dành cho ngân hàng</strong>" + _L + "br" + _G + "<strong>I/ Xác nhận dành cho bộ phận tiếp nhận yêu cầu</strong>" + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td style='vertical-align:bottom;'" + _G + "Hà Nội, ngày &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; năm 20..." + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td" + _G + "<strong>Cán bộ tiếp nhận</strong>" + _L + "br" + _G + _L + "i" + _G + "(Ký và ghi rõ họ tên)" + _S + "i" + _G + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td" + _G + "<strong>Trưởng bộ phận tiếp nhận</strong>" + _L + "br" + _G + _L + "i" + _G + "(Ký, ghi rõ họ tên)" + _S + "i" + _G + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G + _L + "td colspan='3' style='height:60px'>" + _S + "td" + _G + _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td style='text-align:left;'" + _G + "<strong>II/ Phần xác nhận dành cho bộ phận xử lý yêu cầu</strong>" + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td style='vertical-align:bottom;'" + _G + "Hà Nội, ngày &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; năm 20..." + _S + "td" + _G +
+          _S + "tr" + _G +
+          _L + "tr" + _G +
+            _L + "td" + _G + "<strong>Giao dịch viên</strong>" + _L + "br" + _G + _L + "i" + _G + "(Ký và ghi rõ họ tên)" + _S + "i" + _G + _S + "td" + _G +
+            _L + "td" + _G + _S + "td" + _G +
+            _L + "td" + _G + "<strong>Kiểm soát viên</strong>" + _L + "br" + _G + _L + "i" + _G + "(Ký, ghi rõ họ tên và đóng dấu)" + _S + "i" + _G + _S + "td" + _G +
+          _S + "tr" + _G +
+        _S + "table" + _G +
+      _S + "div" + _G +
+      _S + "div" + _G + _S + "body" + _G + _S + "html" + _G;
+    return head + body;
+  }
+
+  // =================================================================================================
+  // --- 2. IN BẢNG TỔNG HỢP LƯƠNG (PORTRAIT) ---
+  // =================================================================================================
+  function printBangTongHopLuong() {
+    const monthStr = $('#modal_dataluong_2_ChonThang').val();
+    if (!monthStr) { digicoreToast('Vui lòng chọn tháng', 'warning'); return; }
+    digicoreSpinner.show("Đang tổng hợp dữ liệu lương...");
+    google.script.run
+      .withSuccessHandler(function (res) {
+        digicoreSpinner.hide();
+        if (res.status === "success") {
+          const content = generateLuongHtml(res);
+          const win = window.open('', '_blank');
+          win.document.write(content);
+          win.document.close();
+        }
+      })
+      .pg1_ed1_getPrintDataTongHopLuong(monthStr);
+  }
+
+  function generateLuongHtml(res) {
+    const fmt = (v) => v ? Number(v).toLocaleString('vi-VN') : "0";
+    const locs = res.locations;
+    let rowsHtml = "";
+
+    // Táº¡o cÃ¡c dÃ²ng dá»¯ liá»‡u
+    res.data.forEach(r => {
+      // Logic in Ä‘áº­m
+      const isBold = /^[IVXLCDM]+\.$/.test(r[0]) || /^\d+\.$/.test(r[0]) || String(r[1]).toLowerCase().includes('cá»™ng') || String(r[1]).toLowerCase() === "tá»•ng cá»™ng";
+      const isTotal = String(r[1]).toLowerCase().includes('cá»™ng') || String(r[1]).toLowerCase() === "tá»•ng cá»™ng";
+      const rowClass = isTotal ? "class='row-total'" : "";
+      const style = isBold ? "font-weight:bold;" : "";
+
+      rowsHtml += _L + "tr " + rowClass + " style='" + style + "'" + _G +
+        _L + "td style='text-align:center;'>" + r[0] + _S + "td" + _G +
+        _L + "td style='padding-left:5px;'>" + r[1] + _S + "td" + _G +
+        _L + "td style='text-align:right;padding-right:5px;'>" + fmt(r[2]) + _S + "td" + _G;
+
+      for (var j = 0; locs.length > j; j++) {
+        rowsHtml += _L + "td style='text-align:right;padding-right:5px;'>" + fmt(r[3 + j]) + _S + "td" + _G;
+      }
+
+      rowsHtml += _L + "td style='text-align:center;'>" + r[r.length - 1] + _S + "td" + _G + _S + "tr" + _G;
+    });
+
+    // Táº¡o header cho cÃ¡c cá»™t Ä‘á»‹a phÆ°Æ¡ng
+    // Giáº£m width cá»™t tiá»n vÃ  Ä‘á»‹a phÆ°Æ¡ng Ä‘á»ƒ Ä‘áº£m báº£o khÃ´ng trÃ n (95px)
+    let locHeaders = "";
+    locs.forEach(l => {
+      locHeaders += _L + "th style='width:95px;'>" + l.toUpperCase() + _S + "th" + _G;
+    });
+
+    let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:9.5pt;margin:0;padding:15px;background:#eee;counter-reset:page;}" +
+      ".page-container{width:188mm;margin:0 auto;background:#fff;padding:8mm;box-shadow:0 0 10px rgba(0,0,0,0.1);overflow:hidden;}" +
+      "table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:5px;}th,td{border:1px solid #000;padding:3px 3px;overflow:hidden;word-break:break-word}" +
+      "th{background:#f2f2f2;font-weight:bold;font-size:9pt;text-align:center;vertical-align:middle}" +
+      "thead{display:table-header-group;}" +
+      "tr{page-break-inside:avoid;}" +
+      ".row-total{page-break-after:avoid; break-after:avoid;}" +
+      ".row-total td{font-weight:bold; background:#fff;}" +
+      ".header-title{text-align:center;text-transform:uppercase;font-weight:bold;margin-bottom:15px;width:100%;}" +
+      ".header-school{text-align:left;font-weight:bold;font-size:10pt;margin-bottom:5px;width:100%;padding-left:5px;}" +
+      ".sig-section{width:100%;margin-top:10px;border:none;page-break-inside:avoid !important; break-inside:avoid !important;} .sig-section td{border:none;text-align:center;vertical-align:top;font-size:10pt;padding-top:10px}" +
+      ".sig-section-wrapper{page-break-inside:avoid; break-inside:avoid; page-break-before:avoid; break-before:avoid; margin-top:15px;}" +
+      ".no-print-header{display:flex;justify-content:center;gap:15px;margin-bottom:15px;padding:10px;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);width:188mm;margin-left:auto;margin-right:auto;}" +
+      ".btn-print{padding:8px 20px;background:#6366f1;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:8px;}" +
+      ".btn-excel{padding:8px 20px;background:#22c55e;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:8px;}" +
+      "@page{size:A4 portrait; margin:12mm 15mm 14mm 15mm; @bottom-right{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+      "@media print{.no-print-header{display:none;}body{background:#fff;padding:0;margin:0}.page-container{width:100%;box-shadow:none;padding:1mm;margin:0 auto;overflow:visible;}}";
+
+    const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G + 
+      _L + "link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'" + _G +
+      _L + "style" + _G + css + _S + "style" + _G + _S + "head" + _G;
+
+    const body = _L + "body onload='setTimeout(function(){window.print()},800)'" + _G +
+      // No-print header with actions
+      _L + "div class='no-print-header'" + _G +
+        _L + "button class='btn-print' onclick='window.print()'" + _G + _L + "i class='fas fa-print'" + _G + _S + "i" + _G + " IN BAO CAO (PDF)" + _S + "button" + _G +
+        _L + "button class='btn-excel' onclick='window.opener.pg_general_4_exportReportGeneric(\"taoBangTongHopLuong\", \"bo co t?ng h?p luong\", \"All\", \"xlsx\")'" + _G + _L + "i class='fas fa-file-excel'" + _G + _S + "i" + _G + " XU?T EXCEL" + _S + "button" + _G +
+      _S + "div" + _G +
+      
+      _L + "div class='page-container'" + _G +
+      // Header School centered
+      _L + "div class='header-school'" + _G + "TRÆ¯á»œNG Äáº I Há»ŒC CÃ”NG NGHá»† GTVT" + _S + "div" + _G +
+      // Header Title centered (Thng alignment fix)
+      _L + "div class='header-title'" + _L + "div style='font-size:12.5pt;margin-bottom:5px;'>" + "Báº¢NG Tá»”NG Há»¢P LÆ¯Æ NG, THU NHáº¬P TÄ‚NG THÃŠM VÃ€ TIá»€N Ä‚N CA" + _S + "div" + _G + _L + "div style='font-size:11pt;text-align:center;'>" + "THÃNG " + res.month + " NÄ‚M " + res.year + _S + "div" + _G + _S + "div" + _G +
+      _L + "table" + _G + _L + "thead" + _G +
+      _L + "tr" + _G +
+      _L + "th rowspan='2' style='width:35px'>STT" + _S + "th" + _G +
+      _L + "th rowspan='2' style='width:230px'>Ná»˜I DUNG" + _S + "th" + _G +
+      _L + "th rowspan='2' style='width:95px'>Tá»”NG TIá»€N" + _S + "th" + _G +
+      _L + "th colspan='" + locs.length + "'>Trong Ä‘Ã³" + _S + "th" + _G +
+      _L + "th rowspan='2' style='width:60px'>GHI CHÃš" + _S + "th" + _G + _S + "tr" + _G +
+      _L + "tr" + _G + locHeaders + _S + "tr" + _G +
+      _S + "thead" + _G + _L + "tbody" + _G + rowsHtml + _S + "tbody" + _G + _S + "table" + _G +
+      _L + "div class='sig-section-wrapper'" + _G +
+        _L + "table class='sig-section'" + _G + _L + "tr" + _G + _L + "td style='width:33%'" + _G + _L + "strong" + _G + "NgÆ°á»i láº­p" + _S + "strong" + _G + _S + "td" + _G + _L + "td style='width:34%'" + _G + _L + "strong" + _G + "Káº¿ toÃ¡n trÆ°á»Ÿng" + _S + "strong" + _G + _S + "td" + _G + _L + "td style='width:33%'" + _G + res.dateExport + _L + "br" + _G + _L + "strong" + _G + "Ban giÃ¡m hiá»‡u" + _S + "strong" + _G + _S + "td" + _G + _S + "tr" + _G + _S + "table" + _G +
+      _S + "div" + _G +
+      _S + "div" + _G + _S + "body" + _G + _S + "html" + _G;
+
+    return head + body;
+  }
+
+// =================================================================================================
+  // --- 3. IN DANH SÁCH TRỪ KPCĐ VÀ CÁC QUỸ (PORTRAIT) ---
+  // =================================================================================================
+  function printBangTruKPCDVaCacQuy(location = 'All') {
+    const monthStr = $('#modal_dataluong_2_ChonThang').val();
+    if (!monthStr) { digicoreToast('Vui lòng chọn tháng', 'warning'); return; }
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      digicoreToast('Trình duyệt đã chặn popup. Vui lòng cho phép popup và thử lại.', 'warning');
+      return;
+    }
+    win.document.write('<html><body style="font-family:Arial;text-align:center;padding:50px"><p>Đang chuẩn bị bản in...</p></body></html>');
+
+    digicoreSpinner.show("Đang chuẩn bị dữ liệu KPCĐ...");
+    google.script.run
+      .withSuccessHandler(function (res) {
+        digicoreSpinner.hide();
+        if (res.status === "success") {
+          const content = generateTruKPCDHtml(res, location);
+          win.document.open();
+          win.document.write(content);
+          win.document.close();
+        } else {
+          win.close();
+          digicoreToast('Lỗi: ' + res.message, 'error');
+        }
+      })
+      .withFailureHandler(function (err) {
+        digicoreSpinner.hide();
+        win.close();
+        digicoreToast('Lỗi kết nối: ' + err.message, 'error');
+      })
+      .pg1_ed1_getPrintDataTruKPCDVaCacQuy(monthStr, location);
+  }
+
+  function generateTruKPCDHtml(res, location) {
+    const fmt = (v) => v ? Number(v).toLocaleString('vi-VN') : "0";
+    let totalKpcd = 0;
+    let totalQuy = 0;
+    let totalKhac = 0;
+
+    let rowsHtml = "";
+    res.data.forEach(r => {
+      totalKpcd += Number(r[3]) || 0;
+      totalQuy += Number(r[4]) || 0;
+      totalKhac += Number(r[5]) || 0;
+
+      rowsHtml += _L + "tr" + _G +
+          _L + "td style='text-align:center;'" + _G + r[0] + _S + "td" + _G +
+          _L + "td style='text-align:center;'" + _G + r[1] + _S + "td" + _G +
+          _L + "td style='padding-left:5px; text-align:left;'" + _G + r[2] + _S + "td" + _G +
+          _L + "td style='text-align:right; padding-right:5px;'" + _G + fmt(r[3]) + _S + "td" + _G +
+          _L + "td style='text-align:right; padding-right:5px;'" + _G + fmt(r[4]) + _S + "td" + _G +
+          _L + "td style='text-align:right; padding-right:5px;'" + _G + fmt(r[5]) + _S + "td" + _G +
+          _L + "td" + _G + (r[6] || '') + _S + "td" + _G +
+        _S + "tr" + _G;
+    });
+
+    let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:11pt;margin:0;padding:20px;background:#f5f5f5;counter-reset:page;}" +
+      ".page-container{width:210mm; margin:0 auto; background:#fff; padding:12mm 15mm; min-height:297mm; box-shadow:0 0 10px rgba(0,0,0,0.1);}" +
+      "table{width:100%; border-collapse:collapse; margin-top:15px; table-layout:fixed;} th,td{border:1px solid #000; padding:6px 4px; font-size:9.5pt; word-break:break-word; overflow:hidden;}" +
+      "th{background:#f8fafc; font-weight:bold; text-align:center; vertical-align:middle;}" +
+      "thead{display:table-header-group;}" +
+      "tr{page-break-inside:avoid;}" +
+      ".row-total{page-break-after:avoid; break-after:avoid;}" +
+      ".row-total td{font-weight:bold; background:#fff;}" +
+      ".school-name{font-weight:bold; font-size:11pt; text-align:left; margin-bottom:5px;}" +
+      ".report-title{text-align:center; font-weight:bold; font-size:14pt; text-transform:uppercase; margin-bottom:20px; line-height:1.4;}" +
+      ".footer-section{margin-top:10px; page-break-inside:avoid; break-inside:avoid; page-break-before:avoid; break-before:avoid;}" +
+      ".footer-words{margin-top:10px; font-weight:bold; font-style:italic; font-size:11pt; page-break-before:avoid; break-before:avoid;}" +
+      ".sig-container{width:100%; margin-top:15px; border:none; page-break-inside:avoid; break-inside:avoid; page-break-before:avoid; break-before:avoid;} .sig-container td{border:none; text-align:center; padding:10px 0; font-size:11pt;}" +
+      "@page{size:A4 portrait; margin:12mm 15mm 14mm 15mm; @bottom-right{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+      "@media print{body{background:#fff; padding:0; margin:0;} .page-container{box-shadow:none; padding:0; margin:0; width:100%; min-height:auto;}}";
+
+    const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G + _L + "style" + _G + css + _S + "style" + _G + _S + "head" + _G;
+
+    const tHead = _L + "table" + _G +
+      _L + "thead" + _G +
+        _L + "tr" + _G +
+          _L + "th style='width:35px'" + _G + "STT" + _S + "th" + _G +
+          _L + "th style='width:65px'" + _G + "Mã CB" + _S + "th" + _G +
+          _L + "th style='width:155px'" + _G + "Họ và tên" + _S + "th" + _G +
+          _L + "th style='width:80px'" + _G + "KPCĐ" + _S + "th" + _G +
+          _L + "th style='width:85px'" + _G + "Quỹ tình nghĩa" + _S + "th" + _G +
+          _L + "th style='width:85px'" + _G + "Các khoản thu khác" + _S + "th" + _G +
+          _L + "th style='width:95px'" + _G + "Ghi chú" + _S + "th" + _G +
+        _S + "tr" + _G +
+      _S + "thead" + _G;
+
+    let headerContent = _L + "div class='school-name'" + _G + "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT" + _S + "div" + _G +
+      (location && location !== 'All' ? _L + "div class='school-name'" + _G + "Cơ sở: " + location.toUpperCase() + _S + "div" + _G : "") +
+      _L + "div class='report-title'" + _G + "DANH SÁCH TRỪ KP CÔNG ĐOÀN VÀ CÁC QUỸ" + _L + "br" + _G + "THÁNG " + res.month + " NĂM " + res.year + _S + "div" + _G;
+
+    // Dòng tổng cộng được đưa vào cuối tbody của bảng chính
+    let totalRowHtml = _L + "tr class='row-total'" + _G +
+        _L + "td colspan='3' style='text-align:center;'" + _G + "TỔNG CỘNG" + _S + "td" + _G +
+        _L + "td style='text-align:right; padding-right:5px;'>" + fmt(totalKpcd) + _S + "td" + _G +
+        _L + "td style='text-align:right; padding-right:5px;'>" + fmt(totalQuy) + _S + "td" + _G +
+        _L + "td style='text-align:right; padding-right:5px;'>" + fmt(totalKhac) + _S + "td" + _G +
+        _L + "td" + _G + _S + "td" + _G +
+      _S + "tr" + _G;
+
+    let tableContent = tHead + _L + "tbody" + _G + rowsHtml + totalRowHtml + _S + "tbody" + _G + _S + "table" + _G;
+
+    let footerContent = _L + "div class='footer-section'" + _G +
+      _L + "div class='footer-words'" + _G + "Bằng chữ: " + res.moneyInWords + _S + "div" + _G +
+      _L + "table class='sig-container'" + _G +
+        _L + "tr" + _G +
+          _L + "td style='width:33%; vertical-align:top; text-align:center;'" + _G + _L + "strong" + _G + "Kế toán lương" + _S + "strong" + _G + _S + "td" + _G +
+          _L + "td style='width:34%; vertical-align:top; text-align:center;'" + _G + _L + "strong" + _G + "Kế toán trưởng" + _S + "strong" + _G + _S + "td" + _G +
+          _L + "td style='width:33%; vertical-align:top; text-align:center;'" + _G +
+            _L + "i" + _G + res.dateExport + _S + "i" + _G + _L + "br" + _G +
+            _L + "strong" + _G + "Thủ trưởng đơn vị" + _S + "strong" + _G +
+          _S + "td" + _G +
+        _S + "tr" + _G +
+      _S + "table" + _G +
+    _S + "div" + _G;
+
+    const body = _L + "body onload='setTimeout(function(){window.print()},500)'" + _G +
+      _L + "div class='page-container'" + _G +
+        headerContent +
+        tableContent +
+        footerContent +
+      _S + "div" + _G +
+      _S + "body" + _G + _S + "html" + _G;
+
+    return head + body;
+  }
+
+  // =================================================================================================
+  // --- 4. IN DANH MỤC ĐƠN VỊ (PORTRAIT) ---
+  // =================================================================================================
+  function printDanhMucDonVi() {
+    const win = window.open('', '_blank');
+    if (!win) {
+      digicoreToast('Trình duyệt đã chặn popup. Vui lòng cho phép popup và thử lại.', 'warning');
+      return;
+    }
+    win.document.write('<html><body style="font-family:Arial;text-align:center;padding:50px"><p>Đang chuẩn bị bản in...</p></body></html>');
+
+    digicoreSpinner.show("Đang chuẩn bị dữ liệu danh mục đơn vị...");
+    google.script.run
+      .withSuccessHandler(function (res) {
+        digicoreSpinner.hide();
+        if (res.status === "success") {
+          const content = generateDanhMucDonViHtml(res);
+          win.document.open();
+          win.document.write(content);
+          win.document.close();
+        } else {
+          win.close();
+          digicoreToast('Lỗi: ' + res.message, 'error');
+        }
+      })
+      .withFailureHandler(function (err) {
+        digicoreSpinner.hide();
+        win.close();
+        digicoreToast('Lỗi kết nối: ' + err.message, 'error');
+      })
+      .pg1_ed1_getPrintDanhMucDonVi();
+  }
+
+  function generateDanhMucDonViHtml(res) {
+    let rowsHtml = "";
+    
+    res.data.forEach((r, idx) => {
+      rowsHtml += _L + "tr" + _G +
+        _L + "td style='text-align:center;'" + _G + (idx + 1) + _S + "td" + _G +
+        _L + "td style='text-align:center;'" + _G + r.maDonVi + _S + "td" + _G +
+        _L + "td style='padding-left:5px; text-align:left;'" + _G + r.tenDonVi + _S + "td" + _G +
+        _L + "td" + _G + "" + _S + "td" + _G + // Ghi chú
+        _S + "tr" + _G;
+    });
+
+    let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:11pt;margin:0;padding:20px;background:#f5f5f5}" +
+      ".page-container{width:210mm; margin:0 auto; background:#fff; padding:12mm 15mm; min-height:297mm; box-shadow:0 0 10px rgba(0,0,0,0.1);}" +
+      "table{width:100%; border-collapse:collapse; margin-top:15px;} th,td{border:1px solid #000; padding:6px 4px; font-size:10pt;}" +
+      "th{background:#f8fafc; font-weight:bold; text-align:center; vertical-align:middle;}" +
+      ".school-name{font-weight:bold; font-size:11pt; text-align:left; margin-bottom:20px;}" +
+      ".report-title{text-align:center; font-weight:bold; font-size:14pt; text-transform:uppercase; margin-bottom:20px; line-height:1.4;}" +
+      ".sig-container{width:100%; margin-top:30px; border:none;} .sig-container td{border:none; text-align:center; padding:10px 0; font-size:11pt;}" +
+      "@media print{@page{size:A4 portrait; margin:12mm 12mm 14mm 12mm;} body{background:#fff; padding:0; margin:0;} .page-container{box-shadow:none; padding:0; margin:0; width:100%; min-height:auto;}}";
+
+    const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G + _L + "style" + _G + css + _S + "style" + _G + _S + "head" + _G;
+    
+    const body = _L + "body onload='setTimeout(function(){window.print()},500)'" + _G +
+      _L + "div class='page-container'" + _G +
+        _L + "div class='school-name'" + _G + "TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT" + _S + "div" + _G +
+        _L + "div class='report-title'" + _G + "DANH MỤC ĐƠN VỊ" + _S + "div" + _G +
+        _L + "table" + _G +
+          _L + "thead" + _G +
+            _L + "tr" + _G +
+              _L + "th style='width:50px'" + _G + "STT" + _S + "th" + _G +
+              _L + "th style='width:120px'" + _G + "Mã đơn vị" + _S + "th" + _G +
+              _L + "th style='width:250px'" + _G + "TÊN ĐƠN VỊ" + _S + "th" + _G +
+              _L + "th" + _G + "Ghi chú" + _S + "th" + _G +
+            _S + "tr" + _G +
+          _S + "thead" + _G +
+          _L + "tbody" + _G + rowsHtml + _S + "tbody" + _G +
+        _S + "table" + _G +
+        _L + "table class='sig-container'" + _G +
+          _L + "tr" + _G +
+            _L + "td style='width:50%'>" + _S + "td" + _G +
+            _L + "td" + _G + _L + "i" + _G + res.dateExport + _S + "i" + _G + _L + "br" + _G + _L + "strong" + _G + "Người lập" + _S + "strong" + _G + _S + "td" + _G +
+          _S + "tr" + _G +
+        _S + "table" + _G +
+      _S + "div" + _G +
+      _S + "body" + _G + _S + "html" + _G;
+
+    return head + body;
+  }
+</script>

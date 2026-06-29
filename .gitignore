@@ -1,0 +1,6 @@
+# Local backups
+backup/
+
+# Scratch directory
+scratch/
+.gemini/
