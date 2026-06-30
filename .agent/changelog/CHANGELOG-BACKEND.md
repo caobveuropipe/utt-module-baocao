@@ -6,6 +6,24 @@
 
 ---
 
+## [2026-06-30]
+
+### feat(insurance): làm tròn số tiền bảo hiểm và điền công thức Excel động
+- **doGet (Bảo hiểm):** Cập nhật file `doGet/doGet_tongHopBaoHiem.js` để làm tròn các giá trị BHXH, BHYT, BHTN chi tiết của NLĐ và Nhà trường về hàng đơn vị bằng `Math.round()` trước khi tính tổng.
+- **Công thức Excel động:**
+  - Thay thế số tĩnh bằng công thức Excel có dấu chấm phẩy (`;`) làm dấu ngăn cách và dấu phẩy (`,`) làm dấu thập phân cho số thực (như `17,5` và `1,5`).
+  - Cột E, F, G, I, J, K trên các dòng nhóm (I-IV) dùng `=SUBTOTAL(9; E8:E10)`, dòng Cộng dùng `=SUBTOTAL(9; E7:E22)`, dòng Mã LA dùng `=SUBTOTAL(9; E27:E28)`.
+  - Dòng Mã HW dùng phép trừ trực tiếp `=E23-E26`. Dòng Cộng cuối cùng dùng phép cộng trực tiếp `=E26+E29`.
+  - Cột H và L sử dụng hàm `=SUM(...)` cho 3 cột đứng trước. Cột M dùng `=H[row]+L[row]`.
+  - Tự động map tên mã tách biệt cho khu vực Hà Nội thành `Mã LA0001N (đi nước ngoài)` và `Mã HW0013N`.
+
+## [2026-06-29]
+
+### feat(kpcd): thay đổi công thức tính KPCĐ và lọc đi công tác NN
+- **doGet (KPCĐ):** Cập nhật file `doGet/doGet_tongHopKPCD.js` để tìm và đọc cột `BHXH` thay vì cột `KPCĐ` của bảng `DataLuong1` và `DataTruyThuLinh`.
+- Áp dụng công thức tính KPCĐ mới: `(BHXH / 8) * 2` cho từng dòng nhân viên (bằng $25\%$ số tiền đóng BHXH của NLĐ).
+- **doGet (Bảo hiểm):** Sửa đổi biểu thức điều kiện xác định đi nước ngoài (Mã LA) trong `doGet/doGet_tongHopBaoHiem.js` để hỗ trợ thêm trạng thái `'Đi công tác NN'` bên cạnh `'Đi NN'`.
+
 ## [2026-06-19]
 
 ### feat(doGet): lọc nhân sự Phú Thọ có trạng thái khi xuất bảng đi kho bạc

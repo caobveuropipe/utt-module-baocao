@@ -1,31 +1,27 @@
 /**
- * MODULE: TỔNG HỢP BẢO HIỂM (doGet_tongHopBaoHiem)
+ * CONTRACT - doGet_tongHopBaoHiem.js
  * 
- * MÔ TẢ:
- * File này chứa logic để tổng hợp dữ liệu bảo hiểm (BHXH, BHYT, BHTN) từ các nguồn dữ liệu lương và truy thu.
- * Kết quả được ghi vào sheet "THBH" để báo cáo.
+ * 1. TRÁCH NHIỆM:
+ *    - Tổng hợp dữ liệu bảo hiểm (BHXH, BHYT, BHTN) từ nguồn DataLuong1 và DataTruyThu.
+ *    - Ghi dữ liệu vào sheet THBH kèm theo các công thức Excel tương thích với thiết lập dấu thập phân phẩy (,) và dấu đối số chấm phẩy (;).
  * 
- * LOGIC CHÍNH:
- * 1. Load Data:
- *    - Master Data: DataChotNSThang (Lấy loại hợp đồng, trạng thái).
- *    - DataLuong1: Lấy cột BHXH, BHYT, BHTN (Phần NLĐ đóng).
- *    - DataTruyThuLinh: Lấy phần truy thu/truy lĩnh bảo hiểm.
- * 2. Tính toán:
- *    - Aggregate theo nhân sự.
- *    - Phân loại hợp đồng: Biên chế, Hợp đồng 68, Thường xuyên, Vụ việc.
- *    - Tính phần Nhà trường đóng = (NLĐ đóng / Tỷ lệ NLĐ) * Tỷ lệ Trường.
- *    - Xử lý net value: Lương + TruyLinh - TruyThu.
- * 3. Output:
- *    - Ghi vào sheet THBH.
- *    - Format bảng theo quy chuẩn (Header merged, Border, Font Time New Roman).
+ * 2. KHÔNG CHỊU TRÁCH NHIỆM:
+ *    - Chỉnh sửa cấu trúc dữ liệu nguồn của DataLuong1 hay DataTruyThu.
  * 
- * INPUT: Month String (e.g. "T01.2025")
- * OUTPUT: Download URL (XLSX)
+ * 3. RÀNG BUỘC VÀ GUARDRAILS KỸ THUẬT:
+ *    - BẮT BUỘC làm tròn tất cả giá trị chi tiết về hàng đơn vị (Math.round) trước khi tính tổng.
+ *    - BẮT BUỘC giữ START_ROW = 7 (dòng dữ liệu đầu tiên bắt đầu từ dòng 7 trên Sheet do 2 dòng tiêu đề chiếm dòng 5 & 6).
+ *    - Dòng tổng nhóm (I, II, III, IV) bắt buộc sử dụng SUBTOTAL(9; ...).
+ *    - Dòng Mã HW sử dụng phép trừ trực tiếp dạng `=E23-E26` (không dùng hàm).
+ *    - Dòng Cộng cuối cùng sử dụng phép cộng trực tiếp dạng `=E26+E29` (không dùng hàm).
+ *    - Cột H và L sử dụng hàm =SUM(E[row]:G[row]) và =SUM(I[row]:K[row]) cho mọi dòng.
+ *    - Cột M sử dụng phép cộng trực tiếp =H[row]+L[row] cho mọi dòng.
  */
 
 function test_doGet_taoBangTongHopbaoHiem() {
-    var monthStr = "T01.2025"
-    var url = doGet_taoBangTongHopBaoHiem(monthStr)
+    var monthStr = "T05.2026";
+    var targetLocation = "Hà Nội"
+    var url = doGet_taoBangTongHopBaoHiem(monthStr, targetLocation)
     Logger.log(url)
 }
 function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
@@ -200,7 +196,7 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
 
         if (!catKey) return null; // Skip if unknown contract type
 
-        const isDiNN = (trangThai === 'Đi NN');
+        const isDiNN = (trangThai === 'Đi NN' || trangThai === 'Đi công tác NN');
 
         // If "Di NN", we accumulate into both "Main" (if Main implies TOTAL) or just "DiNuocNgoai"?
         // The requirement says:
@@ -226,9 +222,9 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
         if (!store) return;
 
         const vals = {
-            BHXH: parseNumber(row[idxL1.BHXH]),
-            BHYT: parseNumber(row[idxL1.BHYT]),
-            BHTN: parseNumber(row[idxL1.BHTN])
+            BHXH: Math.round(parseNumber(row[idxL1.BHXH])),
+            BHYT: Math.round(parseNumber(row[idxL1.BHYT])),
+            BHTN: Math.round(parseNumber(row[idxL1.BHTN]))
         };
 
         // Add to Main
@@ -256,9 +252,9 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
         if (!store) return;
 
         const rawVals = {
-            BHXH: parseNumber(row[idxTT.BHXH]),
-            BHYT: parseNumber(row[idxTT.BHYT]),
-            BHTN: parseNumber(row[idxTT.BHTN])
+            BHXH: Math.round(parseNumber(row[idxTT.BHXH])),
+            BHYT: Math.round(parseNumber(row[idxTT.BHYT])),
+            BHTN: Math.round(parseNumber(row[idxTT.BHTN]))
         };
 
         ['BHXH', 'BHYT', 'BHTN'].forEach(field => {
@@ -296,44 +292,25 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
         const { BHXH, BHYT, BHTN } = employeePay;
 
         // Employee Pay Money (Thành tiền NLĐ trả)
-        const empTotal = BHXH + BHYT + BHTN;
+        const roundedBHXH = Math.round(BHXH);
+        const roundedBHYT = Math.round(BHYT);
+        const roundedBHTN = Math.round(BHTN);
+        const empTotal = roundedBHXH + roundedBHYT + roundedBHTN;
 
         // School Pay Money
         // Formula: (EmpAmount / EmpRate) * SchoolRate
-        const schoolBHXH = (BHXH / RATES.BHXH.EMP) * RATES.BHXH.SCHOOL;
-        const schoolBHYT = (BHYT / RATES.BHYT.EMP) * RATES.BHYT.SCHOOL;
-        const schoolBHTN = (BHTN / RATES.BHTN.EMP) * RATES.BHTN.SCHOOL;
+        const schoolBHXH = Math.round((roundedBHXH / RATES.BHXH.EMP) * RATES.BHXH.SCHOOL);
+        const schoolBHYT = Math.round((roundedBHYT / RATES.BHYT.EMP) * RATES.BHYT.SCHOOL);
+        const schoolBHTN = Math.round((roundedBHTN / RATES.BHTN.EMP) * RATES.BHTN.SCHOOL);
         const schoolTotal = schoolBHXH + schoolBHYT + schoolBHTN;
 
         const grandTotal = empTotal + schoolTotal;
 
         return {
-            emp: { BHXH, BHYT, BHTN, Total: empTotal },
+            emp: { BHXH: roundedBHXH, BHYT: roundedBHYT, BHTN: roundedBHTN, Total: empTotal },
             school: { BHXH: schoolBHXH, BHYT: schoolBHYT, BHTN: schoolBHTN, Total: schoolTotal },
             grandTotal: grandTotal
         };
-    }
-
-    function createResultRow(stt, content, vals) {
-        const calcs = calculateRow(vals);
-        return [
-            stt,
-            content,
-            '', // HSL
-            '', // Mức LTT
-            // NLĐ
-            calcs.emp.BHXH,
-            calcs.emp.BHYT,
-            calcs.emp.BHTN,
-            calcs.emp.Total,
-            // Nhà trường
-            calcs.school.BHXH,
-            calcs.school.BHYT,
-            calcs.school.BHTN,
-            calcs.school.Total,
-            // Tổng
-            calcs.grandTotal
-        ];
     }
 
     const ROMAN = { [AGG_KEYS.BIEN_CHE]: 'I', [AGG_KEYS.THUONG_XUYEN]: 'II', [AGG_KEYS.HD_68]: 'III', [AGG_KEYS.VU_VIEC]: 'IV' };
@@ -343,102 +320,205 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
     const sumObj = (o1, o2) => ({ BHXH: o1.BHXH + o2.BHXH, BHYT: o1.BHYT + o2.BHYT, BHTN: o1.BHTN + o2.BHTN });
     const subtractObj = (o1, o2) => ({ BHXH: o1.BHXH - o2.BHXH, BHYT: o1.BHYT - o2.BHYT, BHTN: o1.BHTN - o2.BHTN });
 
+    // --- FORMULA GENERATOR HELPERS ---
+    // Starting row in Google Sheets is 7 (since header occupies rows 5 and 6)
+    const START_ROW = 7;
+
+    function getNextRowNum() {
+        return START_ROW + result.length;
+    }
+
+    function createDetailedRowFormula(stt, content, vals) {
+        const r = getNextRowNum();
+        return [
+            stt,
+            content,
+            '', // HSL
+            '', // Mức LTT
+            // NLĐ
+            vals.BHXH,
+            vals.BHYT,
+            vals.BHTN,
+            `=SUM(E${r}:G${r})`, // H = SUM E:G
+            // Nhà trường
+            `=ROUND(E${r}*17,5/8; 0)`, // I
+            `=ROUND(F${r}*3/1,5; 0)`, // J
+            `=ROUND(G${r}*1/1; 0)`, // K
+            `=SUM(I${r}:K${r})`, // L = SUM I:K
+            // Tổng
+            `=H${r}+L${r}` // M = H + L
+        ];
+    }
+
+    function createGroupFormulaRow(stt, content) {
+        const r = getNextRowNum();
+        const r1 = r + 1; // Luong
+        const r3 = r + 3; // Truy Thu (r1 to r3 covers Luong, TruyLinh, TruyThu)
+        return [
+            stt,
+            content,
+            '',
+            '',
+            `=SUBTOTAL(9; E${r1}:E${r3})`, // E
+            `=SUBTOTAL(9; F${r1}:F${r3})`, // F
+            `=SUBTOTAL(9; G${r1}:G${r3})`, // G
+            `=SUM(E${r}:G${r})`, // H
+            `=SUBTOTAL(9; I${r1}:I${r3})`, // I
+            `=SUBTOTAL(9; J${r1}:J${r3})`, // J
+            `=SUBTOTAL(9; K${r1}:K${r3})`, // K
+            `=SUM(I${r}:K${r})`, // L
+            `=H${r}+L${r}` // M
+        ];
+    }
+
+    function createGrandTotalFormulaRow(stt, content, startR, endR) {
+        const r = getNextRowNum();
+        return [
+            stt,
+            content,
+            '',
+            '',
+            `=SUBTOTAL(9; E${startR}:E${endR})`, // E
+            `=SUBTOTAL(9; F${startR}:F${endR})`, // F
+            `=SUBTOTAL(9; G${startR}:G${endR})`, // G
+            `=SUM(E${r}:G${r})`, // H
+            `=SUBTOTAL(9; I${startR}:I${endR})`, // I
+            `=SUBTOTAL(9; J${startR}:J${endR})`, // J
+            `=SUBTOTAL(9; K${startR}:K${endR})`, // K
+            `=SUM(I${r}:K${r})`, // L
+            `=H${r}+L${r}` // M
+        ];
+    }
+
+    function createSubtotalRangeFormulaRow(stt, content, startR, endR) {
+        const r = getNextRowNum();
+        return [
+            stt,
+            content,
+            '',
+            '',
+            `=SUBTOTAL(9; E${startR}:E${endR})`, // E
+            `=SUBTOTAL(9; F${startR}:F${endR})`, // F
+            `=SUBTOTAL(9; G${startR}:G${endR})`, // G
+            `=SUM(E${r}:G${r})`, // H
+            `=SUBTOTAL(9; I${startR}:I${endR})`, // I
+            `=SUBTOTAL(9; J${startR}:J${endR})`, // J
+            `=SUBTOTAL(9; K${startR}:K${endR})`, // K
+            `=SUM(I${r}:K${r})`, // L
+            `=H${r}+L${r}` // M
+        ];
+    }
+
+    function createHWFormulaRow(stt, content, r1, r2) {
+        const r = getNextRowNum();
+        return [
+            stt,
+            content,
+            '',
+            '',
+            `=E${r1}-E${r2}`, // E = E23 - E26 (No SUM function, just subtraction)
+            `=F${r1}-F${r2}`, // F
+            `=G${r1}-G${r2}`, // G
+            `=SUM(E${r}:G${r})`, // H
+            `=I${r1}-I${r2}`, // I
+            `=J${r1}-J${r2}`, // J
+            `=K${r1}-K${r2}`, // K
+            `=SUM(I${r}:K${r})`, // L
+            `=H${r}+L${r}` // M
+        ];
+    }
+
+    function createCongCuoiFormulaRow(stt, content, r1, r2) {
+        const r = getNextRowNum();
+        return [
+            stt,
+            content,
+            '',
+            '',
+            `=E${r1}+E${r2}`, // E = E26 + E29 (No SUM function, just addition)
+            `=F${r1}+F${r2}`, // F
+            `=G${r1}+G${r2}`, // G
+            `=SUM(E${r}:G${r})`, // H
+            `=I${r1}+I${r2}`, // I
+            `=J${r1}+J${r2}`, // J
+            `=K${r1}+K${r2}`, // K
+            `=SUM(I${r}:K${r})`, // L
+            `=H${r}+L${r}` // M
+        ];
+    }
+
     // A. GENERIC SECTIONS
-    let groupTotalAll = createStorage(); // To sum everything for HW03889 calculation if needed
+    const groupRows = [];
 
     ORDER.forEach(key => {
         const roman = ROMAN[key];
         const store = mainAgg[key];
 
-        // Summary Row for the Group (I, II, III, IV headers)
-        // The image shows "I | Diện biên chế | = 1+2-3".
-        // meaning the Group Header Row is the Net Sum? 
-        // "1 + 2 - 3" -> "Tổng hợp lương" + "Tổng hợp truy lĩnh" - "Tổng hợp truy thu".
-        // Wait, "Truy lĩnh" is money RECEIVED (Back pay), "Truy thu" is DEDUCTED (Clawback).
-        // Usually Insurance follows Salary.
-        // If Salary increases (Truy Linh), Insurance increases.
-        // If Salary decreases (Truy Thu), Insurance decreases?
-        // Let's look at prompt:
-        // "Tổng hợp truy lĩnh... giá trị < 0 (lấy trị tuyệt đối)..." (This is Back Pay, usually adds to total liabilities)
-        // "Tổng hợp truy thu... giá trị > 0 (lấy trị tuyệt đối)..." (This is Clawback, usually subtracts)
+        // 1. Group Header Row (e.g. Row 7, 11, 15, 19)
+        groupRows.push(getNextRowNum());
+        result.push(createGroupFormulaRow(roman, key));
 
-        // Formula in image: "= 1 + 2 - 3"
-        // 1: Luong
-        // 2: Truy Linh
-        // 3: Truy Thu
-        // So Net = Luong + TruyLinh - TruyThu. 
-        // This makes sense: 
-        // Salary = Base positive.
-        // BackPay = Add positive.
-        // Clawback = Subtract positive.
-
-        const netBHXH = store.Luong.BHXH + store.TruyThu.BHXH - store.TruyLinh.BHXH;
-        const netBHYT = store.Luong.BHYT + store.TruyThu.BHYT - store.TruyLinh.BHYT;
-        const netBHTN = store.Luong.BHTN + store.TruyThu.BHTN - store.TruyLinh.BHTN;
-
-        const netVals = { BHXH: netBHXH, BHYT: netBHYT, BHTN: netBHTN };
-
-        // Add Group Header Row
-        result.push(createResultRow(roman, key, netVals));
-
-        // Add Sub Rows
-        result.push(createResultRow('1', 'Tổng hợp lương', store.Luong));
-        result.push(createResultRow('2', 'Tổng hợp truy lĩnh', store.TruyLinh));
-        result.push(createResultRow('3', 'Tổng hợp truy thu', store.TruyThu));
+        // 2. Sub Rows
+        result.push(createDetailedRowFormula('1', 'Tổng hợp lương', store.Luong));
+        result.push(createDetailedRowFormula('2', 'Tổng hợp truy lĩnh', store.TruyLinh));
+        result.push(createDetailedRowFormula('3', 'Tổng hợp truy thu', store.TruyThu));
     });
 
-    // Calculate Grand Total for Main Table (Total All Groups)
-    let totalAllNet = { BHXH: 0, BHYT: 0, BHTN: 0 };
-    ORDER.forEach(key => {
-        const store = mainAgg[key];
-        totalAllNet.BHXH += (store.Luong.BHXH + store.TruyThu.BHXH - store.TruyLinh.BHXH);
-        totalAllNet.BHYT += (store.Luong.BHYT + store.TruyThu.BHYT - store.TruyLinh.BHYT);
-        totalAllNet.BHTN += (store.Luong.BHTN + store.TruyThu.BHTN - store.TruyLinh.BHTN);
-    });
-
-    // Add Main Table Total Row
-    result.push(createResultRow('', 'Cộng', totalAllNet));
+    // 3. Grand Total Row (Row 23)
+    const firstGrandTotalRow = getNextRowNum();
+    result.push(createGrandTotalFormulaRow('', 'Cộng', 7, 22)); // E7:E22 covers all groups
 
     // B. SPECIFIC BREAKDOWNS (Trong đó tách 2 mã...)
-    // I. Mã LA... (Đi NN) / Mã LA0001A
-    const isPhuTho = (targetLocation && normalizeLocation(targetLocation) === 'Phú Thọ');
-    const maLA = isPhuTho ? 'Mã LA0001A (đi nước ngoài)' : 'Mã LA... (đi nước ngoài)';
-    const maHW = isPhuTho ? 'Mã HW0004A' : 'Mã HW03889';
+    // I. Mã LA... (Đi NN) / Mã LA0001A / Mã LA0001N
+    const locNormalized = targetLocation ? normalizeLocation(targetLocation) : '';
+    const isPhuTho = (locNormalized === 'Phú Thọ');
+    const isHanoi = (locNormalized === 'Hà Nội');
 
-    result.push(['', '', '', '', '', '', '', '', '', '', '', '', '']); // Spacer
-    result.push(['', 'Trong đó tách 2 mã như sau:', '', '', '', '', '', '', '', '', '', '', '']);
+    let maLA = 'Mã LA... (đi nước ngoài)';
+    let maHW = 'Mã HW03889';
+    if (isPhuTho) {
+        maLA = 'Mã LA0001A (đi nước ngoài)';
+        maHW = 'Mã HW0004A';
+    } else if (isHanoi) {
+        maLA = 'Mã LA0001N (đi nước ngoài)';
+        maHW = 'Mã HW0013N';
+    }
+
+    result.push(['', '', '', '', '', '', '', '', '', '', '', '', '']); // Spacer (Row 24)
+    result.push(['', 'Trong đó tách 2 mã như sau:', '', '', '', '', '', '', '', '', '', '', '']); // (Row 25)
 
     const laBienChe = diNuocNgoaiAgg[AGG_KEYS.BIEN_CHE];
     const laThuongXuyen = diNuocNgoaiAgg[AGG_KEYS.THUONG_XUYEN];
 
-    // Calculate Net for LA Bien Che
+    // LA Group Row (Row 26)
+    const laGroupRow = getNextRowNum();
+    const childLaStartRow = laGroupRow + 1;
+    const childLaEndRow = laGroupRow + 2;
+    result.push(createSubtotalRangeFormulaRow('I', maLA, childLaStartRow, childLaEndRow));
+
+    // LA Detailed Rows (Row 27 & 28)
     const netLaBC = {
         BHXH: laBienChe.Luong.BHXH + laBienChe.TruyThu.BHXH - laBienChe.TruyLinh.BHXH,
         BHYT: laBienChe.Luong.BHYT + laBienChe.TruyThu.BHYT - laBienChe.TruyLinh.BHYT,
         BHTN: laBienChe.Luong.BHTN + laBienChe.TruyThu.BHTN - laBienChe.TruyLinh.BHTN
     };
-
-    // Calculate Net for LA Thuong Xuyen
     const netLaTX = {
         BHXH: laThuongXuyen.Luong.BHXH + laThuongXuyen.TruyThu.BHXH - laThuongXuyen.TruyLinh.BHXH,
-        BHYT: laThuongXuyen.Luong.BHYT + laThuongXuyen.TruyThu.BHYT - laThuongXuyen.TruyLinh.BHYT,
+        BHYT: laThuongXuyen.Luong.BHYT + laThuongXuyen.TruyThu.BHYT - laThuongXuyen.TruyLinh.BHTN,
         BHTN: laThuongXuyen.Luong.BHTN + laThuongXuyen.TruyThu.BHTN - laThuongXuyen.TruyLinh.BHTN
     };
 
-    const netLaTotal = sumObj(netLaBC, netLaTX);
+    result.push(createDetailedRowFormula('1', 'Diện biên chế', netLaBC));
+    result.push(createDetailedRowFormula('2', 'Diện HĐLĐ thường xuyên', netLaTX));
 
-    result.push(createResultRow('I', maLA, netLaTotal));
-    result.push(createResultRow('1', 'Diện biên chế', netLaBC));
-    result.push(createResultRow('2', 'Diện HĐLĐ thường xuyên', netLaTX));
+    // II. Mã HW... (Row 29)
+    // Formula: `= E23 - E26`
+    const hwRow = getNextRowNum();
+    result.push(createHWFormulaRow('II', maHW, firstGrandTotalRow, laGroupRow));
 
-    // II. Mã HW03889 / HW0004A
-    const hwNet = subtractObj(totalAllNet, netLaTotal);
-
-    result.push(createResultRow('II', maHW, hwNet));
-
-    // New Total for this section: I + II = Total All
-    // Since I = netLaTotal and II = TotalAll - netLaTotal, Sum = TotalAll
-    result.push(createResultRow('', 'Cộng', totalAllNet));
+    // III. Cộng (Row 30)
+    // Formula: `= E26 + E29`
+    result.push(createCongCuoiFormulaRow('', 'Cộng', laGroupRow, hwRow));
 
     return result;
 }
