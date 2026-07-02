@@ -67,10 +67,10 @@ function parseNumber(val) {
  */
 function normalizeLocation(kv) {
   if (!kv) return '';
-  const v = String(kv).trim().toLowerCase();
+  const v = String(kv).normalize('NFC').trim().toLowerCase();
   if (v.includes('hà nội') || v === 'hn') return 'Hà Nội';
   if (v.includes('phú thọ') || v === 'pt' || v.includes('vĩnh phúc') || v === 'vp') return 'Phú Thọ';
-  return String(kv).trim();
+  return String(kv).normalize('NFC').trim();
 }
 
 // =================================================================================================

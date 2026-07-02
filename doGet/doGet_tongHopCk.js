@@ -416,7 +416,7 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
   const data6 = values6.slice(1);
 
   const idx6 = {
-    MaCB: 0,           // Cột A: ID
+    MaCB: 0,           // Bắt buộc là cột A (index 0) vì header luôn thay đổi
     SoTaiKhoan: getIdx(header6, 'Số tài khoản'),
     KhuVuc: getIdx(header6, 'Khu vực')
   };
@@ -482,7 +482,7 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
   const nsuMap = {}; // {maCB: {soTK, tenNH}}
   const khuVucMap = {};
   data6.forEach(row => {
-    const maCB = String(row[idx6.MaCB] || '').trim();
+    const maCB = String(row[idx6.MaCB] || '').trim().toUpperCase();
     if (!maCB) return;
 
     // Tách số tài khoản và tên ngân hàng (phần trước và sau dấu -)
@@ -505,7 +505,7 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
     const kyLuong = String(row[idx1.KyLuong] || '').trim();
     if (kyLuong !== monthStr) return;
 
-    const maCB = String(row[idx1.MaCB] || '').trim();
+    const maCB = String(row[idx1.MaCB] || '').trim().toUpperCase();
     if (!maCB) return;
 
     const hoTen = String(row[idx1.HoTen] || '').trim();
@@ -522,7 +522,7 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
     const kyLuong = String(row[idx2.KyLuong] || '').trim();
     if (kyLuong !== monthStr) return;
 
-    const maCB = String(row[idx2.MaNS] || '').trim();
+    const maCB = String(row[idx2.MaNS] || '').trim().toUpperCase();
     if (!maCB) return;
 
     const hoTen = String(row[idx2.HoTen] || '').trim();
@@ -539,7 +539,7 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
     const kyTraLuong = String(row[idx3.KyTraLuong] || '').trim();
     if (kyTraLuong !== monthStr) return;
 
-    const maCB = String(row[idx3.MaNS] || '').trim();
+    const maCB = String(row[idx3.MaNS] || '').trim().toUpperCase();
     if (!maCB) return;
 
     const hoTen = String(row[idx3.HoTen] || '').trim();
@@ -560,7 +560,7 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
     const kyTraLuong = String(row[idx4.KyTraLuong] || '').trim();
     if (kyTraLuong !== monthStr) return;
 
-    const maCB = String(row[idx4.MaNS] || '').trim();
+    const maCB = String(row[idx4.MaNS] || '').trim().toUpperCase();
     if (!maCB) return;
 
     const hoTen = String(row[idx4.HoTen] || '').trim();
@@ -581,7 +581,7 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
     const kyLuong = String(row[idx5.KyLuong] || '').trim();
     if (kyLuong !== monthStr) return;
 
-    const maCB = String(row[idx5.MaCB] || '').trim();
+    const maCB = String(row[idx5.MaCB] || '').trim().toUpperCase();
     if (!maCB) return;
 
     const hoTen = String(row[idx5.HoTen] || '').trim();
@@ -602,8 +602,11 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
 
   Logger.log('Đã load %s số tài khoản và %s thông tin khu vực từ DataNhanSu', Object.keys(nsuMap).length, Object.keys(khuVucMap).length);
 
-  // ====== LẤY MÃ ĐƠN VỊ TỪ DATACHOTNSTHANG ======
+  // ====== LẤY MÃ ĐƠN VỊ VÀ KHU VỰC TỪ DATACHOTNSTHANG ======
   const maDonViMap = {};
+  let idxKV = getIdx(header7, ['Khu vực', 'Khu Vực']);
+  if (idxKV === -1) idxKV = 38; // Fallback to column AM (index 38)
+  
   data7.forEach(row => {
     const kyLuong = String(row[idx7.KyLuong] || '').trim();
 
@@ -614,11 +617,12 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
 
     if (kyLuong !== monthStr) return;
 
-    const maNS = String(row[idx7.MaNS] || '').trim();
+    const maNS = String(row[idx7.MaNS] || '').trim().toUpperCase();
     const maDonVi = String(row[idx7.MaDonVi] || '').trim();
     const hoTen = String(row[idx7.HoTen] || '').trim();
     const loaiHD = String(row[idx7.LoaiHD] || '').trim();
     const trangThai = idx7.TrangThai !== -1 ? String(row[idx7.TrangThai] || '').trim() : '';
+    const kv = normalizeLocation(row[idxKV]);
 
     if (maNS) {
       maDonViMap[maNS] = {
@@ -627,6 +631,10 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
         loaiHD: loaiHD,
         trangThai: trangThai
       };
+
+      if (kv) {
+        khuVucMap[maNS] = kv;
+      }
 
       // Đảm bảo nhân viên này có trong map chính (vì DataChotNSThang là danh sách chốt)
       const emp = ensureEmployee(maNS, hoTen);
@@ -651,7 +659,7 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
         const kyLuong = String(row[1] || '').trim();
         if (kyLuong !== prevMonthStr) return;
 
-        const maCB = String(row[4] || '').trim();
+        const maCB = String(row[4] || '').trim().toUpperCase();
         if (!maCB) return;
 
         const thueTNCN = Number(row[32]) || 0;
@@ -697,9 +705,10 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
     const emp = employeeMap[maCB];
     if (!emp) return; // Nhân viên không có dữ liệu lương
 
-    // --- LỌC NHÂN SỰ CÓ TRẠNG THÁI NẾU LÀ PHÚ THỌ (FR-02) ---
-    if (locationNormalized === 'Phú Thọ' && emp.trangThai && emp.trangThai !== 'Đang làm') {
-      Logger.log('Lọc bỏ nhân sự Phú Thọ có trạng thái: %s - %s - Trạng thái: %s', emp.maCB, emp.hoTen, emp.trangThai);
+    // --- LỌC NHÂN SỰ CÓ TRẠNG THÁI "Đi công tác NN" HOẶC "Đi NN" RA KHỎI BẢNG CHUYỂN KHOẢN ---
+    const statusNorm = String(emp.trangThai || '').normalize('NFC').trim().toLowerCase();
+    if (statusNorm === 'đi công tác nn' || statusNorm === 'đi nn') {
+      Logger.log('Lọc bỏ nhân sự đi nước ngoài: %s - %s - Trạng thái: %s', emp.maCB, emp.hoTen, emp.trangThai);
       return; // Bỏ qua nhân sự này
     }
 
@@ -840,25 +849,25 @@ function numberToVietnameseWords(num) {
   var thousand = Math.floor((num % 1000000) / 1000);
   var remainder = num % 1000;
 
-  var result = '';
+  var parts = [];
 
   if (billion > 0) {
-    result += convertLessThanOneThousand(billion) + ' tỷ ';
+    parts.push(convertLessThanOneThousand(billion) + ' tỷ');
   }
 
   if (million > 0) {
-    result += convertLessThanOneThousand(million) + ' triệu ';
+    parts.push(convertLessThanOneThousand(million) + ' triệu');
   }
 
   if (thousand > 0) {
-    result += convertLessThanOneThousand(thousand) + ' nghìn ';
+    parts.push(convertLessThanOneThousand(thousand) + ' nghìn');
   }
 
   if (remainder > 0) {
-    result += convertLessThanOneThousand(remainder);
+    parts.push(convertLessThanOneThousand(remainder));
   }
 
-  result = result.trim();
+  var result = parts.join(', ').trim();
 
   // Viết hoa chữ cái đầu
   if (result) {
