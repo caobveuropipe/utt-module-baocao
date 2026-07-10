@@ -28,9 +28,9 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
         sheet.getRange("A:T").clearFormat();
 
         // 1. Title
-        sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CNGTVT").setFontWeight("bold");
+        sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight("bold").setFontSize(12);
         sheet.getRange("A2").setValue("BẢNG KÊ HẠCH TOÁN LƯƠNG VÀ TRUY LĨNH LƯƠNG THÁNG " + monthStr)
-            .setFontSize(14).setFontWeight("bold").setHorizontalAlignment("center");
+            .setFontSize(12).setFontWeight("bold").setHorizontalAlignment("center");
         sheet.getRange("A2:T2").merge();
 
         // 2. Header Structure
@@ -45,23 +45,23 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
             "BHXH", "BHYT", "BHTN", "KPCĐ", "Quỹ TN", "hưởng 40% đi NN", "Tạm ứng", "treo lương", "Thuế TNCN", ""
         ];
 
-        sheet.getRange(3, 1, 1, header1.length).setValues([header1]);
-        sheet.getRange(4, 1, 1, header2.length).setValues([header2]);
+        sheet.getRange(4, 1, 1, header1.length).setValues([header1]);
+        sheet.getRange(5, 1, 1, header2.length).setValues([header2]);
 
-        const merges = ["A3:A4", "B3:B4", "C3:E3", "F3:F4", "G3:J3", "K3:S3", "T3:T4"];
+        const merges = ["A4:A5", "B4:B5", "C4:E4", "F4:F5", "G4:J4", "K4:S4", "T4:T5"];
         merges.forEach(m => sheet.getRange(m).merge().setVerticalAlignment("middle").setHorizontalAlignment("center"));
 
-        const headRange = sheet.getRange(3, 1, 2, header1.length);
-        headRange.setFontWeight("bold").setBackground("#F3F4F6").setBorder(true, true, true, true, true, true).setHorizontalAlignment("center").setVerticalAlignment("middle");
+        const headRange = sheet.getRange(4, 1, 2, header1.length);
+        headRange.setFontWeight("bold").setBackground("#F3F4F6").setBorder(true, true, true, true, true, true).setHorizontalAlignment("center").setVerticalAlignment("middle").setFontSize(11);
         headRange.setWrap(true);
 
         // 3. Write Data
         if (result && result.length > 0) {
-            sheet.getRange(5, 1, result.length, result[0].length).setValues(result);
-            sheet.getRange(5, 2, result.length, result[0].length - 1).setNumberFormat("#,##0");
+            sheet.getRange(6, 1, result.length, result[0].length).setValues(result);
+            sheet.getRange(6, 2, result.length, result[0].length - 1).setNumberFormat("#,##0");
 
             result.forEach((row, idx) => {
-                const rowIndex = idx + 5;
+                const rowIndex = idx + 6;
                 const content = String(row[0]);
                 if (content.match(/^[I-V]\./) || content.match(/^[A-D]\./) || (content.match(/^[0-9]\./) && content.length < 30) || content.includes("Tổng cộng") || content.includes("TỔNG CỘNG") || content.startsWith("A.") || content.startsWith("B.") || content.startsWith("C.") || content.startsWith("D.")) {
                     sheet.getRange(rowIndex, 1, 1, result[0].length).setFontWeight("bold");
@@ -105,6 +105,16 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
                     sheet.getRange(targetRow + (m.getRow() - 1), m.getColumn(), m.getNumRows(), m.getNumColumns()).merge();
                 });
             }
+            // Clean signature labels from target range
+            const targetValues = targetRange.getValues();
+            for (let r = 0; r < targetValues.length; r++) {
+                for (let c = 0; c < targetValues[r].length; c++) {
+                    const val = String(targetValues[r][c] || '');
+                    if (val.toLowerCase().includes('ký') && (val.includes('(') || val.includes('ghi rõ họ tên') || val.includes('ký tên'))) {
+                        targetRange.getCell(r + 1, c + 1).setValue('');
+                    }
+                }
+            }
         }
 
         // --- STYLING CHUẨN ---
@@ -113,28 +123,39 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
         const fullRange = sheet.getRange(1, 1, lastR, lastC);
 
         // 1. Ẩn gridlines, Reset border & Set Font
-        fullRange.setBackground('#FFFFFF').setBorder(false, false, false, false, false, false).setFontFamily('Times New Roman');
+        fullRange.setBackground('#FFFFFF').setBorder(false, false, false, false, false, false).setFontFamily('Arial').setFontSize(10.5);
+
+        // Cấu hình lại font size cho dòng tiêu đề và header để không bị ghi đè bởi fullRange
+        sheet.getRange("A1").setFontSize(12);
+        sheet.getRange("A2").setFontSize(12);
+        sheet.getRange(4, 1, 2, 20).setFontSize(11);
 
         // ====== BƯỚC CUỐI: TẠO ĐƯỜNG KẺ BẢNG ======
-        const finalTableRange = sheet.getRange(3, 1, result.length + 2, 20); // Header dòng 3-4 + Data
+        const finalTableRange = sheet.getRange(4, 1, result.length + 2, 20); // Header dòng 4-5 + Data
         // 1. Viền ngoài và kẻ dọc: Nét liền (SOLID)
         finalTableRange.setBorder(true, true, true, true, true, null, 'black', SpreadsheetApp.BorderStyle.SOLID);
         // 2. Kẻ ngang nội dung: Nét đứt (DOTTED)
         finalTableRange.setBorder(null, null, null, null, null, true, 'black', SpreadsheetApp.BorderStyle.DOTTED);
         // 3. Header: Nét liền toàn bộ
-        sheet.getRange(3, 1, 2, 20).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+        sheet.getRange(4, 1, 2, 20).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
         // 4. Các dòng đặc biệt (Bold): Nét liền
         result.forEach((row, idx) => {
-            const rowIndex = idx + 5;
+            const rowIndex = idx + 6;
             const content = String(row[0]);
             if (content.match(/^[I-V]\./) || content.match(/^[A-D]\./) || (content.match(/^[0-9]\./) && content.length < 30) || content.includes("Tổng cộng") || content.includes("TỔNG CỘNG") || content.startsWith("A.") || content.startsWith("B.") || content.startsWith("C.") || content.startsWith("D.")) {
                 sheet.getRange(rowIndex, 1, 1, 20).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
             }
         });
 
+        // Giảm 15% độ rộng cột Nội dung (Cột A - 1) để nhường diện tích cho các cột khác
+        const colAWidth = sheet.getColumnWidth(1);
+        if (colAWidth > 0) {
+            sheet.setColumnWidth(1, Math.round(colAWidth * 0.80));
+        }
+
         return {
             status: 'success',
-            downloadUrl: `https://docs.google.com/spreadsheets/d/${EXPORT_FILE_ID}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER`
+            downloadUrl: `https://docs.google.com/spreadsheets/d/${EXPORT_FILE_ID}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER&left_margin=0.5&right_margin=0.25&top_margin=0.5&bottom_margin=0.25`
         };
 
     } catch (e) {

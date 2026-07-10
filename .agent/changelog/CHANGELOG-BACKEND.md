@@ -6,6 +6,18 @@
 
 ---
 
+## [2026-07-10]
+
+### style(hach-toan): tối ưu lề trang in, đổi font Arial và căn chỉnh cỡ chữ báo cáo hạch toán
+- **Cấu hình lề in:** Đặt lề trái `0.5` inch (chừa chỗ đóng quyển), các lề khác `0.25` inch (lề trên Lương & Truy lĩnh và Phân bổ lương là `0.5` inch) cho cả 4 báo cáo hạch toán.
+- **Font & Cỡ chữ hạch toán:** 
+  - Đồng bộ font chữ sang **Arial** để hiển thị sắc nét hơn trên PDF.
+  - Cỡ chữ dữ liệu chính đặt về `10.5` (Bảo hiểm & KPCĐ đặt là `10`).
+  - Dòng đầu cột (header) đặt là `11` (riêng dòng 9 của Phân bổ lương là `10`).
+  - Dòng tiêu đề chính đặt là `12` (chặn đè font size từ fullRange).
+- **Lặp lại header:** Thêm `sheet.setFrozenRows(6)` và `&fzr=true` cho Hạch toán bảo hiểm để tự động lặp lại dòng tiêu đề/header từ trang 2.
+- **Độ rộng cột:** Giảm 20% độ rộng cột Nội dung trong báo cáo Lương & Truy lĩnh để tối ưu không gian cho các cột số liệu.
+
 ## [2026-06-30]
 
 ### feat(insurance): làm tròn số tiền bảo hiểm và điền công thức Excel động

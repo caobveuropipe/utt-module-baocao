@@ -58,11 +58,11 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation) {
     dataChotRaw.slice(1).forEach(row => {
         const ky = String(row[idxChot.KyLuong]).trim();
         if (ky !== monthStr) return;
-        
+
         // Lọc theo khu vực nếu có yêu cầu
         const kv = normalizeLocation(row[38]); // Cột AM
         if (locationNormalized && kv !== locationNormalized) return;
-        
+
         const ma = String(row[idxChot.MaNS]).trim();
         if (!ma) return;
 
@@ -301,9 +301,9 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location) {
     const month = parseInt(monthParts[0], 10);
     const year = monthParts[1];
 
-    sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold');
+    sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12);
     const titleText = `BẢNG TỔNG HỢP HẠCH TOÁN BẢO HIỂM THÁNG ${month} NĂM ${year}`;
-    sheet.getRange("A3:K3").merge().setHorizontalAlignment('center').setValue(titleText).setFontWeight('bold').setFontSize(16);
+    sheet.getRange("A3:K3").merge().setHorizontalAlignment('center').setValue(titleText).setFontWeight('bold').setFontSize(12);
 
     sheet.getRange("A5:A6").merge();
     sheet.getRange("B5:B6").merge();
@@ -312,7 +312,7 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location) {
     sheet.getRange("K5:K6").merge();
 
     const headerRange = sheet.getRange("A5:K6");
-    headerRange.setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle');
+    headerRange.setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(11);
 
     // --- STYLING CHUẨN ---
     const lastR = sheet.getLastRow();
@@ -320,7 +320,12 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location) {
     const fullRange = sheet.getRange(1, 1, lastR, lastC);
 
     // 1. Ẩn gridlines, Reset border & Set Font
-    fullRange.setBackground('#FFFFFF').setBorder(false, false, false, false, false, false).setFontFamily('Times New Roman');
+    fullRange.setBackground('#FFFFFF').setBorder(false, false, false, false, false, false).setFontFamily('Arial').setFontSize(10);
+
+    // Cấu hình lại font size cho dòng tiêu đề và header để không bị ghi đè bởi fullRange
+    sheet.getRange("A1").setFontSize(12);
+    sheet.getRange("A3").setFontSize(12);
+    sheet.getRange("A5:K6").setFontSize(11);
 
     // 2. Alignment for STT column (center)
     sheet.getRange(5, 1, rows, 1).setHorizontalAlignment('center');
@@ -364,6 +369,16 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location) {
                 sheet.getRange(targetRow + (m.getRow() - 1), m.getColumn(), m.getNumRows(), m.getNumColumns()).merge();
             });
         }
+        // Clean signature labels from target range
+        const targetValues = targetRange.getValues();
+        for (let r = 0; r < targetValues.length; r++) {
+            for (let c = 0; c < targetValues[r].length; c++) {
+                const val = String(targetValues[r][c] || '');
+                if (val.toLowerCase().includes('ký') && (val.includes('(') || val.includes('ghi rõ họ tên') || val.includes('ký tên'))) {
+                    targetRange.getCell(r + 1, c + 1).setValue('');
+                }
+            }
+        }
     }
 
     // sheet.autoResizeColumns(1, cols); // Bỏ auto resize theo yêu cầu
@@ -376,5 +391,9 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location) {
     finalTableRange.setBorder(null, null, null, null, null, true, 'black', SpreadsheetApp.BorderStyle.DOTTED);
     // 3. Header: Nét liền toàn bộ
     sheet.getRange(5, 1, 2, cols).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
-    return `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER`;
+
+    // Đóng băng 6 dòng đầu để lặp lại header ở các trang in tiếp theo
+    sheet.setFrozenRows(6);
+
+    return `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER&left_margin=0.5&right_margin=0.25&top_margin=0.5&bottom_margin=0.25&fzr=true`;
 }

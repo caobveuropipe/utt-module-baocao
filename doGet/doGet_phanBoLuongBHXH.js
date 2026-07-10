@@ -94,7 +94,7 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
 
     dataLuong1Raw.slice(1).forEach((row, index) => {
         if (String(row[idxL1.KyLuong]).trim() !== monthStr) return;
-        
+
         if (locationNormalized) {
             const rowLocation = normalizeLocation(row[31]); // Cột AF: Khu vực
             if (rowLocation !== locationNormalized) return;
@@ -241,7 +241,7 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
         dataRange.setValues(result);
 
         // 1. Font & Body Size
-        dataRange.setFontFamily('Times New Roman').setFontSize(11);
+        dataRange.setFontFamily('Arial').setFontSize(10.5);
 
         // 2. Number Format
         // Columns 3-8: Hệ số (4 decimal)
@@ -271,8 +271,9 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     const monthParts = monthStr.substring(1).split('.');
     const month = parseInt(monthParts[0]);
     const year = monthParts[1];
+    sheet.getRange("A1:T3").setFontSize(12); // Đảm bảo các tiêu đề trên (nếu có) là size 12
     sheet.getRange("A4:T4").merge().setValue(`THÁNG ${month < 10 ? '0' + month : month} NĂM ${year}`)
-        .setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center');
+        .setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
 
     // ====== BƯỚC CUỐI: TẠO ĐƯỜNG KẺ BẢNG ======
     const totalTableRows = result.length + 2; // Header 8-9 + Data
@@ -282,7 +283,9 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     // 2. Kẻ ngang nội dung: Nét đứt (DOTTED)
     finalTableRange.setBorder(null, null, null, null, null, true, 'black', SpreadsheetApp.BorderStyle.DOTTED);
     // 3. Header (Dòng 8-9): Nét liền toàn bộ
-    sheet.getRange(8, 1, 2, 20).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(8, 1, 2, 20).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID)
+        .setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sheet.getRange(9, 1, 1, 20).setFontSize(10);
     // 4. Các dòng đặc biệt (Bold): Nét liền cho chân dòng
     for (let i = 0; i < result.length; i++) {
         const rowIdx = 10 + i;
@@ -294,5 +297,5 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     }
 
     Logger.log(`Finished writing ${result.length} rows to sheet`);
-    return `https://docs.google.com/spreadsheets/d/${EXPORT_FILE_ID}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER`;
+    return `https://docs.google.com/spreadsheets/d/${EXPORT_FILE_ID}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER&left_margin=0.5&right_margin=0.25&top_margin=0.5&bottom_margin=0.25`;
 }

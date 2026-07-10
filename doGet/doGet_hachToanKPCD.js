@@ -52,11 +52,11 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
     dataChotRaw.slice(1).forEach(row => {
         const ky = String(row[idxChot.KyLuong]).trim();
         if (ky !== monthStr) return;
-        
+
         // Lọc theo khu vực nếu có yêu cầu
         const kv = normalizeLocation(row[38]); // Cột AM
         if (locationNormalized && kv !== locationNormalized) return;
-        
+
         const ma = String(row[idxChot.MaNS]).trim();
         if (!ma) return;
 
@@ -236,9 +236,9 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
     const month = parseInt(monthParts[0], 10);
     const year = monthParts[1];
 
-    sheet.getRange("A1").merge().setValue(`TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT`).setFontWeight('bold').setFontSize(11).setHorizontalAlignment('left');
-    sheet.getRange("A3:D3").merge().setValue(`BẢNG TỔNG HỢP TIỀN KPCĐ`).setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center');
-    sheet.getRange("A4:D4").merge().setValue(`THÁNG ${month < 10 ? '0' + month : month} NAM ${year}`).setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center');
+    sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12);
+    sheet.getRange("A3:D3").merge().setValue(`BẢNG TỔNG HỢP TIỀN KPCĐ`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
+    sheet.getRange("A4:D4").merge().setValue(`THÁNG ${month < 10 ? '0' + month : month} NĂM ${year}`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
 
     // 5. Write Header & Data (Start row 6)
     sheet.getRange(6, 1, rows, cols).setValues(fullData);
@@ -249,10 +249,15 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
     const fullRange = sheet.getRange(1, 1, lastR, lastC);
 
     // 1. Ẩn gridlines, Reset border & Set Font
-    fullRange.setBackground('#FFFFFF').setBorder(false, false, false, false, false, false).setFontFamily('Times New Roman');
+    fullRange.setBackground('#FFFFFF').setBorder(false, false, false, false, false, false).setFontFamily('Arial').setFontSize(10.5);
+
+    // Cấu hình lại font size cho dòng tiêu đề và header để không bị ghi đè bởi fullRange
+    sheet.getRange("A1").setFontSize(12);
+    sheet.getRange("A3:D4").setFontSize(12);
+    sheet.getRange(6, 1, 1, 4).setFontSize(11);
 
     // Header Style
-    sheet.getRange(6, 1, 1, 4).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sheet.getRange(6, 1, 1, 4).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(11);
 
     // Body Style
     const dataRange = sheet.getRange(7, 1, data.length, 4);
@@ -299,6 +304,16 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
                 sheet.getRange(targetRow + (m.getRow() - 1), m.getColumn(), m.getNumRows(), m.getNumColumns()).merge();
             });
         }
+        // Clean signature labels from target range
+        const targetValues = targetRange.getValues();
+        for (let r = 0; r < targetValues.length; r++) {
+            for (let c = 0; c < targetValues[r].length; c++) {
+                const val = String(targetValues[r][c] || '');
+                if (val.toLowerCase().includes('ký') && (val.includes('(') || val.includes('ghi rõ họ tên') || val.includes('ký tên'))) {
+                    targetRange.getCell(r + 1, c + 1).setValue('');
+                }
+            }
+        }
     }
 
     // ====== BƯỚC CUỐI: TẠO ĐƯỜNG KẺ BẢNG ======
@@ -311,7 +326,7 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
     sheet.getRange(6, 1, 1, cols).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
 
     // Thiết lập font chữ cho toàn bộ bảng (bao gồm cả chữ ký mới copy)
-    sheet.getRange(1, 1, sheet.getLastRow(), sheet.getMaxColumns()).setFontFamily('Times New Roman');
+    sheet.getRange(1, 1, sheet.getLastRow(), sheet.getMaxColumns()).setFontFamily('Arial');
 
-    return `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=pdf&size=A4&portrait=true&fitw=true&gridlines=false&horizontal_alignment=CENTER`;
+    return `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=pdf&size=A4&portrait=true&fitw=true&gridlines=false&horizontal_alignment=CENTER&left_margin=0.5&right_margin=0.25&top_margin=0.5&bottom_margin=0.25`;
 }
