@@ -28,10 +28,11 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
         sheet.getRange("A:T").clearFormat();
 
         // 1. Title
-        sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight("bold").setFontSize(12);
-        sheet.getRange("A2").setValue("BẢNG KÊ HẠCH TOÁN LƯƠNG VÀ TRUY LĨNH LƯƠNG THÁNG " + monthStr)
+        sheet.getRange("A1:C1").merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight("bold").setFontSize(12).setHorizontalAlignment("center");
+        sheet.getRange("A2:C2").merge().setValue("──────────").setFontWeight("normal").setFontSize(10).setHorizontalAlignment("center");
+        sheet.getRange("A3").setValue("BẢNG KÊ HẠCH TOÁN LƯƠNG VÀ TRUY LĨNH LƯƠNG THÁNG " + monthStr)
             .setFontSize(12).setFontWeight("bold").setHorizontalAlignment("center");
-        sheet.getRange("A2:T2").merge();
+        sheet.getRange("A3:T3").merge();
 
         // 2. Header Structure
         const header1 = [
@@ -45,23 +46,23 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
             "BHXH", "BHYT", "BHTN", "KPCĐ", "Quỹ TN", "hưởng 40% đi NN", "Tạm ứng", "treo lương", "Thuế TNCN", ""
         ];
 
-        sheet.getRange(4, 1, 1, header1.length).setValues([header1]);
-        sheet.getRange(5, 1, 1, header2.length).setValues([header2]);
+        sheet.getRange(5, 1, 1, header1.length).setValues([header1]);
+        sheet.getRange(6, 1, 1, header2.length).setValues([header2]);
 
-        const merges = ["A4:A5", "B4:B5", "C4:E4", "F4:F5", "G4:J4", "K4:S4", "T4:T5"];
+        const merges = ["A5:A6", "B5:B6", "C5:E5", "F5:F6", "G5:J5", "K5:S5", "T5:T6"];
         merges.forEach(m => sheet.getRange(m).merge().setVerticalAlignment("middle").setHorizontalAlignment("center"));
 
-        const headRange = sheet.getRange(4, 1, 2, header1.length);
+        const headRange = sheet.getRange(5, 1, 2, header1.length);
         headRange.setFontWeight("bold").setBackground("#F3F4F6").setBorder(true, true, true, true, true, true).setHorizontalAlignment("center").setVerticalAlignment("middle").setFontSize(11);
         headRange.setWrap(true);
 
         // 3. Write Data
         if (result && result.length > 0) {
-            sheet.getRange(6, 1, result.length, result[0].length).setValues(result);
-            sheet.getRange(6, 2, result.length, result[0].length - 1).setNumberFormat("#,##0");
+            sheet.getRange(7, 1, result.length, result[0].length).setValues(result);
+            sheet.getRange(7, 2, result.length, result[0].length - 1).setNumberFormat("#,##0");
 
             result.forEach((row, idx) => {
-                const rowIndex = idx + 6;
+                const rowIndex = idx + 7;
                 const content = String(row[0]);
                 if (content.match(/^[I-V]\./) || content.match(/^[A-D]\./) || (content.match(/^[0-9]\./) && content.length < 30) || content.includes("Tổng cộng") || content.includes("TỔNG CỘNG") || content.startsWith("A.") || content.startsWith("B.") || content.startsWith("C.") || content.startsWith("D.")) {
                     sheet.getRange(rowIndex, 1, 1, result[0].length).setFontWeight("bold");
@@ -127,25 +128,34 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
 
         // Cấu hình lại font size cho dòng tiêu đề và header để không bị ghi đè bởi fullRange
         sheet.getRange("A1").setFontSize(12);
-        sheet.getRange("A2").setFontSize(12);
-        sheet.getRange(4, 1, 2, 20).setFontSize(11);
+        sheet.getRange("A2").setFontSize(10).setFontWeight("normal");
+        sheet.getRange("A3").setFontSize(12).setFontWeight("bold");
+        sheet.getRange(5, 1, 2, 20).setFontSize(11);
 
         // ====== BƯỚC CUỐI: TẠO ĐƯỜNG KẺ BẢNG ======
-        const finalTableRange = sheet.getRange(4, 1, result.length + 2, 20); // Header dòng 4-5 + Data
+        const finalTableRange = sheet.getRange(5, 1, result.length + 2, 20); // Header dòng 5-6 + Data
         // 1. Viền ngoài và kẻ dọc: Nét liền (SOLID)
         finalTableRange.setBorder(true, true, true, true, true, null, 'black', SpreadsheetApp.BorderStyle.SOLID);
         // 2. Kẻ ngang nội dung: Nét đứt (DOTTED)
         finalTableRange.setBorder(null, null, null, null, null, true, 'black', SpreadsheetApp.BorderStyle.DOTTED);
         // 3. Header: Nét liền toàn bộ
-        sheet.getRange(4, 1, 2, 20).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+        sheet.getRange(5, 1, 2, 20).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
         // 4. Các dòng đặc biệt (Bold): Nét liền
         result.forEach((row, idx) => {
-            const rowIndex = idx + 6;
+            const rowIndex = idx + 7;
             const content = String(row[0]);
             if (content.match(/^[I-V]\./) || content.match(/^[A-D]\./) || (content.match(/^[0-9]\./) && content.length < 30) || content.includes("Tổng cộng") || content.includes("TỔNG CỘNG") || content.startsWith("A.") || content.startsWith("B.") || content.startsWith("C.") || content.startsWith("D.")) {
                 sheet.getRange(rowIndex, 1, 1, 20).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
             }
         });
+
+        // FR-02: set row height for school name & underline at the very end
+        sheet.setRowHeight(1, 22);
+        sheet.setRowHeight(2, 18);
+        sheet.setRowHeight(3, 28); // Title row height
+        sheet.getRange("A1:C1").setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+        sheet.getRange("A2:C2").setFontSize(10).setFontWeight('normal').setHorizontalAlignment('center');
+        sheet.getRange("A3:T3").setFontSize(12).setFontWeight('bold').setHorizontalAlignment('center');
 
         // Giảm 15% độ rộng cột Nội dung (Cột A - 1) để nhường diện tích cho các cột khác
         const colAWidth = sheet.getColumnWidth(1);
@@ -160,6 +170,39 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
 
     } catch (e) {
         return { status: 'error', message: e.toString() };
+    }
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng hạch toán lương và truy lĩnh trên Client
+ */
+function getPrintDataHachToanLuongVaTruyLinh(monthStr, location) {
+    try {
+        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
+        doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location);
+
+        // 2. Đọc giá trị đã tính toán từ sheet
+        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_HT_TH_LUONG_VA_TTTL);
+        const sheet = ss.getSheetByName('THHachToanLuong');
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+
+        // Tiêu đề/Header bắt đầu từ dòng 5
+        const data = sheet.getRange(5, 1, lastRow - 4, lastCol).getValues();
+
+        const monthParts = monthStr.substring(1).split('.');
+        const month = monthParts[0];
+        const year = monthParts[1];
+
+        return {
+            status: "success",
+            month: month,
+            year: year,
+            data: data,
+            dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
+        };
+    } catch (e) {
+        return { status: "error", message: e.message };
     }
 }
 

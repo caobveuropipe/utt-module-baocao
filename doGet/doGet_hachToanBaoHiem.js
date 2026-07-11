@@ -166,11 +166,13 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation) {
 
     // 5. Build Result Table
     function internalCalculateRow(employeePay) {
-        const { BHXH, BHYT, BHTN } = employeePay;
+        const BHXH = Math.round(employeePay.BHXH || 0);
+        const BHYT = Math.round(employeePay.BHYT || 0);
+        const BHTN = Math.round(employeePay.BHTN || 0);
         const empTotal = BHXH + BHYT + BHTN;
-        const schoolBHXH = (BHXH / RATES.BHXH.EMP) * RATES.BHXH.SCHOOL;
-        const schoolBHYT = (BHYT / RATES.BHYT.EMP) * RATES.BHYT.SCHOOL;
-        const schoolBHTN = (BHTN / RATES.BHTN.EMP) * RATES.BHTN.SCHOOL;
+        const schoolBHXH = Math.round((BHXH / RATES.BHXH.EMP) * RATES.BHXH.SCHOOL);
+        const schoolBHYT = Math.round((BHYT / RATES.BHYT.EMP) * RATES.BHYT.SCHOOL);
+        const schoolBHTN = Math.round((BHTN / RATES.BHTN.EMP) * RATES.BHTN.SCHOOL);
         const schoolTotal = schoolBHXH + schoolBHYT + schoolBHTN;
         return {
             emp: { BHXH, BHYT, BHTN, Total: empTotal },
@@ -189,25 +191,31 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation) {
         ];
     }
 
+    function sumRows(row1, row2, sign = 1) {
+        const resRow = [...row1];
+        for (let i = 2; i <= 10; i++) {
+            resRow[i] = Math.round(row1[i] || 0) + sign * Math.round(row2[i] || 0);
+        }
+        return resRow;
+    }
+
     const result = [];
     const ORDER = [AGG_KEYS.BIEN_CHE, AGG_KEYS.THUONG_XUYEN, AGG_KEYS.HD_68, AGG_KEYS.VU_VIEC];
 
     function buildSection(roman, groupLabel, groupAgg) {
         const groupKey = groupLabel.toLowerCase();
-
-        let sectionTotal = { BHXH: 0, BHYT: 0, BHTN: 0 };
-        ORDER.forEach(key => {
-            const store = groupAgg[key];
-            sectionTotal.BHXH += (store.Luong.BHXH + store.TruyThu.BHXH - store.TruyLinh.BHXH);
-            sectionTotal.BHYT += (store.Luong.BHYT + store.TruyThu.BHYT - store.TruyLinh.BHYT);
-            sectionTotal.BHTN += (store.Luong.BHTN + store.TruyThu.BHTN - store.TruyLinh.BHTN);
-        });
-
-        const headerContent = `Tổng ${groupKey}: 1+2+3+4`;
-        result.push(createRow(roman, headerContent, sectionTotal));
-
         const VT = { [AGG_KEYS.BIEN_CHE]: 'BC', [AGG_KEYS.THUONG_XUYEN]: 'HĐ', [AGG_KEYS.HD_68]: 'HĐ 68', [AGG_KEYS.VU_VIEC]: 'HĐ vụ việc' };
         const NAME = { [AGG_KEYS.BIEN_CHE]: 'biên chế', [AGG_KEYS.THUONG_XUYEN]: 'hợp đồng', [AGG_KEYS.HD_68]: 'hợp đồng 68', [AGG_KEYS.VU_VIEC]: 'hợp đồng vụ việc' };
+
+        // We will store category rows first to sum them into section total
+        const catCongRows = [];
+
+        // Prepare placeholder for category rows to be pushed into result later
+        // Because "Tổng gián tiếp" is at the top of the section, we will calculate sectionTotal row first,
+        // then push sectionTotal row, and then push category rows.
+        const sectionRowsToPush = [];
+
+        let sectionTotalRow = [roman, `Tổng ${groupKey}: 1+2+3+4`, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         ORDER.forEach((key, i) => {
             const store = groupAgg[key];
@@ -215,30 +223,39 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation) {
             const name = NAME[key];
             const stt = (i + 1).toString();
 
-            result.push(createRow(stt, `${groupLabel} ${name}`, store.Luong));
-            result.push(createRow('', `Truy lĩnh ${groupKey} ${vt}`, store.TruyLinh));
-            result.push(createRow('', `Truy thu ${groupKey} ${vt}`, store.TruyThu));
+            const rowLuong = createRow(stt, `${groupLabel} ${name}`, store.Luong);
+            const rowLinh = createRow('', `Truy lĩnh ${groupKey} ${vt}`, store.TruyLinh);
+            const rowThu = createRow('', `Truy thu ${groupKey} ${vt}`, store.TruyThu);
 
-            const net = {
-                BHXH: store.Luong.BHXH + store.TruyThu.BHXH - store.TruyLinh.BHXH,
-                BHYT: store.Luong.BHYT + store.TruyThu.BHYT - store.TruyLinh.BHYT,
-                BHTN: store.Luong.BHTN + store.TruyThu.BHTN - store.TruyLinh.BHTN
-            };
-            result.push(createRow('', `Cộng ${groupKey} ${vt}`, net));
+            // Cộng = Luong - TruyLinh + TruyThu
+            let rowCong = sumRows(rowLuong, rowLinh, -1);
+            rowCong = sumRows(rowCong, rowThu, 1);
+            rowCong[0] = '';
+            rowCong[1] = `Cộng ${groupKey} ${vt}`;
+
+            sectionRowsToPush.push(rowLuong, rowLinh, rowThu, rowCong);
+            sectionTotalRow = sumRows(sectionTotalRow, rowCong);
         });
 
-        return sectionTotal;
+        // Restore header attributes
+        sectionTotalRow[0] = roman;
+        sectionTotalRow[1] = `Tổng ${groupKey}: 1+2+3+4`;
+
+        // Push section total row first
+        result.push(sectionTotalRow);
+        // Then push category detail rows
+        sectionRowsToPush.forEach(r => result.push(r));
+
+        return sectionTotalRow;
     }
 
-    const totalGianTiep = buildSection('I', 'Gián tiếp', aggGianTiep);
-    const totalTrucTiep = buildSection('II', 'Trực tiếp', aggTrucTiep);
+    const totalGianTiepRow = buildSection('I', 'Gián tiếp', aggGianTiep);
+    const totalTrucTiepRow = buildSection('II', 'Trực tiếp', aggTrucTiep);
 
-    const grandTotalAll = {
-        BHXH: totalGianTiep.BHXH + totalTrucTiep.BHXH,
-        BHYT: totalGianTiep.BHYT + totalTrucTiep.BHYT,
-        BHTN: totalGianTiep.BHTN + totalTrucTiep.BHTN
-    };
-    result.push(createRow('', 'Tổng cộng: I+II', grandTotalAll));
+    let grandTotalRow = sumRows(totalGianTiepRow, totalTrucTiepRow, 1);
+    grandTotalRow[0] = '';
+    grandTotalRow[1] = 'Tổng cộng: I+II';
+    result.push(grandTotalRow);
 
     return result;
 }
@@ -301,7 +318,8 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location) {
     const month = parseInt(monthParts[0], 10);
     const year = monthParts[1];
 
-    sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12);
+    sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
+    sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
     const titleText = `BẢNG TỔNG HỢP HẠCH TOÁN BẢO HIỂM THÁNG ${month} NĂM ${year}`;
     sheet.getRange("A3:K3").merge().setHorizontalAlignment('center').setValue(titleText).setFontWeight('bold').setFontSize(12);
 
@@ -392,8 +410,48 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location) {
     // 3. Header: Nét liền toàn bộ
     sheet.getRange(5, 1, 2, cols).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
 
+    // FR-02: set row height for school name & underline at the very end
+    sheet.setRowHeight(1, 22);
+    sheet.setRowHeight(2, 18);
+    sheet.getRange(1, 1, 1, 3).setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.getRange(2, 1, 1, 3).setFontSize(10).setFontWeight('normal').setHorizontalAlignment('center');
+    sheet.getRange("A3:K3").setFontSize(12).setFontWeight('bold').setHorizontalAlignment('center');
+
     // Đóng băng 6 dòng đầu để lặp lại header ở các trang in tiếp theo
     sheet.setFrozenRows(6);
 
     return `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER&left_margin=0.5&right_margin=0.25&top_margin=0.5&bottom_margin=0.25&fzr=true`;
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng hạch toán bảo hiểm trên Client
+ */
+function getPrintDataHachToanBaoHiem(monthStr, location) {
+    try {
+        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
+        doGet_taoBangHachToanBaoHiem(monthStr, location);
+
+        // 2. Đọc giá trị đã tính toán từ sheet
+        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_HT_TH_BH);
+        const sheet = ss.getSheetByName(GLOBAL_CONFIG.SHEETS.SHEET_TH_BH);
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+
+        // Tiêu đề/Header bắt đầu từ dòng 5
+        const data = sheet.getRange(5, 1, lastRow - 4, lastCol).getValues();
+
+        const monthParts = monthStr.substring(1).split('.');
+        const month = monthParts[0];
+        const year = monthParts[1];
+
+        return {
+            status: "success",
+            month: month,
+            year: year,
+            data: data,
+            dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
+        };
+    } catch (e) {
+        return { status: "error", message: e.message };
+    }
 }

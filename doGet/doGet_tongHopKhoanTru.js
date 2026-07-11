@@ -129,7 +129,7 @@ function doGet_tongHopKhoanTru(monthStr, resources, location = 'All') {
         dataLuong1Raw.slice(1).forEach(r => {
             if (String(r[idxKy]).trim() !== monthStr) return;
             const ma = String(r[idxMa]).trim();
-            
+
             // --- KIỂM TRA LỌC THEO ĐỊA PHƯƠNG ---
             if (locationNormalized) {
                 const empKV = mapKhuVuc[ma] || "";
@@ -252,12 +252,16 @@ function doGet_taoBangTongHopKhoanTru(monthStr, location = 'All') {
             }
         }
 
+        // Ẩn gridline mặc định
+        sheet.setHiddenGridlines(true);
+
         const monthParts = monthStr.substring(1).split('.');
         const month = parseInt(monthParts[0]);
         const year = monthParts[1];
 
         // HEADERS
-        sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(11);
+        sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center');
+        sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
         const title = `BẢNG KÊ CÁC KHOẢN ĐOÀN PHÍ CÔNG ĐOÀN + QUỸ XÃ HỘI \nTHÁNG ${month} NĂM ${year}`;
         sheet.getRange(3, 1, 2, totalCols).merge().setValue(title)
             .setHorizontalAlignment("center").setVerticalAlignment("middle")
@@ -319,9 +323,59 @@ function doGet_taoBangTongHopKhoanTru(monthStr, location = 'All') {
         sheet.getRange(sigRow, totalCols - 1, 1, 2).merge().setValue(todayStr).setHorizontalAlignment('center').setFontStyle('italic');
         sheet.getRange(sigRow + 1, totalCols - 1, 1, 2).merge().setValue('Ban Giám hiệu').setFontWeight('bold').setHorizontalAlignment('center');
 
+        // FR-02: set row height for school name & underline at the very end
+        sheet.setRowHeight(1, 22);
+        sheet.setRowHeight(2, 18);
+        sheet.getRange(1, 1, 1, 3).setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+        sheet.getRange(2, 1, 1, 3).setFontSize(10).setFontWeight('normal').setHorizontalAlignment('center');
+        sheet.getRange(3, 1, 2, totalCols).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
+
+        // Đồng bộ thay đổi gridline và format
+        SpreadsheetApp.flush();
+
         return `https://docs.google.com/spreadsheets/d/${TARGET_FILE_ID}/export?format=pdf&size=A4&portrait=true&fitw=true&gridlines=false&horizontal_alignment=CENTER`;
     } catch (e) {
         Logger.log(`Error doGet_taoBangTongHopKhoanTru: ${e.message}`);
         return null;
+    }
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng tổng hợp các khoản trừ trên Client
+ */
+function getPrintDataTongHopKhoanTru(monthStr, location) {
+    try {
+        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
+        doGet_taoBangTongHopKhoanTru(monthStr, location);
+
+        // 2. Đọc giá trị đã tính toán từ sheet
+        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_DKB_TH_KHOAN_TRU);
+        const sheet = ss.getSheetByName('THKPCD');
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+
+        // Tiêu đề/Header bắt đầu từ dòng 5
+        const data = sheet.getRange(5, 1, lastRow - 4, lastCol).getValues();
+
+        const monthParts = monthStr.substring(1).split('.');
+        const month = monthParts[0];
+        const year = monthParts[1];
+
+        // Lấy danh sách địa phương
+        const resources = {
+            ssMaster: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA)
+        };
+        const resultRaw = doGet_tongHopKhoanTru(monthStr, resources, location);
+
+        return {
+            status: "success",
+            month: month,
+            year: year,
+            data: data,
+            locations: resultRaw ? resultRaw.locations : [],
+            dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
+        };
+    } catch (e) {
+        return { status: "error", message: e.message };
     }
 }

@@ -6,6 +6,19 @@
 
 ---
 
+## [2026-07-11]
+
+### feat(print-api): xây dựng 7 API JSON thô phục vụ in ấn
+- **doGet (Các file logic):** Triển khai trích xuất dữ liệu thô phục vụ kết xuất in HTML thay vì render PDF ở server-side cho:
+  - Bảng tổng hợp bảo hiểm (`getPrintDataTongHopBaoHiem`)
+  - Bảng các khoản khấu trừ (`getPrintDataTongHopKhoanTru`)
+  - Bảng tổng hợp KPCĐ (`getPrintDataTongHopKPCD`)
+  - Bảng hạch toán bảo hiểm (`getPrintDataHachToanBaoHiem` - tích hợp làm tròn đơn vị hàng chi tiết và cộng dồn dòng tổng)
+  - Bảng hạch toán KPCĐ (`getPrintDataHachToanKPCD`)
+  - Bảng phân bổ tiền lương và BHXH (`getPrintDataPhanBoLuongBHXH`)
+  - Bảng hạch toán lương và truy lĩnh (`getPrintDataHachToanLuongVaTruyLinh`)
+- **Đăng ký Route:** Cấu hình routing cho các endpoint thô và whitelist `location` trong `doGet/Code.js`.
+
 ## [2026-07-10]
 
 ### style(hach-toan): tối ưu lề trang in, đổi font Arial và căn chỉnh cỡ chữ báo cáo hạch toán

@@ -299,3 +299,36 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     Logger.log(`Finished writing ${result.length} rows to sheet`);
     return `https://docs.google.com/spreadsheets/d/${EXPORT_FILE_ID}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER&left_margin=0.5&right_margin=0.25&top_margin=0.5&bottom_margin=0.25`;
 }
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng phân bổ tiền lương và BHXH trên Client
+ */
+function getPrintDataPhanBoLuongBHXH(monthStr, location) {
+    try {
+        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
+        doGet_taoBangPhanBoLuongBHXH(monthStr, location);
+
+        // 2. Đọc giá trị đã tính toán từ sheet
+        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_HT_PHAN_BO_LUONG_BHXH);
+        const sheet = ss.getSheetByName(GLOBAL_CONFIG.SHEETS.SHEET_TH_LUONG);
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+
+        // Tiêu đề/Header bắt đầu từ dòng 6
+        const data = sheet.getRange(6, 1, lastRow - 5, lastCol).getValues();
+
+        const monthParts = monthStr.substring(1).split('.');
+        const month = monthParts[0];
+        const year = monthParts[1];
+
+        return {
+            status: "success",
+            month: month,
+            year: year,
+            data: data,
+            dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
+        };
+    } catch (e) {
+        return { status: "error", message: e.message };
+    }
+}

@@ -109,30 +109,43 @@
             title: 'Tổng hợp lương',
             html: `
                 <div style="margin-top: 10px;">
-                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất báo cáo tổng hợp lương tháng ${monthStr}</p>
-                    <select id="swal-location-select-thl" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và hình thức xuất báo cáo tổng hợp lương tháng ${monthStr}</p>
+                    <select id="swal-location-select-thl" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                         ${optionsHtml}
                     </select>
+                    <div style="display: flex; flex-direction: row; gap: 8px; justify-content: center;">
+                        <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-print"></i> In
+                        </button>
+                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
                 </div>
             `,
             icon: 'info',
             iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showConfirmButton: false,
             showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#ef4444',
-            denyButtonColor: '#22c55e',
-            cancelButtonColor: '#94a3b8',
-            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
-            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
             cancelButtonText: 'Hủy bỏ',
-            preConfirm: () => {
-                return document.getElementById('swal-location-select-thl').value;
-            }
-        }).then((result) => {
-            if (result.isConfirmed || result.isDenied) {
-                const format = result.isConfirmed ? 'pdf' : 'xlsx';
-                const location = document.getElementById('swal-location-select-thl').value;
-                pg_general_4_exportReportGeneric('taoBangTongHopLuong', 'báo cáo tổng hợp lương', location, format);
+            cancelButtonColor: '#94a3b8',
+            didOpen: () => {
+                const getLoc = () => document.getElementById('swal-location-select-thl').value;
+                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric('taoBangTongHopLuong', 'báo cáo tổng hợp lương', getLoc(), 'pdf');
+                });
+                document.getElementById('swal-btn-excel').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric('taoBangTongHopLuong', 'báo cáo tổng hợp lương', getLoc(), 'xlsx');
+                });
+                document.getElementById('swal-btn-print').addEventListener('click', () => {
+                    Swal.close();
+                    printBangTongHopLuong(getLoc());
+                });
             }
         });
     }
@@ -159,31 +172,43 @@
             title: 'Tổng hợp bảo hiểm',
             html: `
                 <div style="margin-top: 10px;">
-                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Vui lòng chọn địa phương và định dạng xuất báo cáo bảo hiểm tháng ${monthStr}</p>
-                    <select id="swal-location-select" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và hình thức xuất báo cáo bảo hiểm tháng ${monthStr}</p>
+                    <select id="swal-location-select-thbh" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                         ${optionsHtml}
                     </select>
+                    <div style="display: flex; flex-direction: row; gap: 8px; justify-content: center;">
+                        <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-print"></i> In
+                        </button>
+                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
                 </div>
             `,
             icon: 'info',
             iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showConfirmButton: false,
             showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#ef4444', // Red for PDF
-            denyButtonColor: '#22c55e',    // Green for Excel
-            cancelButtonColor: '#94a3b8',
-            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
-            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
             cancelButtonText: 'Hủy bỏ',
-            focusConfirm: false,
-            preConfirm: () => {
-                return document.getElementById('swal-location-select').value;
-            }
-        }).then((result) => {
-            if (result.isConfirmed || result.isDenied) {
-                const format = result.isConfirmed ? 'pdf' : 'xlsx';
-                const location = document.getElementById('swal-location-select').value;
-                pg_general_4_exportReportGeneric('taoBangTongHopBaoHiem', 'báo cáo tổng hợp bảo hiểm', location, format);
+            cancelButtonColor: '#94a3b8',
+            didOpen: () => {
+                const getLoc = () => document.getElementById('swal-location-select-thbh').value;
+                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric('taoBangTongHopBaoHiem', 'báo cáo tổng hợp bảo hiểm', getLoc(), 'pdf');
+                });
+                document.getElementById('swal-btn-excel').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric('taoBangTongHopBaoHiem', 'báo cáo tổng hợp bảo hiểm', getLoc(), 'xlsx');
+                });
+                document.getElementById('swal-btn-print').addEventListener('click', () => {
+                    Swal.close();
+                    printBangTongHopBaoHiem(getLoc());
+                });
             }
         });
     }
@@ -208,30 +233,43 @@
             title: 'Tổng hợp các khoản trừ',
             html: `
                 <div style="margin-top: 10px;">
-                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất báo cáo các khoản trừ tháng ${monthStr}</p>
-                    <select id="swal-location-select-khoantru" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và hình thức xuất báo cáo các khoản trừ tháng ${monthStr}</p>
+                    <select id="swal-location-select-khoantru" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                         ${optionsHtml}
                     </select>
+                    <div style="display: flex; flex-direction: row; gap: 8px; justify-content: center;">
+                        <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-print"></i> In
+                        </button>
+                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
                 </div>
             `,
             icon: 'info',
             iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showConfirmButton: false,
             showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#ef4444',
-            denyButtonColor: '#22c55e',
-            cancelButtonColor: '#94a3b8',
-            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
-            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
             cancelButtonText: 'Hủy bỏ',
-            preConfirm: () => {
-                return document.getElementById('swal-location-select-khoantru').value;
-            }
-        }).then((result) => {
-            if (result.isConfirmed || result.isDenied) {
-                const format = result.isConfirmed ? 'pdf' : 'xlsx';
-                const location = document.getElementById('swal-location-select-khoantru').value;
-                pg_general_4_exportReportGeneric('taoBangTongHopKhoanTru', 'báo cáo các khoản trừ', location, format);
+            cancelButtonColor: '#94a3b8',
+            didOpen: () => {
+                const getLoc = () => document.getElementById('swal-location-select-khoantru').value;
+                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric('taoBangTongHopKhoanTru', 'báo cáo các khoản trừ', getLoc(), 'pdf');
+                });
+                document.getElementById('swal-btn-excel').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric('taoBangTongHopKhoanTru', 'báo cáo các khoản trừ', getLoc(), 'xlsx');
+                });
+                document.getElementById('swal-btn-print').addEventListener('click', () => {
+                    Swal.close();
+                    printBangTongHopKhoanTru(getLoc());
+                });
             }
         });
     }
@@ -310,30 +348,43 @@
             title: 'Tổng hợp KPCĐ',
             html: `
                 <div style="margin-top: 10px;">
-                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất báo cáo KPCĐ tháng ${monthStr}</p>
-                    <select id="swal-location-select-kpcd" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và hình thức xuất báo cáo KPCĐ tháng ${monthStr}</p>
+                    <select id="swal-location-select-kpcd" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                         ${optionsHtml}
                     </select>
+                    <div style="display: flex; flex-direction: row; gap: 8px; justify-content: center;">
+                        <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-print"></i> In
+                        </button>
+                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
                 </div>
             `,
             icon: 'info',
             iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showConfirmButton: false,
             showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#ef4444',
-            denyButtonColor: '#22c55e',
-            cancelButtonColor: '#94a3b8',
-            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
-            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
             cancelButtonText: 'Hủy bỏ',
-            preConfirm: () => {
-                return document.getElementById('swal-location-select-kpcd').value;
-            }
-        }).then((result) => {
-            if (result.isConfirmed || result.isDenied) {
-                const format = result.isConfirmed ? 'pdf' : 'xlsx';
-                const location = document.getElementById('swal-location-select-kpcd').value;
-                pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo KPCĐ', location, format);
+            cancelButtonColor: '#94a3b8',
+            didOpen: () => {
+                const getLoc = () => document.getElementById('swal-location-select-kpcd').value;
+                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo KPCĐ', getLoc(), 'pdf');
+                });
+                document.getElementById('swal-btn-excel').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo KPCĐ', getLoc(), 'xlsx');
+                });
+                document.getElementById('swal-btn-print').addEventListener('click', () => {
+                    Swal.close();
+                    printBangTongHopKPCD(getLoc());
+                });
             }
         });
     }
@@ -388,30 +439,43 @@
             title: label,
             html: `
                 <div style="margin-top: 10px;">
-                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất <b>${label}</b> tháng ${monthStr}</p>
-                    <select id="swal-location-select-generic" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và hình thức xuất <b>${label}</b> tháng ${monthStr}</p>
+                    <select id="swal-location-select-generic" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                         ${optionsHtml}
                     </select>
+                    <div style="display: flex; flex-direction: row; gap: 8px; justify-content: center;">
+                        <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-print"></i> In
+                        </button>
+                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
                 </div>
             `,
             icon: 'info',
             iconHtml: '<i class="fas fa-map-marker-alt"></i>',
+            showConfirmButton: false,
             showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#ef4444',
-            denyButtonColor: '#22c55e',
-            cancelButtonColor: '#94a3b8',
-            confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
-            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
             cancelButtonText: 'Hủy bỏ',
-            preConfirm: () => {
-                return document.getElementById('swal-location-select-generic').value;
-            }
-        }).then((result) => {
-            if (result.isConfirmed || result.isDenied) {
-                const format = result.isConfirmed ? 'pdf' : 'xlsx';
-                const location = document.getElementById('swal-location-select-generic').value;
-                pg_general_4_exportReportGeneric(type, label, location, format);
+            cancelButtonColor: '#94a3b8',
+            didOpen: () => {
+                const getLoc = () => document.getElementById('swal-location-select-generic').value;
+                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric(type, label, getLoc(), 'pdf');
+                });
+                document.getElementById('swal-btn-excel').addEventListener('click', () => {
+                    Swal.close();
+                    pg_general_4_exportReportGeneric(type, label, getLoc(), 'xlsx');
+                });
+                document.getElementById('swal-btn-print').addEventListener('click', () => {
+                    Swal.close();
+                    printReportHachToan(type, label, getLoc());
+                });
             }
         });
     }

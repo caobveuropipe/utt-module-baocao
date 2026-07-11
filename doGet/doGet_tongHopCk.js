@@ -78,16 +78,29 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
       'Thuế TNCN tháng trước'
     ];
 
-    // Tính tổng cho các cột từ F đến P (cột 6-16)
-    var totals = ['', '', '', '', 'Tổng cộng']; // A, B, C, D, E
+    // Tạo mảng totals với chữ 'Tổng cộng' ở cột A (để merge từ A đến E sau này)
+    var totals = ['Tổng cộng', '', '', '', '']; // A, B, C, D, E
 
-    // Tính tổng từ cột F đến P (index 5-15 trong mảng)
+    // Tính tổng số tiền bằng số trước khi chuyển cột F sang dạng công thức Excel
+    var tongTienSo = 0;
+    data.forEach(function (row) {
+      tongTienSo += Number(row[5]) || 0;
+    });
+
+    // Thiết lập công thức Excel cho cột Tổng ATM (cột F - index 5) của các dòng dữ liệu
+    data.forEach(function (row, idx) {
+      var r = START_ROW + idx;
+      // Formula: 1 = 2 + 3 - 4 + 5 + 6 - 7 + 8 + 9 - 10 - 11
+      // Tương ứng cột: F = G + H - I + J + K - L + M + N - O - P
+      row[5] = '=G' + r + '+H' + r + '-I' + r + '+J' + r + '+K' + r + '-L' + r + '+M' + r + '+N' + r + '-O' + r + '-P' + r;
+    });
+
+    // Thiết lập công thức SUM cho các cột từ F đến P (cột 6-16) ở dòng Tổng cộng
+    var lastDataRow = START_ROW + data.length - 1;
     for (var colIdx = 5; colIdx < 16; colIdx++) {
-      var sum = 0;
-      data.forEach(function (row) {
-        sum += Number(row[colIdx]) || 0;
-      });
-      totals.push(sum);
+      var colLetter = String.fromCharCode(65 + colIdx); // 5 -> 'F', 15 -> 'P'
+      var formula = '=SUM(' + colLetter + START_ROW + ':' + colLetter + lastDataRow + ')';
+      totals.push(formula);
     }
 
     // Tạo mảng dữ liệu KHÔNG CÓ HEADER: chỉ data + totals
@@ -104,6 +117,9 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
     if (!sheet) {
       throw new Error('Không tìm thấy sheet "' + SHEET_NAME + '" trong file');
     }
+
+    // Ẩn gridline mặc định
+    sheet.setHiddenGridlines(true);
 
     // Xóa dữ liệu cũ từ dòng START_ROW trở đi
     var lastRow = sheet.getLastRow();
@@ -155,6 +171,18 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
       Logger.log("Lỗi định dạng header Thuế TNCN: " + e.message);
     }
 
+    // ====== THIẾT LẬP CÔNG THỨC HIỂN THỊ CỘT F "TỔNG ATM" ======
+    try {
+      sheet.getRange(12, 6).setValue('1 = 2 + 3 - 4 + 5 + 6 - 7 + 8 + 9 - 10 - 11');
+      sheet.getRange(12, 6).setFontWeight('bold')
+        .setHorizontalAlignment('center')
+        .setVerticalAlignment('middle')
+        .setFontFamily('Times New Roman')
+        .setFontSize(9);
+    } catch (e) {
+      Logger.log("Lỗi định dạng công thức hiển thị cột Tổng ATM: " + e.message);
+    }
+
     // Ghi dữ liệu mới
     sheet.getRange(START_ROW, 1, rows, cols).setValues(dataWithTotal);
 
@@ -196,6 +224,18 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
 
       // Format: in đậm, căn giữa
       sheet.getRange('A4').setFontWeight('bold').setHorizontalAlignment('center');
+
+      // ====== CẬP NHẬT "THÁNG X" TRONG SUB-HEADER DÒNG 11 ======
+      // G11: Lương ngân sách, J11: Thu nhập tăng thêm, M11: Tiền ăn ca
+      var thangLabel = 'Tháng ' + month;
+      [7, 10, 13].forEach(function (col) {
+        sheet.getRange(11, col).setValue(thangLabel)
+          .setFontWeight('bold')
+          .setHorizontalAlignment('center')
+          .setVerticalAlignment('middle')
+          .setFontFamily('Times New Roman')
+          .setFontSize(9);
+      });
     }
 
     // Format cột Số tài khoản và Tên ngân hàng (căn trái) - Cột 4, 5 (D, E)
@@ -242,6 +282,13 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
 
     // 6. Dòng Tổng cộng
     sheet.getRange(totalRow, 1, 1, cols).setFontWeight('bold');
+    try {
+      sheet.getRange(totalRow, 1, 1, 5).breakApart();
+      sheet.getRange(totalRow, 1, 1, 5).merge();
+      sheet.getRange(totalRow, 1).setHorizontalAlignment('center');
+    } catch (e) {
+      Logger.log("Lỗi merge dòng tổng cộng: " + e.message);
+    }
 
     // Auto resize rows
     sheet.setRowHeightsForced(START_ROW, rows, 21);
@@ -262,8 +309,7 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
     nextRow++;
 
     // 3. Thêm dòng Số tiền bằng chữ
-    var tongTien = totals[5]; // Cột F (index 5 trong mảng totals)
-    var soTienBangChu = numberToVietnameseWords(tongTien);
+    var soTienBangChu = numberToVietnameseWords(tongTienSo);
 
     // Unfreeze columns để có thể merge
     sheet.setFrozenColumns(0);
@@ -283,7 +329,17 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
       // Copy toàn bộ (values + formats)
       templateRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
 
-      Logger.log('Đã copy template từ Master A1:O23 vào dòng %s', nextRow);
+      // Clean signature labels from target range
+      const targetValues = targetRange.getValues();
+      for (let r = 0; r < targetValues.length; r++) {
+          for (let c = 0; c < targetValues[r].length; c++) {
+              const val = String(targetValues[r][c] || '');
+              if (val.toLowerCase().includes('ký') && (val.includes('(') || val.includes('ghi rõ họ tên') || val.includes('ký tên'))) {
+                  targetRange.getCell(r + 1, c + 1).setValue('');
+              }
+          }
+      }
+      Logger.log('Đã copy template từ Master A1:O23 vào dòng %s và làm sạch nhãn ký', nextRow);
     } else {
       Logger.log('CẢNH BÁO: Không tìm thấy sheet Master');
     }
@@ -300,6 +356,9 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
     // 3. Toàn bộ Header (10-12) & Tổng cộng: Nét liền toàn bộ
     sheet.getRange(HEADER_START_ROW, 1, (START_ROW - HEADER_START_ROW), cols).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
     sheet.getRange(totalRow, 1, 1, cols).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+
+    // Đồng bộ thay đổi gridline xuống database trước khi lấy URL xuất
+    SpreadsheetApp.flush();
 
     Logger.log('Hoàn thành! File URL: %s', fileUrl);
     Logger.log('Download URL: %s', downloadUrl);
@@ -606,7 +665,7 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
   const maDonViMap = {};
   let idxKV = getIdx(header7, ['Khu vực', 'Khu Vực']);
   if (idxKV === -1) idxKV = 38; // Fallback to column AM (index 38)
-  
+
   data7.forEach(row => {
     const kyLuong = String(row[idx7.KyLuong] || '').trim();
 
@@ -706,10 +765,13 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
     if (!emp) return; // Nhân viên không có dữ liệu lương
 
     // --- LỌC NHÂN SỰ CÓ TRẠNG THÁI "Đi công tác NN" HOẶC "Đi NN" RA KHỎI BẢNG CHUYỂN KHOẢN ---
-    const statusNorm = String(emp.trangThai || '').normalize('NFC').trim().toLowerCase();
-    if (statusNorm === 'đi công tác nn' || statusNorm === 'đi nn') {
-      Logger.log('Lọc bỏ nhân sự đi nước ngoài: %s - %s - Trạng thái: %s', emp.maCB, emp.hoTen, emp.trangThai);
-      return; // Bỏ qua nhân sự này
+    // Quy tắc này chỉ áp dụng khi chọn cơ sở Phú Thọ (lương được chi trả theo hình thức khác)
+    if (locationNormalized === 'Phú Thọ') {
+      const statusNorm = String(emp.trangThai || '').normalize('NFC').trim().toLowerCase();
+      if (statusNorm === 'đi công tác nn' || statusNorm === 'đi nn') {
+        Logger.log('Lọc bỏ nhân sự đi nước ngoài (Phú Thọ): %s - %s - Trạng thái: %s', emp.maCB, emp.hoTen, emp.trangThai);
+        return; // Bỏ qua nhân sự này
+      }
     }
 
     // Tính tổng theo công thức: 5 = 6+7-8 + 9+10-11 + 12+13-14 - 15 (Thuế TNCN)

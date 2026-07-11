@@ -521,7 +521,7 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
         const subTotal = suspendedTotals[type] || 0;
         if (subTotal !== 0 && totals[type]) {
             totals[type].total.tong += subTotal; // subTotal is negative
-            
+
             sortedLocs.forEach(loc => {
                 const locSub = suspendedList
                     .filter(emp => emp.contractType === type && emp.kv === loc)
@@ -569,7 +569,7 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
 
     addRow('I.', 'TIỀN LƯƠNG: (1+2+3+4)', null, null, I_data);
     addRow('1.', 'Diện biên chế', 'Biên chế', 'tong');
-    addRow('1.1', 'Lương điện biên chế + Truy lĩnh, truy thu lương biên chế', null, null, row1_1_data);
+    addRow('1.1', 'Lương + Truy lĩnh, truy thu', null, null, row1_1_data);
     addRow('1.2', 'Phụ cấp giáo viên', 'Biên chế', 'pcGiaoVien');
     addRow('1.3', 'Phụ cấp độc hại', 'Biên chế', 'pcDocHai');
     addRow('1.4', 'Phụ cấp trách nhiệm', 'Biên chế', 'pcTrachNhiem');
@@ -577,12 +577,12 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
     addSuspendedRows('Biên chế', 6);
 
     addRow('2.', 'Diện hợp đồng 68', 'HĐ 68', 'tong');
-    addRow('2.1', 'Lương điện hợp đồng 68 + Truy lĩnh, truy thu', null, null, row2_1_data);
+    addRow('2.1', 'Lương + Truy lĩnh, truy thu', null, null, row2_1_data);
     addRow('2.2', 'Phụ cấp trách nhiệm', 'HĐ 68', 'pcTrachNhiem');
     addSuspendedRows('HĐ 68', 3);
 
     addRow('3.', 'Diện hợp đồng lao động thường xuyên', 'HĐ dài hạn', 'tong');
-    addRow('3.1', 'Lương diện hợp đồng LĐTX + Truy lĩnh, truy thu diện HĐ LĐTX', null, null, row3_1_data);
+    addRow('3.1', 'Lương + Truy lĩnh, truy thu', null, null, row3_1_data);
     addRow('3.2', 'Phụ cấp giáo viên', 'HĐ dài hạn', 'pcGiaoVien');
     addRow('3.3', 'Phụ cấp trách nhiệm', 'HĐ dài hạn', 'pcTrachNhiem');
     addSuspendedRows('HĐ dài hạn', 4);
@@ -594,13 +594,13 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
     addRow('II.', 'THU NHẬP TĂNG THÊM', null, null, II_data);
     addRow('1.', 'Thu nhập tăng thêm', 'TNTT', 'tntt');
     addRow('2.', 'Truy lĩnh', 'TNTT', 'truyLinhTNTT');
-    addRow('3.', 'Truy thu TNTT làm ngoài', 'TNTT', 'truyThuTNTT');
+    addRow('3.', 'Truy thu TNTT', 'TNTT', 'truyThuTNTT');
 
     const III_data = getComplexRowData('AnCa', ['anCa', 'truyLinhAnCa'], ['truyThuAnCa']);
     addRow('III.', 'TIỀN ĂN CA', null, null, III_data);
     addRow('1.', 'Tiền ăn ca', 'AnCa', 'anCa');
     addRow('2.', 'Truy lĩnh', 'AnCa', 'truyLinhAnCa');
-    addRow('3.', 'Truy thu tiền ăn ca làm ngoài', 'AnCa', 'truyThuAnCa');
+    addRow('3.', 'Truy thu tiền ăn ca', 'AnCa', 'truyThuAnCa');
 
     // IV. THU THUẾ TNCN THÁNG ...
     const prevMonthParts = prevMonthStr.substring(1).split('.');
@@ -685,6 +685,9 @@ function doGet_taoBangTongHopLuong(monthStr, targetLocation) {
             sheet.setFrozenColumns(0);
         }
 
+        // Ẩn gridline mặc định
+        sheet.setHiddenGridlines(true);
+
         const maxColsForPrint = sheet.getMaxColumns();
         sheet.showColumns(1, maxColsForPrint);
         if (maxColsForPrint > totalCols) {
@@ -695,7 +698,8 @@ function doGet_taoBangTongHopLuong(monthStr, targetLocation) {
         const month = parseInt(monthParts[0]);
         const year = monthParts[1];
 
-        sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(11);
+        sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center');
+        sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
         const title = `BẢNG TỔNG HỢP LƯƠNG, THU NHẬP TĂNG THÊM VÀ TIỀN ĂN CA \nTHÁNG ${month} NĂM ${year}`;
         sheet.getRange(3, 1, 2, totalCols).merge().setValue(title).setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight('bold').setFontSize(14).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
 
@@ -720,6 +724,7 @@ function doGet_taoBangTongHopLuong(monthStr, targetLocation) {
         sheet.getRange(8, 3, data.length, numLocs + 1).setNumberFormat('#,##0');
         sheet.getRange(8, 1, data.length, 1).setHorizontalAlignment('center');
 
+        let currentRomanSection = '';
         data.forEach((row, i) => {
             const rIdx = 8 + i;
             const stt = String(row[0]).trim();
@@ -728,12 +733,27 @@ function doGet_taoBangTongHopLuong(monthStr, targetLocation) {
             // Điều kiện bold:
             // 1. STT là số La Mã (I., II.)
             // 2. STT là số nguyên kèm dấu chấm (1., 2.) -> Không phải số phụ như 1.1, 2.1
+            //    NHƯNG không bold cho các dòng 1., 2., 3. thuộc nhóm II. (THU NHẬP TĂNG THÊM) và III. (TIỀN ĂN CA)
             // 3. Dòng Cộng (không STT hoặc content chứa 'Cộng')
             const isRoman = /^[IVX]+\.$/.test(stt);
+            if (isRoman) {
+                currentRomanSection = stt;
+            }
             const isMainNum = /^\d+\.$/.test(stt);
             const isTotal = !stt || content.includes('Cộng');
 
-            if (isRoman || isMainNum || isTotal) {
+            let shouldBold = false;
+            if (isRoman || isTotal) {
+                shouldBold = true;
+            } else if (isMainNum) {
+                if (currentRomanSection === 'II.' || currentRomanSection === 'III.') {
+                    shouldBold = false;
+                } else {
+                    shouldBold = true;
+                }
+            }
+
+            if (shouldBold) {
                 sheet.getRange(rIdx, 1, 1, totalCols).setFontWeight('bold');
             } else {
                 sheet.getRange(rIdx, 1, 1, totalCols).setFontWeight('normal');
@@ -765,31 +785,43 @@ function doGet_taoBangTongHopLuong(monthStr, targetLocation) {
         sheet.getRange(sigRow, totalCols - 1, 1, 2).merge().setValue(todayStr).setHorizontalAlignment('center').setFontStyle('italic');
 
         if (masterSheet) {
-            const srcNames = masterSheet.getRange("A1:F1").getValues()[0];
-            const srcLabels = masterSheet.getRange("A2:F2").getValues()[0];
+            const srcNames = masterSheet.getRange("A1:F1").getValues()[0] || [];
+            const srcLabels = masterSheet.getRange("A2:F2").getValues()[0] || [];
 
             // Các chức danh (Row 1)
             sheet.getRange(sigRow + 1, 1, 1, 2).merge().setValue(srcNames[0]).setFontWeight('bold').setHorizontalAlignment('center');
             sheet.getRange(sigRow + 1, 3, 1, numLocs > 1 ? 2 : 1).merge().setValue(srcNames[2]).setFontWeight('bold').setHorizontalAlignment('center');
             sheet.getRange(sigRow + 1, totalCols - 1, 1, 2).merge().setValue(srcNames[4]).setFontWeight('bold').setHorizontalAlignment('center');
-
             // Các nhãn (Ký ghi rõ họ tên - Row 2)
-            sheet.getRange(sigRow + 2, 1, 1, 2).merge().setValue(srcLabels[0]).setHorizontalAlignment('center');
-            sheet.getRange(sigRow + 2, 3, 1, numLocs > 1 ? 2 : 1).merge().setValue(srcLabels[2]).setHorizontalAlignment('center');
-            sheet.getRange(sigRow + 2, totalCols - 1, 1, 2).merge().setValue(srcLabels[4]).setHorizontalAlignment('center');
+            const cleanLabel = (val) => {
+                const s = String(val || '');
+                return (s.toLowerCase().includes('ký') && (s.includes('(') || s.includes('ghi rõ họ tên') || s.includes('ký tên'))) ? '' : s;
+            };
+            sheet.getRange(sigRow + 2, 1, 1, 2).merge().setValue(cleanLabel(srcLabels[0])).setHorizontalAlignment('center');
+            sheet.getRange(sigRow + 2, 3, 1, numLocs > 1 ? 2 : 1).merge().setValue(cleanLabel(srcLabels[2])).setHorizontalAlignment('center');
+            sheet.getRange(sigRow + 2, totalCols - 1, 1, 2).merge().setValue(cleanLabel(srcLabels[4])).setHorizontalAlignment('center');
         } else {
             // Fallback manual signatures if Master sheet is missing
             sheet.getRange(sigRow + 1, 1, 1, 2).merge().setValue('Người lập bảng').setFontWeight('bold').setHorizontalAlignment('center');
             sheet.getRange(sigRow + 1, 3, 1, numLocs > 1 ? 2 : 1).merge().setValue('Kế toán trưởng').setFontWeight('bold').setHorizontalAlignment('center');
             sheet.getRange(sigRow + 1, totalCols - 1, 1, 2).merge().setValue('Ban Giám hiệu').setFontWeight('bold').setHorizontalAlignment('center');
 
-            sheet.getRange(sigRow + 2, 1, 1, 2).merge().setValue('(Ký, ghi rõ họ tên)').setHorizontalAlignment('center');
-            sheet.getRange(sigRow + 2, 3, 1, numLocs > 1 ? 2 : 1).merge().setValue('(Ký, ghi rõ họ tên)').setHorizontalAlignment('center');
-            sheet.getRange(sigRow + 2, totalCols - 1, 1, 2).merge().setValue('(Ký, ghi rõ họ tên)').setHorizontalAlignment('center');
+            sheet.getRange(sigRow + 2, 1, 1, 2).merge().setValue('').setHorizontalAlignment('center');
+            sheet.getRange(sigRow + 2, 3, 1, numLocs > 1 ? 2 : 1).merge().setValue('').setHorizontalAlignment('center');
+            sheet.getRange(sigRow + 2, totalCols - 1, 1, 2).merge().setValue('').setHorizontalAlignment('center');
         }
-
         // DEBUG_Luong2 is kept for short-term diagnostics; do not run in normal report flow.
         // writeDebugLuong2Sheet_(ss, monthStr, targetLocation, debugLuong2 || []);
+
+        // FR-02: set row height for school name & underline at the very end
+        sheet.setRowHeight(1, 22);
+        sheet.setRowHeight(2, 18);
+        sheet.getRange(1, 1, 1, 3).setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+        sheet.getRange(2, 1, 1, 3).setFontSize(10).setFontWeight('normal').setHorizontalAlignment('center');
+        sheet.getRange(3, 1, 2, totalCols).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
+
+        // Đồng bộ thay đổi gridline và format
+        SpreadsheetApp.flush();
 
         return `https://docs.google.com/spreadsheets/d/${TARGET_FILE_ID}/export?format=pdf&size=A4&portrait=true&fitw=true&gridlines=false&horizontal_alignment=CENTER`;
     } catch (e) {

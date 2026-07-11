@@ -236,7 +236,8 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
     const month = parseInt(monthParts[0], 10);
     const year = monthParts[1];
 
-    sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12);
+    sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
+    sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
     sheet.getRange("A3:D3").merge().setValue(`BẢNG TỔNG HỢP TIỀN KPCĐ`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
     sheet.getRange("A4:D4").merge().setValue(`THÁNG ${month < 10 ? '0' + month : month} NĂM ${year}`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
 
@@ -328,5 +329,45 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
     // Thiết lập font chữ cho toàn bộ bảng (bao gồm cả chữ ký mới copy)
     sheet.getRange(1, 1, sheet.getLastRow(), sheet.getMaxColumns()).setFontFamily('Arial');
 
+    // FR-02: set row height for school name & underline at the very end
+    sheet.setRowHeight(1, 22);
+    sheet.setRowHeight(2, 18);
+    sheet.getRange(1, 1, 1, 3).setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.getRange(2, 1, 1, 3).setFontSize(10).setFontWeight('normal').setHorizontalAlignment('center');
+    sheet.getRange("A3:D3").setFontSize(12).setFontWeight('bold').setHorizontalAlignment('center');
+
     return `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=pdf&size=A4&portrait=true&fitw=true&gridlines=false&horizontal_alignment=CENTER&left_margin=0.5&right_margin=0.25&top_margin=0.5&bottom_margin=0.25`;
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng hạch toán KPCĐ trên Client
+ */
+function getPrintDataHachToanKPCD(monthStr, location) {
+    try {
+        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
+        doGet_taoBangHachToanKPCD(monthStr, location);
+
+        // 2. Đọc giá trị đã tính toán từ sheet
+        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_HT_TH_KPCD);
+        const sheet = ss.getSheetByName(GLOBAL_CONFIG.SHEETS.SHEET_TH_KPCD);
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+
+        // Tiêu đề/Header bắt đầu từ dòng 6
+        const data = sheet.getRange(6, 1, lastRow - 5, lastCol).getValues();
+
+        const monthParts = monthStr.substring(1).split('.');
+        const month = monthParts[0];
+        const year = monthParts[1];
+
+        return {
+            status: "success",
+            month: month,
+            year: year,
+            data: data,
+            dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
+        };
+    } catch (e) {
+        return { status: "error", message: e.message };
+    }
 }

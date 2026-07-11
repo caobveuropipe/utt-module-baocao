@@ -584,6 +584,9 @@ function doGet_taoBangTongHopBaoHiem(monthStr, targetLocation) {
         sheet.clear();
     }
 
+    // Ẩn gridline mặc định
+    sheet.setHiddenGridlines(true);
+
     // 4. Ghi dữ liệu (bắt đầu từ dòng 5)
     sheet.getRange(5, 1, rows, cols).setValues(fullData);
 
@@ -593,7 +596,8 @@ function doGet_taoBangTongHopBaoHiem(monthStr, targetLocation) {
     const year = monthParts[1];
 
     // Tiêu đề
-    sheet.getRange("A1").setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12);
+    sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
+    sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
     let titleText = `BẢNG TỔNG HỢP BẢO HIỂM THÁNG ${month} NĂM ${year}`;
     if (targetLocation && targetLocation !== 'All') {
         titleText += ` - CƠ SỞ ${targetLocation.toUpperCase()}`;
@@ -688,7 +692,18 @@ function doGet_taoBangTongHopBaoHiem(monthStr, targetLocation) {
                 sheet.getRange(targetRow + (m.getRow() - 1), m.getColumn(), m.getNumRows(), m.getNumColumns()).merge();
             });
         }
-        Logger.log('✅ Đã copy chữ ký nguyên bản định dạng từ Master');
+        
+        // Clean signature labels from target range
+        const targetValues = targetRange.getValues();
+        for (let r = 0; r < targetValues.length; r++) {
+            for (let c = 0; c < targetValues[r].length; c++) {
+                const val = String(targetValues[r][c] || '');
+                if (val.toLowerCase().includes('ký') && (val.includes('(') || val.includes('ghi rõ họ tên') || val.includes('ký tên'))) {
+                    targetRange.getCell(r + 1, c + 1).setValue('');
+                }
+            }
+        }
+        Logger.log('✅ Đã copy chữ ký nguyên bản định dạng từ Master và làm sạch nhãn ký');
     };
 
     if (masterSheet) {
@@ -724,7 +739,50 @@ function doGet_taoBangTongHopBaoHiem(monthStr, targetLocation) {
         }
     }
 
+    // FR-02: set row height for school name & underline at the very end
+    sheet.setRowHeight(1, 22);
+    sheet.setRowHeight(2, 18);
+    sheet.getRange(1, 1, 1, 3).setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.getRange(2, 1, 1, 3).setFontSize(10).setFontWeight('normal').setHorizontalAlignment('center');
+    sheet.getRange("A3:M3").setFontSize(18).setFontWeight('bold').setHorizontalAlignment('center');
+
+    // Đồng bộ thay đổi gridline và format
+    SpreadsheetApp.flush();
+
     const exportUrl = `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER`;
     return exportUrl;
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng tổng hợp bảo hiểm trên Client
+ */
+function getPrintDataTongHopBaoHiem(monthStr, location) {
+    try {
+        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
+        doGet_taoBangTongHopBaoHiem(monthStr, location);
+
+        // 2. Đọc giá trị đã tính toán từ sheet
+        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_DKB_TH_BH);
+        const sheet = ss.getSheetByName(GLOBAL_CONFIG.SHEETS.SHEET_TH_BH);
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+
+        // Tiêu đề/Header bắt đầu từ dòng 5
+        const data = sheet.getRange(5, 1, lastRow - 4, lastCol).getValues();
+
+        const monthParts = monthStr.substring(1).split('.');
+        const month = monthParts[0];
+        const year = monthParts[1];
+
+        return {
+            status: "success",
+            month: month,
+            year: year,
+            data: data,
+            dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
+        };
+    } catch (e) {
+        return { status: "error", message: e.message };
+    }
 }
 

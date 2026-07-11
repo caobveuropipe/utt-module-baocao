@@ -135,9 +135,79 @@ function pg1_ed1_getPrintDataCk(monthStr, location = 'All') {
   }
 }
 
-function pg1_ed1_getPrintDataTongHopLuong(monthStr) {
+function pg1_ed1_getPrintDataTongHopLuong(monthStr, location = 'All') {
   try {
-    const url = `${url_api_doGet}?type=getPrintDataTongHopLuong&month=${encodeURIComponent(monthStr)}`;
+    const url = `${url_api_doGet}?type=getPrintDataTongHopLuong&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    const response = UrlFetchApp.fetch(url, { method: 'get' });
+    return JSON.parse(response.getContentText());
+  } catch (error) {
+    return { status: "error", message: error.message };
+  }
+}
+
+function pg1_ed1_getPrintDataTongHopBaoHiem(monthStr, location = 'All') {
+  try {
+    const url = `${url_api_doGet}?type=getPrintDataTongHopBaoHiem&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    const response = UrlFetchApp.fetch(url, { method: 'get' });
+    return JSON.parse(response.getContentText());
+  } catch (error) {
+    return { status: "error", message: error.message };
+  }
+}
+
+function pg1_ed1_getPrintDataTongHopKhoanTru(monthStr, location = 'All') {
+  try {
+    const url = `${url_api_doGet}?type=getPrintDataTongHopKhoanTru&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    const response = UrlFetchApp.fetch(url, { method: 'get' });
+    return JSON.parse(response.getContentText());
+  } catch (error) {
+    return { status: "error", message: error.message };
+  }
+}
+
+function pg1_ed1_getPrintDataTongHopKPCD(monthStr, location = 'All') {
+  try {
+    const url = `${url_api_doGet}?type=getPrintDataTongHopKPCD&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    const response = UrlFetchApp.fetch(url, { method: 'get' });
+    return JSON.parse(response.getContentText());
+  } catch (error) {
+    return { status: "error", message: error.message };
+  }
+}
+
+function pg1_ed1_getPrintDataHachToanBaoHiem(monthStr, location = 'All') {
+  try {
+    const url = `${url_api_doGet}?type=getPrintDataHachToanBaoHiem&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    const response = UrlFetchApp.fetch(url, { method: 'get' });
+    return JSON.parse(response.getContentText());
+  } catch (error) {
+    return { status: "error", message: error.message };
+  }
+}
+
+function pg1_ed1_getPrintDataHachToanKPCD(monthStr, location = 'All') {
+  try {
+    const url = `${url_api_doGet}?type=getPrintDataHachToanKPCD&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    const response = UrlFetchApp.fetch(url, { method: 'get' });
+    return JSON.parse(response.getContentText());
+  } catch (error) {
+    return { status: "error", message: error.message };
+  }
+}
+
+function pg1_ed1_getPrintDataPhanBoLuongBHXH(monthStr, location = 'All') {
+  try {
+    const url = `${url_api_doGet}?type=getPrintDataPhanBoLuongBHXH&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    const response = UrlFetchApp.fetch(url, { method: 'get' });
+    return JSON.parse(response.getContentText());
+  } catch (error) {
+    return { status: "error", message: error.message };
+  }
+}
+
+function pg1_ed1_getPrintDataHachToanLuongVaTruyLinh(monthStr, location = 'All') {
+  try {
+    const url = `${url_api_doGet}?type=getPrintDataHachToanLuongVaTruyLinh&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
     const response = UrlFetchApp.fetch(url, { method: 'get' });
     return JSON.parse(response.getContentText());
   } catch (error) {

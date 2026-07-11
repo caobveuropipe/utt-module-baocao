@@ -44,7 +44,7 @@ const GLOBAL_CONFIG = {
     EXPORT_HT_TH_KPCD: '1hrSMQHS-Mk7vTkKNpRiKAnB6CXzYQfO75wbGvancd_A',
     EXPORT_HT_PHAN_BO_LUONG_BHXH: '1FZ1t_RszFsr8urWnD7hNc0KlKv_oXLWQn_2eoavU5LY',
     EXPORT_HT_TH_LUONG_VA_TTTL: '1v872ZkdnogcPSOdYvAmzi9EBPEMiMB2ZA_rZiNpBQJI',
-    
+
     // ID BÁO CÁO - KHÁC
     EXPORT_OTHER_TRU_KPCD_QUY: '1ab05SaEsAzVsbiuQqFJ5UNrlaj3IWYyI-nL5JwkzHj4',
     EXPORT_DANH_MUC_DON_VI: ''
@@ -98,6 +98,15 @@ function doGet(e) {
       'exportTongHopExcel': { fn: exportTongHopExcelBase64, desc: 'Xuất file Excel Tổng Hợp Lương (Base64)' },
       'getPrintDanhMucDonVi': { fn: doGet_getPrintDanhMucDonVi, desc: 'Lấy dữ liệu in danh mục đơn vị' },
       'exportDanhMucDonVi': { fn: doGet_exportDanhMucDonVi, desc: 'Xuất file Excel danh mục đơn vị' },
+
+      // --- In ấn HTML ---
+      'getPrintDataTongHopBaoHiem': { fn: getPrintDataTongHopBaoHiem, desc: 'Lấy dữ liệu in tổng hợp bảo hiểm' },
+      'getPrintDataTongHopKhoanTru': { fn: getPrintDataTongHopKhoanTru, desc: 'Lấy dữ liệu in các khoản trừ' },
+      'getPrintDataTongHopKPCD': { fn: getPrintDataTongHopKPCD, desc: 'Lấy dữ liệu in tổng hợp KPCĐ' },
+      'getPrintDataHachToanBaoHiem': { fn: getPrintDataHachToanBaoHiem, desc: 'Lấy dữ liệu in hạch toán bảo hiểm' },
+      'getPrintDataHachToanKPCD': { fn: getPrintDataHachToanKPCD, desc: 'Lấy dữ liệu in hạch toán KPCĐ' },
+      'getPrintDataPhanBoLuongBHXH': { fn: getPrintDataPhanBoLuongBHXH, desc: 'Lấy dữ liệu in phân bổ lương BHXH' },
+      'getPrintDataHachToanLuongVaTruyLinh': { fn: getPrintDataHachToanLuongVaTruyLinh, desc: 'Lấy dữ liệu in hạch toán lương và truy lĩnh' },
     };
 
     // Kiểm tra và thực thi Route
@@ -122,13 +131,17 @@ function doGet(e) {
         let result;
         // Cập nhật: Tất cả các báo cáo cần lọc khu vực được đưa vào đây
         const locationEnabledReports = [
-          'taoBangTongHopBaoHiem', 'tongHopCk', 'getPrintDataCk', 
+          'taoBangTongHopBaoHiem', 'tongHopCk', 'getPrintDataCk',
           'taoBangTongHopKhoanTru', 'taoBangTongHopKPCD',
           'taoBangTongHopLuong', 'getPrintDataTongHopLuong',
           'taoBangHachToanBaoHiem', 'taoBangHachToanKPCD',
           'taoBangPhanBoLuongBHXH', 'taoBangHachToanLuongVaTruyLinh',
           'taoBangTruKPCDVaCacQuy', 'getPrintDataTruKPCDVaCacQuy',
-          'exportTongHopExcel'
+          'exportTongHopExcel',
+          'getPrintDataTongHopBaoHiem', 'getPrintDataTongHopKhoanTru',
+          'getPrintDataTongHopKPCD', 'getPrintDataHachToanBaoHiem',
+          'getPrintDataHachToanKPCD', 'getPrintDataPhanBoLuongBHXH',
+          'getPrintDataHachToanLuongVaTruyLinh'
         ];
 
         const noMonthReports = ['getPrintDanhMucDonVi', 'exportDanhMucDonVi'];
@@ -143,7 +156,7 @@ function doGet(e) {
 
         // --- XỬ LÝ ĐỊNH DẠNG XUẤT ---
         let downloadUrl = (typeof result === 'object' && result !== null) ? result.downloadUrl : result;
-        
+
         if (downloadUrl && typeof downloadUrl === 'string' && exportFormat !== 'pdf' && downloadUrl.includes('/export')) {
           const fileIdMatch = downloadUrl.match(/\/d\/([^\/?]+)/);
           if (fileIdMatch && fileIdMatch[1]) {
@@ -226,7 +239,7 @@ function getAllData() {
   // --- LẤY DANH SÁCH ĐỊA PHƯƠNG TỰ ĐỘNG ---
   const cache = CacheService.getScriptCache();
   const cachedLocs = cache.get("listDiaPhuong");
-  
+
   let listDiaPhuong;
   if (cachedLocs) {
     listDiaPhuong = JSON.parse(cachedLocs);
@@ -237,7 +250,7 @@ function getAllData() {
       const rangeName = `'${GLOBAL_CONFIG.SHEETS.DATA_NHAN_SU}'!A1:Z1000`; // Lấy tối đa 1000 dòng đầu để tìm khu vực
       const responseMaster = Sheets.Spreadsheets.Values.get(GLOBAL_CONFIG.FILES.MASTER_DATA, rangeName);
       const dataNS = responseMaster.values;
-      
+
       if (dataNS && dataNS.length > 0) {
         const header = dataNS[0];
         const idxKV = header.indexOf('Khu vực');
@@ -320,14 +333,18 @@ function pg1_ed1_getPrintDanhMucDonVi() {
 
 function doGet_taoBangTruKPCDVaCacQuy(monthStr, location = 'All') {
   // LƯU Ý: Thay đổi ID này bằng ID thực tế của file Google Sheet báo cáo
-  const TARGET_FILE_ID = GLOBAL_CONFIG.FILES.EXPORT_OTHER_TRU_KPCD_QUY === '1-placeholder-id-tru-kpcd-quy' 
+  const TARGET_FILE_ID = GLOBAL_CONFIG.FILES.EXPORT_OTHER_TRU_KPCD_QUY === '1-placeholder-id-tru-kpcd-quy'
     ? '1DmkNhugNuzzlH0SQG41MYvC2VjG-pxfAHUEDs45jJ7E' // Tạm dùng chung với TH Lương nếu chưa có ID riêng
     : GLOBAL_CONFIG.FILES.EXPORT_OTHER_TRU_KPCD_QUY;
-    
+
   const TARGET_SHEET_NAME = GLOBAL_CONFIG.SHEETS.SHEET_TRU_KPCD_QUY || 'KPCD';
-  const HEADER_ROW = 6;
-  const START_ROW = 7;
-  
+  let headerRow = 6;
+  let startRow = 7;
+  if (location && location !== 'All') {
+    headerRow = 7;
+    startRow = 8;
+  }
+
   const ssLuong1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_1);
   const ssMaster = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
 
@@ -357,7 +374,7 @@ function doGet_taoBangTruKPCDVaCacQuy(monthStr, location = 'All') {
     const totalKpcdValue = exportData.reduce((sum, row) => sum + (Number(row[3]) || 0), 0);
     const totalQuyValue = exportData.reduce((sum, row) => sum + (Number(row[4]) || 0), 0);
     const totalKhacValue = exportData.reduce((sum, row) => sum + (Number(row[5]) || 0), 0);
-    const totalRowIndex = START_ROW + exportData.length;
+    const totalRowIndex = startRow + exportData.length;
     const wordsRowIndex = totalRowIndex + 2;
     const signatureRowIndex = wordsRowIndex + 2;
     const requiredRows = signatureRowIndex + 6;
@@ -370,15 +387,25 @@ function doGet_taoBangTruKPCDVaCacQuy(monthStr, location = 'All') {
     }
 
     targetSheet.setHiddenGridlines(true);
-    targetSheet.setFrozenRows(HEADER_ROW);
+    targetSheet.setFrozenRows(headerRow);
     targetSheet.setFrozenColumns(0);
 
-    targetSheet.getRange('A1:G1').merge().setValue('TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GIAO THÔNG VẬN TẢI');
-    targetSheet.getRange('A2:G2').merge().setValue(location && location !== 'All' ? 'Cơ sở: ' + String(location).toUpperCase() : '');
-    targetSheet.getRange(3, 1, 2, 7).merge().setValue(`DANH SÁCH TRỪ KP CÔNG ĐOÀN VÀ CÁC QUỸ\nTHÁNG ${periodMonth} NĂM ${periodYear}`);
+    targetSheet.getRange('A1:C1').merge().setValue('TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT').setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center');
 
-    targetSheet.getRange(HEADER_ROW, 1, 1, 7).setValues([tableHeaders]);
-    targetSheet.getRange(START_ROW, 1, exportData.length, 7).setValues(exportData);
+    const underlineRow = (location && location !== 'All') ? 3 : 2;
+    const titleStartRow = (location && location !== 'All') ? 4 : 3;
+
+    if (location && location !== 'All') {
+      targetSheet.getRange('A2:C2').merge().setValue('Cơ sở: ' + String(location).toUpperCase()).setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center');
+      targetSheet.getRange('A3:C3').merge().setValue('──────────').setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
+    } else {
+      targetSheet.getRange('A2:C2').merge().setValue('──────────').setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
+    }
+
+    targetSheet.getRange(titleStartRow, 1, 2, 7).merge().setValue(`DANH SÁCH TRỪ KP CÔNG ĐOÀN VÀ CÁC QUỸ\nTHÁNG ${periodMonth} NĂM ${periodYear}`);
+
+    targetSheet.getRange(headerRow, 1, 1, 7).setValues([tableHeaders]);
+    targetSheet.getRange(startRow, 1, exportData.length, 7).setValues(exportData);
     targetSheet.getRange(totalRowIndex, 1, 1, 7).setValues([['', '', 'TỔNG CỘNG', totalKpcdValue, totalQuyValue, totalKhacValue, '']]);
 
     targetSheet.getRange(1, 1, signatureRowIndex + 6, 7)
@@ -386,26 +413,24 @@ function doGet_taoBangTruKPCDVaCacQuy(monthStr, location = 'All') {
       .setFontSize(12)
       .setVerticalAlignment('middle');
 
-    targetSheet.getRange('A1').setFontWeight('bold').setFontSize(11).setHorizontalAlignment('left');
-    targetSheet.getRange('A2').setFontWeight('bold').setFontSize(11).setHorizontalAlignment('left');
-    targetSheet.getRange(3, 1).setFontWeight('bold').setFontSize(16).setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+    targetSheet.getRange(titleStartRow, 1).setFontWeight('bold').setFontSize(16).setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
 
-    targetSheet.getRange(HEADER_ROW, 1, 1, 7)
+    targetSheet.getRange(headerRow, 1, 1, 7)
       .setFontWeight('bold')
       .setHorizontalAlignment('center')
       .setVerticalAlignment('middle')
       .setWrap(true);
 
-    targetSheet.setRowHeight(3, 28);
-    targetSheet.setRowHeight(4, 28);
-    targetSheet.setRowHeight(HEADER_ROW, 54);
-    targetSheet.setRowHeightsForced(START_ROW, exportData.length + 1, 28);
+    targetSheet.setRowHeight(titleStartRow, 28);
+    targetSheet.setRowHeight(titleStartRow + 1, 28);
+    targetSheet.setRowHeight(headerRow, 54);
+    targetSheet.setRowHeightsForced(startRow, exportData.length + 1, 28);
 
-    targetSheet.getRange(START_ROW, 1, exportData.length, 1).setHorizontalAlignment('center');
-    targetSheet.getRange(START_ROW, 2, exportData.length, 1).setHorizontalAlignment('center');
-    targetSheet.getRange(START_ROW, 3, exportData.length, 1).setHorizontalAlignment('left');
-    targetSheet.getRange(START_ROW, 4, exportData.length + 1, 3).setHorizontalAlignment('right').setNumberFormat('#,##0');
-    targetSheet.getRange(START_ROW, 7, exportData.length + 1, 1).setHorizontalAlignment('left');
+    targetSheet.getRange(startRow, 1, exportData.length, 1).setHorizontalAlignment('center');
+    targetSheet.getRange(startRow, 2, exportData.length, 1).setHorizontalAlignment('center');
+    targetSheet.getRange(startRow, 3, exportData.length, 1).setHorizontalAlignment('left');
+    targetSheet.getRange(startRow, 4, exportData.length + 1, 3).setHorizontalAlignment('right').setNumberFormat('#,##0');
+    targetSheet.getRange(startRow, 7, exportData.length + 1, 1).setHorizontalAlignment('left');
     targetSheet.getRange(totalRowIndex, 1, 1, 7).setFontWeight('bold');
     targetSheet.getRange(totalRowIndex, 3).setHorizontalAlignment('center');
 
@@ -417,11 +442,27 @@ function doGet_taoBangTruKPCDVaCacQuy(monthStr, location = 'All') {
     targetSheet.setColumnWidth(6, 185);
     targetSheet.setColumnWidth(7, 150);
 
-    const fullTableRange = targetSheet.getRange(HEADER_ROW, 1, exportData.length + 2, 7);
+    const fullTableRange = targetSheet.getRange(headerRow, 1, exportData.length + 2, 7);
     fullTableRange.setBorder(true, true, true, true, true, null, 'black', SpreadsheetApp.BorderStyle.SOLID);
     fullTableRange.setBorder(null, null, null, null, null, true, 'black', SpreadsheetApp.BorderStyle.DOTTED);
-    targetSheet.getRange(HEADER_ROW, 1, 1, 7).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+    targetSheet.getRange(headerRow, 1, 1, 7).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
     targetSheet.getRange(totalRowIndex, 1, 1, 7).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+
+    // FR-02: set row height for school name & underline at the very end
+    targetSheet.setRowHeight(1, 22);
+    targetSheet.setRowHeight(underlineRow, 18);
+    if (location && location !== 'All') {
+      targetSheet.setRowHeight(2, 22);
+    }
+    // Set font sizes explicitly at the end to prevent overrides
+    targetSheet.getRange("A1:C1").setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+    if (location && location !== 'All') {
+      targetSheet.getRange("A2:C2").setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+      targetSheet.getRange("A3:C3").setFontSize(10).setFontWeight('normal').setHorizontalAlignment('center');
+    } else {
+      targetSheet.getRange("A2:C2").setFontSize(10).setFontWeight('normal').setHorizontalAlignment('center');
+    }
+    targetSheet.getRange(titleStartRow, 1).setFontSize(14).setFontWeight('bold');
 
     const grandTotalValue = totalKpcdValue + totalQuyValue + totalKhacValue;
     let moneyInWords = 'Bằng chữ: ';
@@ -477,7 +518,7 @@ function doGet_taoBangTruKPCDVaCacQuy(monthStr, location = 'All') {
     // --- RENDER DATA ---
     sheet.getRange(7, 1, resultData.length, 7).setValues(resultData)
       .setVerticalAlignment('middle');
-    
+
     // Format numbers
     sheet.getRange(7, 4, resultData.length, 3).setNumberFormat('#,##0');
     sheet.getRange(7, 1, resultData.length, 2).setHorizontalAlignment('center');
@@ -495,7 +536,7 @@ function doGet_taoBangTruKPCDVaCacQuy(monthStr, location = 'All') {
     // --- STYLING ---
     sheet.getRange(1, 1, lastRow + 10, 7).setFontFamily('Times New Roman').setFontSize(12);
     sheet.getRange(6, 1, resultData.length + 2, 7).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.THIN);
-    
+
     sheet.setColumnWidth(1, 40);
     sheet.setColumnWidth(2, 80);
     sheet.setColumnWidth(3, 200);
@@ -578,10 +619,10 @@ function doGet_tongHopTruKPCD(monthStr, resources, location = 'All') {
     if (locationNormalized && khuVucMap[maCB] !== locationNormalized) return;
     const emp = employeeMap[maCB];
     if (!emp) return;
-    
+
     // Bỏ chữ CB ở đầu nếu có
     const displayMaCB = emp.maCB.replace(/^CB/i, '');
-    
+
     output.push([0, displayMaCB, emp.hoTen, emp.kpcd, emp.truKhac, 0, '', maDonViMap[maCB]]);
   });
 

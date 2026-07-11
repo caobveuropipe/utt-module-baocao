@@ -19,11 +19,11 @@ function doGet_getDanhMucDonViData() {
   if (lastRow < 2) {
     return [];
   }
-  
+
   // Lấy dữ liệu cột K (Mã đơn vị) và L (Tên đơn vị)
   const dataRaw = sheetSetup.getRange("K2:L" + lastRow).getValues();
   const result = [];
-  
+
   dataRaw.forEach(row => {
     const rawCode = String(row[0] || '').trim();
     const rawName = String(row[1] || '').trim();
@@ -33,10 +33,10 @@ function doGet_getDanhMucDonViData() {
       if (rawCode.startsWith('DV')) {
         cleanCode = rawCode.substring(2);
       }
-      
+
       // 2. Ghép chuỗi Tên đơn vị định dạng: [cleanCode] - [rawName]
       const formattedName = `${cleanCode} - ${rawName}`;
-      
+
       result.push({
         maDonViRaw: rawCode,
         maDonVi: cleanCode,
@@ -45,7 +45,7 @@ function doGet_getDanhMucDonViData() {
       });
     }
   });
-  
+
   return result;
 }
 
@@ -93,11 +93,11 @@ function doGet_taoBangDanhMucDonViExcel() {
   if (!data || data.length === 0) {
     throw new Error("Không có dữ liệu danh mục đơn vị");
   }
-  
+
   let targetFileId = GLOBAL_CONFIG.FILES.EXPORT_DANH_MUC_DON_VI;
   let isTemp = false;
   let ss;
-  
+
   if (!targetFileId) {
     // Nếu chưa cấu hình ID, tự động tạo một file Spreadsheet mới trong Drive
     ss = SpreadsheetApp.create("Danh mục đơn vị - Xuất bản");
@@ -106,7 +106,7 @@ function doGet_taoBangDanhMucDonViExcel() {
   } else {
     ss = SpreadsheetApp.openById(targetFileId);
   }
-  
+
   let sheet = ss.getSheetByName("DanhMucDonVi");
   if (!sheet) {
     if (isTemp) {
@@ -124,7 +124,7 @@ function doGet_taoBangDanhMucDonViExcel() {
       sheet.getRange(1, 1, maxRows, maxCols).breakApart();
     }
   }
-  
+
   // Viết dữ liệu
   const headers = ["STT", "Mã đơn vị", "TÊN ĐƠN VỊ", "Ghi chú"];
   const rows = data.map((r, idx) => [
@@ -133,45 +133,45 @@ function doGet_taoBangDanhMucDonViExcel() {
     r.tenDonVi,
     ""
   ]);
-  
+
   // Ghi Headers
   sheet.getRange(1, 1, 1, headers.length)
-       .setValues([headers])
-       .setFontWeight("bold")
-       .setHorizontalAlignment("center")
-       .setBackground("#E0E0E0")
-       .setFontFamily("Times New Roman")
-       .setFontSize(11);
-       
+    .setValues([headers])
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center")
+    .setBackground("#E0E0E0")
+    .setFontFamily("Times New Roman")
+    .setFontSize(11);
+
   // Ghi Rows
   if (rows.length > 0) {
     sheet.getRange(2, 1, rows.length, headers.length)
-         .setValues(rows)
-         .setFontFamily("Times New Roman")
-         .setFontSize(11);
-    
+      .setValues(rows)
+      .setFontFamily("Times New Roman")
+      .setFontSize(11);
+
     // Format cột Mã đơn vị (Cột 2) dạng TEXT và căn giữa để tránh mất số 0 hàng đầu (Ví dụ '01')
     sheet.getRange(2, 2, rows.length, 1)
-         .setNumberFormat('@')
-         .setHorizontalAlignment("center");
-         
+      .setNumberFormat('@')
+      .setHorizontalAlignment("center");
+
     // Format cột STT (Cột 1) căn giữa
     sheet.getRange(2, 1, rows.length, 1)
-         .setHorizontalAlignment("center");
-         
+      .setHorizontalAlignment("center");
+
     // Vẽ đường kẻ bảng (Borders)
     const tableRange = sheet.getRange(1, 1, rows.length + 1, headers.length);
     tableRange.setBorder(true, true, true, true, true, true, "black", SpreadsheetApp.BorderStyle.SOLID);
   }
-  
+
   // Set độ rộng cột tự động
   sheet.setColumnWidth(1, 50);   // STT
   sheet.setColumnWidth(2, 120);  // Mã đơn vị
   sheet.setColumnWidth(3, 300);  // Tên đơn vị
   sheet.setColumnWidth(4, 150);  // Ghi chú
-  
+
   SpreadsheetApp.flush();
-  
+
   return {
     status: "success",
     downloadUrl: `https://docs.google.com/spreadsheets/d/${targetFileId}/export?format=xlsx`
@@ -189,11 +189,11 @@ function test_doGet_getDanhMucDonViData() {
     if (data.length > 0) {
       Logger.log("First item: " + JSON.stringify(data[0]));
       Logger.log("Last item: " + JSON.stringify(data[data.length - 1]));
-      
+
       // Verify prefix removal
       const hasPrefix = data.some(item => item.maDonVi.startsWith('DV'));
       Logger.log("Has any 'DV' prefix remaining: " + hasPrefix + " (Expected: false)");
-      
+
       // Verify name formatting
       Logger.log("Formatted name check: " + data[0].tenDonVi + " (Expected format: [Code] - [Name])");
     } else {
