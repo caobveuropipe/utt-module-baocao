@@ -6,6 +6,15 @@
 
 ---
 
+## [2026-07-17]
+
+### fix(phan-bo-luong): sửa lệch dòng header và khôi phục đúng cấu trúc mẫu 3 tầng
+- **Tái cấu trúc header:** Phục hồi cấu trúc header 3 tầng (dòng 7: tiêu đề nhóm, dòng 8: tiêu đề cột chi tiết, dòng 9: số thứ tự cột, dòng 10: công thức diễn giải).
+- **Tránh đè dữ liệu:** Đẩy dòng bắt đầu ghi dữ liệu xuống dòng 11 để không bị đè lên phần công thức ở dòng 10.
+- **Header renaming:** Đảm bảo hiển thị tên cột N là `"Đoàn phí CĐ"` và cột R là `"Quỹ XH"` (chữ đỏ).
+- **Kẻ viền (Borders):** Vẽ lại viền bảng nét liền SOLID cho toàn bộ header dòng 7-10 và nét đứt DOTTED cho dữ liệu.
+- **Tách cột ĐH/TN:** Tự động tách cột ĐH riêng, TN riêng (chữ đỏ) và định dạng đúng vị trí cột.
+
 ## [2026-07-11]
 
 ### feat(print-api): xây dựng 7 API JSON thô phục vụ in ấn
