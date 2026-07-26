@@ -98,6 +98,7 @@ function doGet(e) {
       'exportTongHopExcel': { fn: exportTongHopExcelBase64, desc: 'Xuất file Excel Tổng Hợp Lương (Base64)' },
       'getPrintDanhMucDonVi': { fn: doGet_getPrintDanhMucDonVi, desc: 'Lấy dữ liệu in danh mục đơn vị' },
       'exportDanhMucDonVi': { fn: doGet_exportDanhMucDonVi, desc: 'Xuất file Excel danh mục đơn vị' },
+      'doiChieuLechLuong': { fn: doGet_doiChieuLechLuong, desc: 'Đối chiếu lệch lương' },
 
       // --- In ấn HTML ---
       'getPrintDataTongHopBaoHiem': { fn: getPrintDataTongHopBaoHiem, desc: 'Lấy dữ liệu in tổng hợp bảo hiểm' },
@@ -144,7 +145,7 @@ function doGet(e) {
           'getPrintDataHachToanLuongVaTruyLinh'
         ];
 
-        const noMonthReports = ['getPrintDanhMucDonVi', 'exportDanhMucDonVi'];
+        const noMonthReports = [];
 
         if (noMonthReports.includes(type)) {
           result = handlerInfo.fn();
@@ -316,9 +317,9 @@ function pg1_ed1_getPrintDataCk(monthStr, location = 'All') {
 /**
  * Alias cho doGet_getPrintDanhMucDonVi() để tương thích với lời gọi từ Client
  */
-function pg1_ed1_getPrintDanhMucDonVi() {
+function pg1_ed1_getPrintDanhMucDonVi(month) {
   try {
-    return doGet_getPrintDanhMucDonVi();
+    return doGet_getPrintDanhMucDonVi(month);
   } catch (e) {
     return {
       status: "error",
@@ -672,6 +673,21 @@ function getPrintDataTruKPCDVaCacQuy(monthStr, location = 'All') {
       data: result,
       moneyInWords: moneyInWords,
       dateExport: Utilities.formatDate(new Date(), "GMT+7", "'Ngày 'dd' tháng 'MM' năm 'yyyy")
+    };
+  } catch (e) {
+    return { status: "error", message: e.message };
+  }
+}
+
+function doGet_doiChieuLechLuong(monthStr) {
+  try {
+    const msg = doGet_doiChieuLuongVaThuyetMinh(monthStr);
+    const fileId = GLOBAL_CONFIG.FILES.EXPORT_DKB_TH_LUONG;
+    const downloadUrl = `https://docs.google.com/spreadsheets/d/${fileId}/edit`;
+    return {
+      status: "success",
+      message: msg,
+      downloadUrl: downloadUrl
     };
   } catch (e) {
     return { status: "error", message: e.message };

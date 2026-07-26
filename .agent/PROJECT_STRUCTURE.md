@@ -18,6 +18,8 @@ Dikhobac/
 |-- doGet/                      # Core Logic & API
 |   |-- Code.js                 # Entry point & Router
 |   |-- doGet_function.js       # Utility functions
+|   |-- doGet_hachToanLuongVaTruyLinh.js # Bảng kê Hạch toán lương và Truy lĩnh lương
+|   |-- doGet_doiChieuDuLieu.js  # Logic đối chiếu dữ liệu nhân sự & lương
 |   |-- doGet_tongHopLuong.js    # Logic tổng hợp lương
 |   |-- doGet_tongHopBaoHiem.js   # Logic bảo hiểm
 |   `-- doGet_tongHopCk.js       # Logic chuyển khoản
@@ -43,6 +45,8 @@ Dikhobac/
 
 | Module/Service | Path | Trách nhiệm |
 |----------------|------|-------------|
+| Accounting Payroll Engine | `doGet/doGet_hachToanLuongVaTruyLinh.js` | Tính toán, audit & tạo Bảng kê Hạch toán lương và Truy lĩnh |
+| Data Reconciliation | `doGet/doGet_doiChieuDuLieu.js` | Đối chiếu dữ liệu nhân sự, khu vực và lương |
 | Payroll Engine | `doGet/doGet_tongHopLuong.js` | Tính toán và tổng hợp dữ liệu lương |
 | Export Manager | `doGet/Code.js` | Tạo file Excel/PDF từ data thô |
 | UI Proxy | `client/pg_general_1.js` | Kết nối UI với API của các dự án khác |

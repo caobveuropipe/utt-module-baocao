@@ -105,6 +105,15 @@
             });
         }
 
+        let doiChieuBtnHtml = '';
+        if (typeof userEmail !== 'undefined' && userEmail === 'loi.quantrihethong@gmail.com') {
+            doiChieuBtnHtml = `
+                <button id="swal-btn-doichieu" style="width: 100%; margin-top: 10px; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #eab308; color: white; cursor: pointer; transition: background-color 0.2s;">
+                    <i class="fas fa-sync"></i> Đối chiếu lệch lương
+                </button>
+            `;
+        }
+
         Swal.fire({
             title: 'Tổng hợp lương',
             html: `
@@ -124,6 +133,7 @@
                             <i class="fas fa-file-excel"></i> Excel
                         </button>
                     </div>
+                    ${doiChieuBtnHtml}
                 </div>
             `,
             icon: 'info',
@@ -146,8 +156,56 @@
                     Swal.close();
                     printBangTongHopLuong(getLoc());
                 });
+                const btnDoiChieu = document.getElementById('swal-btn-doichieu');
+                if (btnDoiChieu) {
+                    btnDoiChieu.addEventListener('click', () => {
+                        Swal.close();
+                        pg_general_4_runDoiChieuLechLuong(monthStr);
+                    });
+                }
             }
         });
+    }
+
+    async function pg_general_4_runDoiChieuLechLuong(monthStr) {
+        try {
+            currentAbortController = new AbortController();
+            const signal = currentAbortController.signal;
+
+            digicoreSpinner.show(`Đang đối chiếu số liệu lương kỳ ${monthStr}...`, () => {
+                if (currentAbortController) currentAbortController.abort();
+            });
+
+            const apiUrl = `${url_api_doGet}?type=doiChieuLechLuong&month=${encodeURIComponent(monthStr)}`;
+            const response = await fetch(apiUrl, { signal });
+            const result = await response.json();
+
+            digicoreSpinner.hide();
+            currentAbortController = null;
+
+            if (result.status === 'success') {
+                Swal.fire({
+                    title: 'Đối chiếu hoàn tất!',
+                    text: result.message,
+                    icon: 'success',
+                    showCancelButton: true,
+                    confirmButtonText: 'Mở file Excel để xem',
+                    cancelButtonText: 'Đóng'
+                }).then((res) => {
+                    if (res.isConfirmed) {
+                        window.open(result.downloadUrl, '_blank');
+                    }
+                });
+            } else {
+                digicoreToast('Lỗi đối chiếu: ' + (result.message || 'Không rõ'), 'error');
+            }
+        } catch (error) {
+            digicoreSpinner.hide();
+            currentAbortController = null;
+            if (error.name !== 'AbortError') {
+                digicoreToast('Có lỗi xảy ra: ' + error.message, 'error');
+            }
+        }
     }
 
     /**
@@ -345,10 +403,10 @@
         }
 
         Swal.fire({
-            title: 'Tổng hợp KPCĐ',
+            title: 'Tổng hợp Đoàn phí CĐ',
             html: `
                 <div style="margin-top: 10px;">
-                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và hình thức xuất báo cáo KPCĐ tháng ${monthStr}</p>
+                    <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và hình thức xuất báo cáo Đoàn phí CĐ tháng ${monthStr}</p>
                     <select id="swal-location-select-kpcd" class="form-select custom-select-swal" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                         ${optionsHtml}
                     </select>
@@ -375,11 +433,11 @@
                 const getLoc = () => document.getElementById('swal-location-select-kpcd').value;
                 document.getElementById('swal-btn-pdf').addEventListener('click', () => {
                     Swal.close();
-                    pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo KPCĐ', getLoc(), 'pdf');
+                    pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo Đoàn phí CĐ', getLoc(), 'pdf');
                 });
                 document.getElementById('swal-btn-excel').addEventListener('click', () => {
                     Swal.close();
-                    pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo KPCĐ', getLoc(), 'xlsx');
+                    pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo Đoàn phí CĐ', getLoc(), 'xlsx');
                 });
                 document.getElementById('swal-btn-print').addEventListener('click', () => {
                     Swal.close();
@@ -401,7 +459,7 @@
      * Xuất Bảng hạch toán KPCĐ: Chọn địa phương & định dạng
      */
     function pg_general_4_exportBangHachToanKPCD() {
-        pg_general_4_exportReportWithLocation('taoBangHachToanKPCD', 'hạch toán KPCĐ');
+        pg_general_4_exportReportWithLocation('taoBangHachToanKPCD', 'hạch toán Đoàn phí CĐ');
     }
 
     /**
@@ -498,7 +556,7 @@
         }
 
         Swal.fire({
-            title: 'Trừ KPCĐ và Các quỹ',
+            title: 'Trừ Đoàn phí CĐ và Các quỹ',
             html: `
                 <div style="margin-top: 10px;">
                     <p style="font-size: 14px; color: #64748b; margin-bottom: 15px;">Chọn địa phương và định dạng xuất báo cáo tháng ${monthStr}</p>
@@ -526,7 +584,7 @@
                 if (result.isConfirmed) {
                     printBangTruKPCDVaCacQuy(location);
                 } else {
-                    pg_general_4_exportReportGeneric('taoBangTruKPCDVaCacQuy', 'báo cáo trừ KPCĐ và quỹ', location, 'xlsx');
+                    pg_general_4_exportReportGeneric('taoBangTruKPCDVaCacQuy', 'báo cáo trừ Đoàn phí CĐ và quỹ', location, 'xlsx');
                 }
             }
         });
@@ -651,9 +709,14 @@
             } else if (result.isDenied) {
                 // Xuất Excel
                 try {
+                    const monthStr = $('#modal_dataluong_2_ChonThang').val();
+                    if (!monthStr) {
+                        digicoreToast('Vui lòng chọn tháng', 'warning');
+                        return;
+                    }
                     // Hiển thị spinner
                     digicoreSpinner.show("Đang tạo tệp Excel danh mục đơn vị...");
-                    const apiUrl = `${url_api_doGet}?type=exportDanhMucDonVi&exportFormat=xlsx`;
+                    const apiUrl = `${url_api_doGet}?type=exportDanhMucDonVi&exportFormat=xlsx&month=${encodeURIComponent(monthStr)}`;
                     const response = await fetch(apiUrl);
                     const resJson = await response.json();
                     digicoreSpinner.hide();

@@ -8,8 +8,12 @@
  * 3. Chi tiết phòng ban (Nhóm đơn vị hạch toán) dưới mục "Trong đó"
  */
 function test_doGet_taoBangPhanBoLuongBHXH() {
-    var monthStr = 'T01.2025';
-    Logger.log(doGet_taoBangPhanBoLuongBHXH(monthStr));
+    var monthStr = 'T06.2026';
+    var location = 'Hà Nội';
+    Logger.log("=== CHẠY BẢNG PHÂN BỔ ===");
+    Logger.log(doGet_taoBangPhanBoLuongBHXH(monthStr, location));
+    Logger.log("=== CHẠY AUDIT HẠCH TOÁN CHI TIẾT ===");
+    test_chiTietThanhPhanHachToanLuong(monthStr, location);
 }
 
 function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
@@ -34,9 +38,11 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     const hL1 = dataLuong1Raw[0] || [];
     const idxL1 = {
         KyLuong: getIdx(hL1, ['Kỳ lương', 'Ky']),
+        MaCB: getIdx(hL1, ['Mã CB', 'Mã nhân sự', 'MaNS', 'Ma', 'Mã NS']),
         LoaiHD: getIdx(hL1, ['Loại HĐ', 'Loại hợp đồng', 'LoaiHD']),
         DonVi: getIdx(hL1, ['Đơn vị', 'DonVi', 'Mã đơn vị', 'Mã ĐV']),
         HSBac: getIdx(hL1, ['HS bậc', 'HS Bậc', 'HSBac']),
+        HSBacBL: getIdx(hL1, ['HS bậc BL', 'HSBacBL']),
         HSChucVu: getIdx(hL1, ['HS chức vụ', 'HS CV', 'HSCV']),
         HSVượtKhung: getIdx(hL1, ['HS vượt khung', 'HSVK']),
         HSNganh: getIdx(hL1, ['HS ngành', 'HS Nghề', 'HSGD']),
@@ -74,13 +80,46 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
         }
     });
 
+    // LOAD & MAP DATACHOTNSTHANG TO RESOLVE UNIT & CONTRACT TYPE FOR EMPLOYEES
+    const mapChotNS = {};
+    try {
+        const dataChotRaw = getSheetNSThang().getDataRange().getValues();
+        if (dataChotRaw.length > 1) {
+            const headerChot = dataChotRaw[0] || [];
+            const idxChot = {
+                KyLuong: getIdx(headerChot, ['Kỳ lương', 'KyLuong', 'Ky']),
+                MaNS: getIdx(headerChot, ['Mã nhân sự', 'Mã NS', 'MaNS', 'Ma']),
+                LoaiHD: getIdx(headerChot, ['Loại hợp đồng', 'LoaiHD']),
+                MaDonVi: getIdx(headerChot, ['Mã đơn vị', 'MaDonVi', 'MaBP']),
+                DonVi: getIdx(headerChot, ['Đơn vị', 'DonVi']),
+                KhuVuc: getIdx(headerChot, ['Khu vực', 'KhuVuc', 'Địa phương', 'Khu vuc', 'Địa bàn'])
+            };
+            const targetMonth = monthStr.replace(/^T/, '');
+            dataChotRaw.slice(1).forEach(row => {
+                const kyRow = String(row[idxChot.KyLuong] || '').trim().replace(/^T/, '');
+                if (kyRow !== targetMonth) return;
+                const ma = String(row[idxChot.MaNS] || '').trim();
+                if (ma) {
+                    const kvIdx = idxChot.KhuVuc !== -1 ? idxChot.KhuVuc : 38;
+                    mapChotNS[ma] = {
+                        MaDonVi: String(row[idxChot.MaDonVi] || row[idxChot.DonVi] || '').trim(),
+                        LoaiHD: String(row[idxChot.LoaiHD] || '').trim(),
+                        KhuVuc: normalizeLocation(row[kvIdx])
+                    };
+                }
+            });
+        }
+    } catch (e) {
+        Logger.log("⚠️ CẢNH BÁO: Lỗi khi đọc DataChotNSThang trong phân bổ lương: " + e.message);
+    }
+
     const locationNormalized = location && location !== 'All' ? normalizeLocation(location) : null;
 
     // 3. STORAGE STRUCTURE
     const createMetrics = () => ({
-        HSBac: 0, HSChucVu: 0, HSVượtKhung: 0, HSNganh: 0, HSThamNien: 0, HSDocHai: 0, HSTrachNhiem: 0,
+        HSBac: 0, HSBacBL: 0, HSChucVu: 0, HSVượtKhung: 0, HSNganh: 0, HSThamNien: 0, HSDocHai: 0, HSTrachNhiem: 0, HSTuVe: 0,
         TongLuong: 0, BHXH: 0, BHYT: 0, BHTN: 0, KPCD: 0, NuocNgoai: 0, NghiBHXH: 0,
-        GiamTru: 0, BHTra: 0, SoTienLinh: 0
+        TamUngTamGiu: 0, QuyXH: 0, GiamTru: 0, BHTra: 0, SoTienLinh: 0
     });
 
     const groups = {
@@ -96,50 +135,51 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     dataLuong1Raw.slice(1).forEach((row, index) => {
         if (String(row[idxL1.KyLuong]).trim() !== monthStr) return;
 
-        if (locationNormalized) {
-            const rowLocation = normalizeLocation(row[31]); // Cột AF: Khu vực
-            if (rowLocation !== locationNormalized) return;
-        }
+
 
         // Lọc bỏ trường hợp nghỉ thai sản / không hưởng lương (Thực lĩnh/Tổng lương 1 rỗng)
         const thucLinhVal = row[idxL1.TongLuong1];
-        let isValidThucLinh = false;
-        if (thucLinhVal !== null && thucLinhVal !== undefined) {
-            if (typeof thucLinhVal === 'number') {
-                isValidThucLinh = thucLinhVal >= 0;
-            } else if (typeof thucLinhVal === 'string') {
-                const clean = thucLinhVal.trim().replace(/,/g, "");
-                if (clean !== "") {
-                    const parsed = parseFloat(clean);
-                    isValidThucLinh = !isNaN(parsed) && parsed >= 0;
-                }
-            }
-        }
-        if (!isValidThucLinh) return;
+        if (thucLinhVal === '' || thucLinhVal === null || thucLinhVal === undefined) return;
+        const tongLuong1 = parseNumber(thucLinhVal);
+        if (tongLuong1 <= 0 || isNaN(tongLuong1)) return;
 
         matchedRows++;
 
-        const loaiHD = String(row[idxL1.LoaiHD] || '').trim();
+        const maRaw = row[idxL1.MaCB];
+        const ma = (maRaw && String(maRaw).trim()) || null;
+
+        let loaiHD = String(row[idxL1.LoaiHD] || '').trim();
         const donViRaw = String(row[idxL1.DonVi] || '').trim();
 
-        // Chuẩn hóa mã đơn vị: Chỉ pad thêm số 0 khi độ dài mã gốc < 3 ký tự (ví dụ: '2' hoặc '02' -> 'DV002', '7B' -> 'DV007B')
-        // Giữ nguyên các mã có độ dài từ 3 ký tự trở lên (như '0091', '00A'...)
-        const rawCode = donViRaw.split('-')[0].trim();
-        let maDV = 'DV' + rawCode;
-        if (rawCode.length < 3) {
-            const codeMatch = rawCode.match(/^(\d+)(.*)$/);
-            if (codeMatch) {
-                maDV = 'DV' + codeMatch[1].padStart(3, '0') + (codeMatch[2] || '');
+        // Xác định khu vực chính thức của cán bộ (ưu tiên tra từ DataChotNSThang) để lọc đồng bộ
+        let rowLocation = normalizeLocation(row[31]); // Cột AF: Khu vực trong DataLuong1
+        if (ma && mapChotNS[ma] && mapChotNS[ma].KhuVuc) {
+            rowLocation = mapChotNS[ma].KhuVuc;
+        }
+        if (locationNormalized && rowLocation !== locationNormalized) return;
+
+        let maDV = '';
+        if (ma && mapChotNS[ma]) {
+            maDV = mapChotNS[ma].MaDonVi;
+            
+            // Chuẩn hóa loại hợp đồng từ DataChotNSThang để đồng bộ 100%
+            const rawLhd = String(mapChotNS[ma].LoaiHD).toUpperCase().trim();
+            if (rawLhd.includes('BIÊN CHẾ') || rawLhd === 'BC') loaiHD = 'Biên chế';
+            else if (rawLhd.includes('68') || rawLhd.includes('LƯƠNG CỐ ĐỊNH')) loaiHD = 'HĐ 68';
+            else if (rawLhd.includes('DÀI HẠN') || rawLhd.includes('THƯỜNG XUYÊN')) loaiHD = 'HĐ dài hạn';
+            else if (rawLhd.includes('VỤ VIỆC') || rawLhd.includes('NGẮN HẠN')) loaiHD = 'HĐ vụ việc';
+        } else {
+            // Chuẩn hóa mã đơn vị: Chỉ pad thêm số 0 khi độ dài mã gốc < 3 ký tự (ví dụ: '2' hoặc '02' -> 'DV002', '7B' -> 'DV007B')
+            // Giữ nguyên các mã có độ dài từ 3 ký tự trở lên (như '0091', '00A'...)
+            const rawCode = donViRaw.split('-')[0].trim();
+            maDV = 'DV' + rawCode;
+            if (rawCode.length < 3) {
+                const codeMatch = rawCode.match(/^(\d+)(.*)$/);
+                if (codeMatch) {
+                    maDV = 'DV' + codeMatch[1].padStart(3, '0') + (codeMatch[2] || '');
+                }
             }
         }
-
-        const master = mapMaster[maDV];
-
-        if (!master) {
-            if (matchedRows <= 5) Logger.log(`Dòng ${index + 2}: Không khớp Master. maDV: "${maDV}"`);
-            return;
-        }
-        masterMatched++;
 
         let mainKey = '';
         if (loaiHD === 'Biên chế') mainKey = 'BIEN_CHE';
@@ -152,26 +192,46 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
         }
         groupMatched++;
 
-        let subKey = master.LoaiDV;
-        if (mainKey === 'HD_DAI_HAN' && loaiHD === 'HĐ 68') {
-            subKey = 'Hợp đồng 68';
-        } else if (mainKey === 'HD_VU_VIEC') {
+
+
+        const master = mapMaster[maDV];
+
+        if (mainKey !== 'HD_VU_VIEC') {
+            if (!master) {
+                if (matchedRows <= 5) Logger.log(`Dòng ${index + 2}: Không khớp Master. maDV: "${maDV}"`);
+                return;
+            }
+            masterMatched++;
+        }
+
+        let subKey = '';
+        let deptKey = '';
+        if (mainKey === 'HD_VU_VIEC') {
             subKey = 'Tất cả';
+            deptKey = maDV;
+        } else {
+            subKey = master.LoaiDV;
+            if (mainKey === 'HD_DAI_HAN' && loaiHD === 'HĐ 68') {
+                subKey = 'Hợp đồng 68';
+            }
+            deptKey = master.NhomDV;
         }
 
         if (!groups[mainKey].data[subKey]) groups[mainKey].data[subKey] = {};
 
-        const deptKey = master.NhomDV;
         if (!groups[mainKey].data[subKey][deptKey]) groups[mainKey].data[subKey][deptKey] = createMetrics();
 
         const m = groups[mainKey].data[subKey][deptKey];
         m.HSBac += parseNumber(row[idxL1.HSBac]);
+        m.HSBacBL += parseNumber(row[idxL1.HSBacBL]);
+        
         m.HSChucVu += parseNumber(row[idxL1.HSChucVu]);
         m.HSVượtKhung += parseNumber(row[idxL1.HSVượtKhung]);
         m.HSNganh += parseNumber(row[idxL1.HSNganh]);
         m.HSThamNien += parseNumber(row[idxL1.HSThamNien]);
         m.HSDocHai += parseNumber(row[idxL1.HSDocHai]);
-        m.HSTrachNhiem += (parseNumber(row[idxL1.HSTrachNhiem]) + parseNumber(row[idxL1.HSTuVe]));
+        m.HSTrachNhiem += parseNumber(row[idxL1.HSTrachNhiem]);
+        m.HSTuVe += parseNumber(row[idxL1.HSTuVe]);
         m.TongLuong += parseNumber(row[idxL1.TongLuong]);
         m.BHXH += parseNumber(row[idxL1.BHXH]);
         m.BHYT += parseNumber(row[idxL1.BHYT]);
@@ -179,6 +239,7 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
         m.KPCD += parseNumber(row[idxL1.KPCD]);
         m.NuocNgoai += parseNumber(row[idxL1.NuocNgoai]);
         m.NghiBHXH += parseNumber(row[idxL1.NghiBHXH]);
+        m.QuyXH += parseNumber(row[idxL1.TruKhac]);
     });
     Logger.log(`Kết quả lọc: Tìm thấy ${matchedRows} dòng tháng ${monthStr}. Khớp Master: ${masterMatched}. Khớp Nhóm: ${groupMatched}`);
 
@@ -186,22 +247,22 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     const result = [];
 
     function finalizeMetrics(m) {
-        m.GiamTru = m.BHXH + m.BHYT + m.BHTN + m.KPCD + m.NuocNgoai + m.NghiBHXH;
+        m.GiamTru = m.BHXH + m.BHYT + m.BHTN + m.KPCD + m.NuocNgoai + m.NghiBHXH + m.TamUngTamGiu + m.QuyXH;
         m.BHTra = m.NghiBHXH;
         m.SoTienLinh = m.TongLuong - m.GiamTru;
     }
 
     function addRowToTable(stt, content, m) {
         if (!m) {
-            result.push([stt, content, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+            result.push([stt, content, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
             return;
         }
         finalizeMetrics(m);
         result.push([
             stt, content,
-            m.HSBac, m.HSChucVu, m.HSVượtKhung, m.HSNganh, m.HSThamNien, m.HSDocHai, m.HSTrachNhiem,
+            m.HSBac, m.HSBacBL, m.HSChucVu, m.HSVượtKhung, m.HSNganh, m.HSThamNien, m.HSDocHai, m.HSTrachNhiem, m.HSTuVe,
             m.TongLuong, m.BHXH, m.BHYT, m.BHTN, m.KPCD, m.NuocNgoai, m.NghiBHXH,
-            '', '',
+            m.TamUngTamGiu, m.QuyXH,
             m.GiamTru, m.BHTra, m.SoTienLinh
         ]);
     }
@@ -263,7 +324,7 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     });
 
     if (result.length > 0) {
-        addRowToTable('', 'T\u1ed5ng c\u1ed9ng', grandTotal);
+        addRowToTable('', 'Tổng cộng', grandTotal);
     }
 
     // 5. WRITE TO SHEET
@@ -277,9 +338,12 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
             sheet.getRange(10, 1, lastR - 9, sheet.getMaxColumns()).clear();
         }
     }
+    if (sheet.getMaxColumns() < 23) {
+        sheet.insertColumnsAfter(sheet.getMaxColumns(), 23 - sheet.getMaxColumns());
+    }
 
     // Replace "Thiện nguyện" with "Quỹ XH" in headers (row 7-8) dynamically
-    const headerRange = sheet.getRange(7, 1, 2, 20);
+    const headerRange = sheet.getRange(7, 1, 2, 23);
     const headerValues = headerRange.getValues();
     for (let r = 0; r < headerValues.length; r++) {
         for (let c = 0; c < headerValues[r].length; c++) {
@@ -299,7 +363,7 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
             if (val.includes("ĐH") && val.includes("TN")) {
                 // Hủy merge cũ trước khi chèn cột để tránh lỗi "You must select all cells in a merged range"
                 try {
-                    const titleRange = sheet.getRange("A4:U4");
+                    const titleRange = sheet.getRange("A4:W4");
                     const merges = titleRange.getMergedRanges();
                     for (let i = 0; i < merges.length; i++) {
                         merges[i].breakApart();
@@ -319,26 +383,26 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
                 sheet.getRange(r, c).setValue("ĐH");
                 sheet.getRange(r, c + 1).setValue("TN");
 
-                // Merge lại "Hệ số" mới (từ cột 3 đến cột 9) ở dòng 7
+                // Merge lại "Hệ số" mới (từ cột 3 đến cột 11) ở dòng 7
                 try {
-                    sheet.getRange(7, 3, 1, 7).merge().setValue("Hệ số").setHorizontalAlignment("center").setFontWeight("bold");
+                    sheet.getRange(7, 3, 1, 9).merge().setValue("Hệ số").setHorizontalAlignment("center").setFontWeight("bold");
                 } catch (e) { }
 
                 // Cập nhật lại các dòng hiển thị số thứ tự cột và công thức ở dòng r + 1 (Dòng 8) và r + 2 (Dòng 9)
                 sheet.getRange(r + 1, c).setValue(c);
                 sheet.getRange(r + 1, c + 1).setValue(c + 1);
-                for (let col = c + 2; col <= 21; col++) {
+                for (let col = c + 2; col <= 23; col++) {
                     sheet.getRange(r + 1, col).setValue(col);
                 }
 
                 // Ghi đè các công thức tĩnh vào các cột tương ứng ở dòng r + 2 (Dòng 9)
-                sheet.getRange(r + 2, 10).setValue("10 = (3+4+5+6+7+8+9) * 2.340.000");
-                sheet.getRange(r + 2, 11).setValue("11 = (3+4+5+7) * 2.340.000");
-                sheet.getRange(r + 2, 12).setValue("12 = (3+4+5+7) * 2.340.000");
-                sheet.getRange(r + 2, 13).setValue("13 = (3+4+5+7) * 2.340.000");
-                sheet.getRange(r + 2, 14).setValue("14 = (3+4+5+7) * 2.340.000");
-                sheet.getRange(r + 2, 19).setValue("19 = 11+12+13+14+15+16+17+18");
-                sheet.getRange(r + 2, 21).setValue("21 = 10 - 19");
+                sheet.getRange(r + 2, 12).setValue("12 = (3+4+5+6+7+8+9+10+11) * 2.340.000");
+                sheet.getRange(r + 2, 13).setValue("13 = (3+4+5+6+8) * 2.340.000");
+                sheet.getRange(r + 2, 14).setValue("14 = (3+4+5+6+8) * 2.340.000");
+                sheet.getRange(r + 2, 15).setValue("15 = (3+4+5+6+8) * 2.340.000");
+                sheet.getRange(r + 2, 16).setValue("16 = (3+4+5+6+8) * 2.340.000");
+                sheet.getRange(r + 2, 21).setValue("21 = 13+14+15+16+17+18+19+20");
+                sheet.getRange(r + 2, 23).setValue("23 = 12 - 21");
 
                 foundDH = true;
                 break;
@@ -347,7 +411,7 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
         if (foundDH) break;
     }
 
-    const headerCleanupCols = Math.min(sheet.getMaxColumns(), 22);
+    const headerCleanupCols = Math.min(sheet.getMaxColumns(), 23);
 
     // Hủy merge cũ trên vùng header để tránh merge tràn từ template
     for (let rowIdx = 6; rowIdx <= 10; rowIdx++) {
@@ -364,55 +428,62 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
 
     // Merge lại các tiêu đề nhóm/detail đúng chuẩn: group row 7, detail rows 8-9, index/formula row 10
     try {
-        sheet.getRange("A8:A9").merge().setValue("Stt").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
-        sheet.getRange("B8:B9").merge().setValue("Nội dung").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
-        sheet.getRange("C7:I7").merge().setValue("Hệ số").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
-        sheet.getRange("J8:J9").merge().setValue("Tổng lương").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
-        sheet.getRange("K7:N7").merge().setValue("Các khoản phải nộp theo lương").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
-        sheet.getRange("O7:P7").merge().setValue("Các khoản giảm trừ").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
-        sheet.getRange("Q7:R7").merge().setValue("Trừ khác").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
-        sheet.getRange("S7:S9").merge().setValue("Cộng các khoản giảm trừ").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
-        sheet.getRange("T7:T9").merge().setValue("BH trả").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
-        sheet.getRange("U7:U9").merge().setValue("Số tiền được lĩnh").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("A7:A9").merge().setValue("Stt").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("B7:B9").merge().setValue("Nội dung").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("C7:K7").merge().setValue("Hệ số").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("L8:L9").merge().setValue("Tổng lương").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("M7:P7").merge().setValue("Các khoản phải nộp theo lương").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("Q7:R7").merge().setValue("Các khoản giảm trừ").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("S7:T7").merge().setValue("Trừ khác").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("U7:U9").merge().setValue("Cộng các khoản giảm trừ").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("V7:V9").merge().setValue("BH trả").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
+        sheet.getRange("W7:W9").merge().setValue("Số tiền được lĩnh").setHorizontalAlignment("center").setVerticalAlignment("middle").setFontWeight("bold");
     } catch (e) { }
 
     // Ghi lại các tiêu đề cột chi tiết ở dòng 8-9
     const detailHeaders = [
-        "Lương\nngạch bậc", "Chức vụ", "Vượt\nkhung", "P/c\nngành", "Thâm niên", "ĐH", "TN",
+        "Lương\nngạch bậc", "HSB BL", "Chức vụ", "Vượt\nkhung", "P/c\nngành", "Thâm niên", "ĐH", "TN", "Tự vệ",
         "BHXH", "BHYT", "BHTN", "Đoàn phí\nCĐ", "N/ngoài", "Nghỉ BHXH", "Tạm ứng tạm\ngiữ", "Quỹ XH"
     ];
-    [3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18].forEach((col, idx) => {
+    [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20].forEach((col, idx) => {
         sheet.getRange(8, col, 2, 1).merge().setValue(detailHeaders[idx]);
     });
 
+    [
+        30, 145, 45, 38, 42, 42, 42, 42, 42, 42, 42, 72,
+        58, 58, 58, 58, 52, 52, 38, 48, 54, 50, 80
+    ].forEach((width, idx) => {
+        sheet.setColumnWidth(idx + 1, width);
+    });
+
     // Luôn định dạng và ghi đè dòng 10: số thứ tự cột + công thức diễn giải
-    sheet.getRange(10, 1, 1, 21).clearContent().setNumberFormat('@');
+    sheet.getRange(10, 1, 1, 23).clearContent().setNumberFormat('@');
     const indexAndFormulaRow = [
-        "1", "2", "3", "4", "5", "6", "7", "8", "9",
-        "10=(3+4+5+6+7+8+9)\n*2.340.000",
-        "11=(3+4+5+7)\n*2.340.000",
-        "12=(3+4+5+7)\n*2.340.000",
-        "13=(3+4+5+7)\n*2.340.000",
-        "14=(3+4+5+7)\n*2.340.000",
-        "15", "16", "17", "18",
-        "19=11+12+13\n+14+15+16+17+18",
-        "20",
-        "21=10-19"
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11",
+        "12=(3+4+5+6+7+8+9+10+11)\n*2.340.000",
+        "13=(3+4+5+6+8)\n*2.340.000",
+        "14=(3+4+5+6+8)\n*2.340.000",
+        "15=(3+4+5+6+8)\n*2.340.000",
+        "16=(3+4+5+6+8)\n*2.340.000",
+        "17", "18", "19", "20",
+        "21=\n13+14+15+16+17+18+19+20",
+        "22",
+        "23=12-21"
     ];
-    sheet.getRange(10, 1, 1, 21).setValues([indexAndFormulaRow]);
+    sheet.getRange(10, 1, 1, 23).setValues([indexAndFormulaRow]);
 
     if (result.length > 0) {
-        const dataRange = sheet.getRange(11, 1, result.length, 21);
+        const dataRange = sheet.getRange(11, 1, result.length, 23);
         dataRange.setValues(result);
 
         // 1. Font & Body Size
         dataRange.setFontFamily('Arial').setFontSize(10.5);
 
         // 2. Number Format
-        // Columns 3-9: Hệ số (3 decimal)
-        sheet.getRange(11, 3, result.length, 7).setNumberFormat('0.000');
-        // Columns 10-21: Tiền (Thousands separator)
-        sheet.getRange(11, 10, result.length, 12).setNumberFormat('#,##0');
+        // Columns 3-11: Hệ số (3 decimal)
+        sheet.getRange(11, 3, result.length, 9).setNumberFormat('0.000');
+        // Columns 12-23: Tiền (Thousands separator)
+        sheet.getRange(11, 12, result.length, 12).setNumberFormat('#,##0');
 
         // 3. Bold rows based on logic
         for (let i = 0; i < result.length; i++) {
@@ -425,7 +496,7 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
                 content.includes('Cộng') ||
                 content.includes('Tổng cộng');
 
-            sheet.getRange(rowIdx, 1, 1, 21).setFontWeight(isBold ? 'bold' : 'normal');
+            sheet.getRange(rowIdx, 1, 1, 23).setFontWeight(isBold ? 'bold' : 'normal');
         }
 
         // 4. Alignment
@@ -436,43 +507,43 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     const monthParts = monthStr.substring(1).split('.');
     const month = parseInt(monthParts[0]);
     const year = monthParts[1];
-    sheet.getRange("A1:U3").setFontSize(12); // Đảm bảo các tiêu đề trên (nếu có) là size 12
+    sheet.getRange("A1:W3").setFontSize(12); // Đảm bảo các tiêu đề trên (nếu có) là size 12
     try {
-        const titleRange = sheet.getRange("A4:U4");
+        const titleRange = sheet.getRange("A4:W4");
         const merges = titleRange.getMergedRanges();
         for (let i = 0; i < merges.length; i++) {
             merges[i].breakApart();
         }
     } catch (e) { }
-    sheet.getRange("A4:U4").merge().setValue(`THÁNG ${month < 10 ? '0' + month : month} NĂM ${year}`)
+    sheet.getRange("A4:W4").merge().setValue(`THÁNG ${month < 10 ? '0' + month : month} NĂM ${year}`)
         .setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
 
     // ====== BƯỚC CUỐI: TẠO ĐƯỜNG KẺ BẢNG ======
     const totalTableRows = result.length + 4; // Header 7-10 + Data
-    const finalTableRange = sheet.getRange(7, 1, totalTableRows, 21);
+    const finalTableRange = sheet.getRange(7, 1, totalTableRows, 23);
     // 1. Viền ngoài và kẻ dọc: Nét liền (SOLID)
     finalTableRange.setBorder(true, true, true, true, true, null, 'black', SpreadsheetApp.BorderStyle.SOLID);
     // 2. Kẻ ngang nội dung: Nét đứt (DOTTED)
     finalTableRange.setBorder(null, null, null, null, null, true, 'black', SpreadsheetApp.BorderStyle.DOTTED);
     // 3. Header (Dòng 7-10): Nét liền toàn bộ
-    sheet.getRange(7, 1, 4, 21).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID)
+    sheet.getRange(7, 1, 4, 23).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID)
         .setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center').setVerticalAlignment('middle');
-    sheet.getRange(8, 1, 3, 21).setWrap(true);
-    sheet.getRange(10, 1, 1, 21).setFontSize(10).setFontWeight('bold');
+    sheet.getRange(8, 1, 3, 23).setWrap(true);
+    sheet.getRange(10, 1, 1, 23).setFontSize(7).setFontWeight('bold');
     // 4. Các dòng đặc biệt (Bold): Nét liền cho chân dòng
     for (let i = 0; i < result.length; i++) {
         const rowIdx = 11 + i;
         const stt = String(result[i][0]).trim();
         const content = String(result[i][1]).trim();
         if (stt !== '' || content.includes('Cộng') || content.includes('Tổng cộng')) {
-            sheet.getRange(rowIdx, 1, 1, 21).setBorder(null, null, true, null, null, null, 'black', SpreadsheetApp.BorderStyle.SOLID);
+            sheet.getRange(rowIdx, 1, 1, 23).setBorder(null, null, true, null, null, null, 'black', SpreadsheetApp.BorderStyle.SOLID);
         }
     }
 
-    // Chỉ giữ vùng báo cáo A:U, tránh cột V trống bị xuất ra Excel/PDF.
+    // Chỉ giữ vùng báo cáo A:W, tránh cột X trống bị xuất ra Excel/PDF.
     const maxColumns = sheet.getMaxColumns();
-    if (maxColumns > 21) {
-        sheet.deleteColumns(22, maxColumns - 21);
+    if (maxColumns > 23) {
+        sheet.deleteColumns(24, maxColumns - 23);
     }
 
     Logger.log(`Finished writing ${result.length} rows to sheet`);
@@ -491,7 +562,7 @@ function getPrintDataPhanBoLuongBHXH(monthStr, location) {
         const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_HT_PHAN_BO_LUONG_BHXH);
         const sheet = ss.getSheetByName(GLOBAL_CONFIG.SHEETS.SHEET_TH_LUONG);
         const lastRow = sheet.getLastRow();
-        const lastCol = Math.min(sheet.getLastColumn(), 21);
+        const lastCol = Math.min(sheet.getLastColumn(), 23);
 
         // Header báo cáo phân bổ bắt đầu từ dòng 7; dòng 6 của template phải bỏ qua.
         const data = sheet.getRange(7, 1, lastRow - 6, lastCol).getValues();

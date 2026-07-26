@@ -133,8 +133,9 @@ function buildTongHopSalaryExcelData(monthStr, location) {
   const monthKey = normalizeMonthKey(monthStr);
   const locKey = (location && location !== 'All' && location !== 'Tất cả' && location !== 'all') ? normalizeLocation(location) : null;
 
-  // Load Số tài khoản & Ngân hàng từ Master DataNhanSu
+  // Load Số tài khoản & Ngân hàng & Thông tin nhân sự từ Master DataNhanSu
   const bankMap = {};
+  const masterNSMap = {};
   try {
     const ssMaster = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
     const shNSMaster = ssMaster.getSheetByName(GLOBAL_CONFIG.SHEETS.DATA_NHAN_SU);
@@ -142,6 +143,11 @@ function buildTongHopSalaryExcelData(monthStr, location) {
       const dataNSMaster = shNSMaster.getDataRange().getValues();
       const headerNSMaster = dataNSMaster[0] || [];
       const idxMaCB = headerNSMaster.indexOf('Mã CB') !== -1 ? headerNSMaster.indexOf('Mã CB') : (headerNSMaster.indexOf('Mã nhân sự') !== -1 ? headerNSMaster.indexOf('Mã nhân sự') : 0);
+      const idxHoTen = headerNSMaster.indexOf('Họ và tên') !== -1 ? headerNSMaster.indexOf('Họ và tên') : (headerNSMaster.indexOf('Họ tên') !== -1 ? headerNSMaster.indexOf('Họ tên') : -1);
+      const idxLoaiHD = headerNSMaster.indexOf('Loại HĐ') !== -1 ? headerNSMaster.indexOf('Loại HĐ') : (headerNSMaster.indexOf('Loại hợp đồng') !== -1 ? headerNSMaster.indexOf('Loại hợp đồng') : -1);
+      const idxKhuVuc = headerNSMaster.indexOf('Khu vực') !== -1 ? headerNSMaster.indexOf('Khu vực') : -1;
+      const idxDonVi = headerNSMaster.indexOf('Đơn vị') !== -1 ? headerNSMaster.indexOf('Đơn vị') : -1;
+      const idxMaDonVi = headerNSMaster.indexOf('Mã đơn vị') !== -1 ? headerNSMaster.indexOf('Mã đơn vị') : -1;
       const idxSoTK = 6; // Cột G
 
       for (let i = 1; i < dataNSMaster.length; i++) {
@@ -158,9 +164,20 @@ function buildTongHopSalaryExcelData(monthStr, location) {
           tenNH = parts.slice(1).join('-').trim();
         }
 
-        bankMap[maCB] = {
+        const bInfo = {
           soTaiKhoan: soTK ? "'" + soTK : '',
           nganHang: tenNH ? "'" + tenNH : ''
+        };
+        bankMap[maCB] = bInfo;
+
+        masterNSMap[maCB] = {
+          hoTen: idxHoTen !== -1 ? String(row[idxHoTen] || '').trim() : '',
+          loaiHD: idxLoaiHD !== -1 ? String(row[idxLoaiHD] || '').trim() : '',
+          khuVuc: idxKhuVuc !== -1 ? normalizeLocation(row[idxKhuVuc]) : '',
+          tenDonVi: idxDonVi !== -1 ? String(row[idxDonVi] || '').trim() : '',
+          maDonVi: idxMaDonVi !== -1 ? String(row[idxMaDonVi] || '').trim() : '',
+          soTaiKhoan: bInfo.soTaiKhoan,
+          nganHang: bInfo.nganHang
         };
       }
     }
@@ -181,35 +198,99 @@ function buildTongHopSalaryExcelData(monthStr, location) {
   const baseMap = {}; // key = Mã nhân sự
   const orderedCB = [];
 
+  // Group DataChotNSThang theo Kỳ lương + Mã nhân sự
+  const chotNSMap = {};
   for (let i = 1; i < dataNS.length; i++) {
     const r = dataNS[i];
     const ky = String(r[mapNS['Kỳlương']]).trim();
-    if (ky !== monthKey) continue;
+    const ma = String(r[mapNS['Mãnhânsự']]).trim();
+    if (!ma) continue;
+    if (!chotNSMap[ky]) chotNSMap[ky] = {};
+    chotNSMap[ky][ma] = r;
+  }
 
-    const kv = normalizeLocation(r[mapNS['Khuvực']]);
-    if (locKey && kv !== locKey) continue;
+  const prevMonthKey = getPrevMonthStr(monthKey);
 
-    const maCB = String(r[mapNS['Mãnhânsự']]).trim();
-    if (!maCB) continue;
+  // Hàm đảm bảo nhân viên tồn tại trong baseMap
+  const ensureEmployee = (maCB) => {
+    if (baseMap[maCB]) return true;
 
-    if (!baseMap[maCB]) {
+    let ky = monthKey;
+    let hoTen = 'Không rõ tên';
+    let loaiHD = '';
+    let maDonVi = '';
+    let tenDonVi = '';
+    let maNgach = '';
+    let trangThai = '';
+    let kv = '';
+    let soTK = '';
+    let tenNH = '';
+
+    // 1) Tìm trong chốt nhân sự tháng này
+    let r = chotNSMap[monthKey] && chotNSMap[monthKey][maCB];
+    if (r) {
+      hoTen = String(r[mapNS['Họtên']]).trim();
+      loaiHD = String(r[mapNS['Loạihợpđồng']]).trim();
+      maDonVi = String(r[mapNS['Mãđơnvị']]).trim();
+      tenDonVi = String(r[mapNS['Tênđơnvị']]).trim();
+      maNgach = String(r[mapNS['Mãngạch']]).trim();
+      trangThai = String(r[mapNS['Trạngthái']]).trim();
+      kv = normalizeLocation(r[mapNS['Khuvực']]);
       const bInfo = bankMap[maCB] || { soTaiKhoan: '', nganHang: '' };
-      baseMap[maCB] = {
-        nsInfo: [
-          ky, maCB, String(r[mapNS['Họtên']]).trim(),
-          String(r[mapNS['Loạihợpđồng']]).trim(), String(r[mapNS['Mãđơnvị']]).trim(),
-          String(r[mapNS['Tênđơnvị']]).trim(), String(r[mapNS['Mãngạch']]).trim(),
-          String(r[mapNS['Trạngthái']]).trim(), kv,
-          bInfo.soTaiKhoan, bInfo.nganHang
-        ],
-        l1: new Array(24).fill(0),
-        l2: new Array(10).fill(0),
-        ac: 0,
-        tttl1: 0,
-        tttl2: 0
-      };
-      orderedCB.push(maCB);
+      soTK = bInfo.soTaiKhoan;
+      tenNH = bInfo.nganHang;
     }
+    // 2) Tìm trong chốt nhân sự tháng trước (T-1)
+    else {
+      r = chotNSMap[prevMonthKey] && chotNSMap[prevMonthKey][maCB];
+      if (r) {
+        hoTen = String(r[mapNS['Họtên']]).trim();
+        loaiHD = String(r[mapNS['Loạihợpđồng']]).trim();
+        maDonVi = String(r[mapNS['Mãđơnvị']]).trim();
+        tenDonVi = String(r[mapNS['Tênđơnvị']]).trim();
+        maNgach = String(r[mapNS['Mãngạch']]).trim();
+        trangThai = String(r[mapNS['Trạngthái']]).trim();
+        kv = normalizeLocation(r[mapNS['Khuvực']]);
+        const bInfo = bankMap[maCB] || { soTaiKhoan: '', nganHang: '' };
+        soTK = bInfo.soTaiKhoan;
+        tenNH = bInfo.nganHang;
+      }
+      // 3) Tìm trong danh mục DataNhanSu Master
+      else if (masterNSMap[maCB]) {
+        const m = masterNSMap[maCB];
+        hoTen = m.hoTen;
+        loaiHD = m.loaiHD;
+        maDonVi = m.maDonVi;
+        tenDonVi = m.tenDonVi;
+        kv = m.khuVuc;
+        soTK = m.soTaiKhoan;
+        tenNH = m.nganHang;
+      }
+    }
+
+    // Lọc theo cơ sở nếu có yêu cầu
+    if (locKey && kv !== locKey) return false;
+
+    baseMap[maCB] = {
+      nsInfo: [
+        ky, maCB, hoTen, loaiHD, maDonVi, tenDonVi, maNgach, trangThai, kv,
+        soTK, tenNH
+      ],
+      l1: new Array(24).fill(0),
+      l2: new Array(10).fill(0),
+      ac: 0,
+      tttl1: 0,
+      tttl2: 0
+    };
+    orderedCB.push(maCB);
+    return true;
+  };
+
+  // Nạp danh sách nhân sự tháng hiện tại trước
+  if (chotNSMap[monthKey]) {
+    Object.keys(chotNSMap[monthKey]).forEach(ma => {
+      ensureEmployee(ma);
+    });
   }
 
   // 2. DATA LƯƠNG 1
@@ -233,7 +314,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
       const r = dataL1[i];
       if (String(r[mapL1['Kỳlương']]).trim() !== monthKey) continue;
       const maCB = String(r[mapL1['MãCB'] !== undefined ? mapL1['MãCB'] : mapL1['Mãnhânsự']]).trim();
-      if (!baseMap[maCB]) { unmatched++; continue; }
+      if (!ensureEmployee(maCB)) { unmatched++; continue; }
 
       colsL1.forEach((col, idx) => {
         baseMap[maCB].l1[idx] += parseMoneyVN(r[mapL1[col]]);
@@ -261,7 +342,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
       const r = dataL2[i];
       if (String(r[mapL2['Kỳlương']]).trim() !== monthKey) continue;
       const maCB = String(r[mapL2['MãCB'] !== undefined ? mapL2['MãCB'] : mapL2['Mãnhânsự']]).trim();
-      if (!baseMap[maCB]) { unmatched++; continue; }
+      if (!ensureEmployee(maCB)) { unmatched++; continue; }
 
       colsL2.forEach((col, idx) => {
         baseMap[maCB].l2[idx] += parseMoneyVN(r[mapL2[col]]);
@@ -281,7 +362,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
       const r = dataAC[i];
       if (String(r[mapAC['Kỳlương']]).trim() !== monthKey) continue;
       const maCB = String(r[mapAC['MãCB'] !== undefined ? mapAC['MãCB'] : mapAC['Mãnhânsự']]).trim();
-      if (!baseMap[maCB]) { unmatched++; continue; }
+      if (!ensureEmployee(maCB)) { unmatched++; continue; }
       baseMap[maCB].ac += parseMoneyVN(r[mapAC['Cònlĩnh']]);
     }
     if (unmatched > 0) warnings.push(`${unmatched} dòng Ăn ca bị loại do Mã CB không hợp lệ.`);
@@ -304,7 +385,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
         const r = dataTTL[i];
         if (String(r[mapTTL['Kỳlương']]).trim() !== monthKey) continue;
         const maCB = String(r[mapTTL['MãCB']]).trim();
-        if (!baseMap[maCB]) { unmatched++; continue; }
+        if (!ensureEmployee(maCB)) { unmatched++; continue; }
         baseMap[maCB][fieldName] += parseMoneyVN(r[mapTTL['Tổngtiền(VNĐ)']]);
       }
       if (unmatched > 0) warnings.push(`${unmatched} dòng Truy thu lĩnh ${fieldName} bị loại do Mã CB không hợp lệ.`);
@@ -322,7 +403,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
     'Số tài khoản', 'Ngân hàng',
     'HS bậc', 'HS bậc BL', 'HS chức vụ', 'TL vượt khung', 'HS vượt khung', 'TL ngành', 'HS ngành',
     'TL thâm niên', 'HS thâm niên', 'HS độc hại', 'HS trách nhiệm', 'HS tự vệ', 'Tổng hệ số', 'Lương CĐ', 'Tổng lương',
-    'BHXH', 'BHYT', 'BHTN', 'KPCĐ', 'Nước ngoài', 'Nghỉ BHXH', 'Trừ khác', 'Tổng giảm trừ',
+    'BHXH', 'BHYT', 'BHTN', 'Đoàn phí CĐ', 'Nước ngoài', 'Nghỉ BHXH', 'Trừ khác', 'Tổng giảm trừ',
     'Bảo hiểm trả chính',
     'Tổng lương 1',
     'Ổn định thu nhập', 'Quản lý', 'Hỗ trợ hành chính phục vụ', 'Thu hút lao động', 'Hỗ trợ khác',

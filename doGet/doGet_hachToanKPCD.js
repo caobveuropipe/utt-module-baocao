@@ -211,7 +211,7 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
     const data = doGet_tongHopHachToanKPCD(monthStr, resources, location);
 
     // 2. Prepare Header
-    const headerRow = ['SỐ TT', 'Nội dung', 'Kinh phí công đoàn 2%', 'Ghi chú'];
+    const headerRow = ['SỐ TT', 'Nội dung', 'Đoàn phí CĐ 2%', 'Ghi chú'];
 
     const fullData = [headerRow].concat(data);
     const rows = fullData.length;
@@ -238,7 +238,7 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
 
     sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
     sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
-    sheet.getRange("A3:D3").merge().setValue(`BẢNG TỔNG HỢP TIỀN KPCĐ`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
+    sheet.getRange("A3:D3").merge().setValue(`BẢNG TỔNG HỢP TIỀN ĐOÀN PHÍ CĐ`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
     sheet.getRange("A4:D4").merge().setValue(`THÁNG ${month < 10 ? '0' + month : month} NĂM ${year}`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
 
     // 5. Write Header & Data (Start row 6)

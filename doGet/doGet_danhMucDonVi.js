@@ -6,33 +6,60 @@
  */
 
 /**
- * Lấy dữ liệu danh mục đơn vị từ sheet Setup của MASTER_DATA
- * @returns {Array<Object>} Danh sách đơn vị đã được định dạng
+ * Lấy dữ liệu danh mục đơn vị từ sheet DataChotNSThang theo tháng đã chọn
+ * @param {string} month Tháng cần lấy dữ liệu (định dạng MM/YYYY hoặc YYYY-MM tùy cấu hình, thường là MM/YYYY)
+ * @returns {Array<Object>} Danh sách đơn vị đã được định dạng và lọc trùng
  */
-function doGet_getDanhMucDonViData() {
-  const ssMaster = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
-  const sheetSetup = ssMaster.getSheetByName('Setup');
-  if (!sheetSetup) {
-    throw new Error("Không tìm thấy sheet 'Setup' trong file Master Data");
+function doGet_getDanhMucDonViData(month) {
+  if (!month) {
+    throw new Error("Vui lòng chọn tháng để lấy danh mục đơn vị.");
   }
-  const lastRow = sheetSetup.getLastRow();
-  if (lastRow < 2) {
+
+  const ssChotNS = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DB_DATA_CHOT_NS);
+  const sheetChotNS = ssChotNS.getSheetByName('DataChotNSThang');
+  if (!sheetChotNS) {
+    throw new Error("Không tìm thấy sheet 'DataChotNSThang' trong file Chốt Nhân sự");
+  }
+
+  const values = sheetChotNS.getDataRange().getValues();
+  if (values.length < 2) {
     return [];
   }
 
-  // Lấy dữ liệu cột K (Mã đơn vị) và L (Tên đơn vị)
-  const dataRaw = sheetSetup.getRange("K2:L" + lastRow).getValues();
-  const result = [];
+  const header = values[0];
+  const idxKyLuong = getIdx(header, 'Kỳ lương');
+  const idxMaDonVi = getIdx(header, 'Mã đơn vị');
+  const idxTenDonVi = getIdx(header, 'Tên đơn vị');
 
-  dataRaw.forEach(row => {
-    const rawCode = String(row[0] || '').trim();
-    const rawName = String(row[1] || '').trim();
+  if (idxKyLuong === -1 || idxMaDonVi === -1 || idxTenDonVi === -1) {
+    throw new Error("Cấu trúc sheet DataChotNSThang không đúng (thiếu cột Kỳ lương, Mã đơn vị, hoặc Tên đơn vị)");
+  }
+
+  const result = [];
+  const seenUnits = new Set();
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const kyLuong = String(row[idxKyLuong] || '').trim();
+    if (kyLuong !== month) {
+      continue;
+    }
+
+    const rawCode = String(row[idxMaDonVi] || '').trim();
+    const rawName = String(row[idxTenDonVi] || '').trim();
+
     if (rawCode) {
       // 1. Bỏ tiền tố "DV" ở Mã đơn vị
       let cleanCode = rawCode;
       if (rawCode.startsWith('DV')) {
         cleanCode = rawCode.substring(2);
       }
+
+      // Loại bỏ trùng lặp dựa trên cleanCode
+      if (seenUnits.has(cleanCode)) {
+        continue;
+      }
+      seenUnits.add(cleanCode);
 
       // 2. Ghép chuỗi Tên đơn vị định dạng: [cleanCode] - [rawName]
       const formattedName = `${cleanCode} - ${rawName}`;
@@ -44,18 +71,22 @@ function doGet_getDanhMucDonViData() {
         tenDonVi: formattedName
       });
     }
-  });
+  }
+
+  // Sắp xếp theo mã đơn vị tăng dần
+  result.sort((a, b) => a.maDonVi.localeCompare(b.maDonVi, undefined, { numeric: true, sensitivity: 'base' }));
 
   return result;
 }
 
 /**
  * Trả về dữ liệu cho Client hiển thị bản in Danh mục đơn vị
+ * @param {string} month Tháng cần lấy dữ liệu
  * @returns {Object} JSON phản hồi
  */
-function doGet_getPrintDanhMucDonVi() {
+function doGet_getPrintDanhMucDonVi(month) {
   try {
-    const data = doGet_getDanhMucDonViData();
+    const data = doGet_getDanhMucDonViData(month);
     return {
       status: "success",
       data: data,
@@ -71,11 +102,12 @@ function doGet_getPrintDanhMucDonVi() {
 
 /**
  * Xuất Excel Danh mục đơn vị
+ * @param {string} month Tháng cần lấy dữ liệu
  * @returns {Object} JSON phản hồi với link tải Excel
  */
-function doGet_exportDanhMucDonVi() {
+function doGet_exportDanhMucDonVi(month) {
   try {
-    return doGet_taoBangDanhMucDonViExcel();
+    return doGet_taoBangDanhMucDonViExcel(month);
   } catch (e) {
     return {
       status: "error",
@@ -86,12 +118,13 @@ function doGet_exportDanhMucDonVi() {
 
 /**
  * Tạo file Excel từ template và trả về đường dẫn tải về
+ * @param {string} month Tháng cần lấy dữ liệu
  * @returns {Object} JSON phản hồi chứa downloadUrl
  */
-function doGet_taoBangDanhMucDonViExcel() {
-  const data = doGet_getDanhMucDonViData();
+function doGet_taoBangDanhMucDonViExcel(month) {
+  const data = doGet_getDanhMucDonViData(month);
   if (!data || data.length === 0) {
-    throw new Error("Không có dữ liệu danh mục đơn vị");
+    throw new Error("Không có dữ liệu danh mục đơn vị cho tháng " + month);
   }
 
   let targetFileId = GLOBAL_CONFIG.FILES.EXPORT_DANH_MUC_DON_VI;

@@ -22,7 +22,8 @@ function doGet(e) {
   if (checked) {
     return render('pg_general_2', {
       url_api_doGet: url_api_doGet,
-      url_api_doPost: url_api_doPost
+      url_api_doPost: url_api_doPost,
+      userEmail: userEmail
     });
   }
 }
@@ -225,9 +226,9 @@ function pg1_ed1_getPrintDataTruKPCDVaCacQuy(monthStr, location = 'All') {
   }
 }
 
-function pg1_ed1_getPrintDanhMucDonVi() {
+function pg1_ed1_getPrintDanhMucDonVi(monthStr) {
   try {
-    const url = `${url_api_doGet}?type=getPrintDanhMucDonVi`;
+    const url = `${url_api_doGet}?type=getPrintDanhMucDonVi&month=${encodeURIComponent(monthStr)}`;
     const response = UrlFetchApp.fetch(url, { method: 'get' });
     return JSON.parse(response.getContentText());
   } catch (error) {

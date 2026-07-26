@@ -201,7 +201,7 @@ function doGet_tongHopKhoanTru(monthStr, resources, location = 'All') {
         result.push(gRow);
 
         const details = [
-            { label: 'Tiền đoàn phí công đoàn', key: 'kpcd' },
+            { label: 'Tiền đoàn phí CĐ', key: 'kpcd' },
             { label: 'Các khoản trừ khác (Quỹ xã hội)', key: 'truKhac' },
             { label: 'Truy thu đoàn phí CĐ', key: 'truyThuKPCD' }
         ];
@@ -262,7 +262,7 @@ function doGet_taoBangTongHopKhoanTru(monthStr, location = 'All') {
         // HEADERS
         sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center');
         sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
-        const title = `BẢNG KÊ CÁC KHOẢN ĐOÀN PHÍ CÔNG ĐOÀN + QUỸ XÃ HỘI \nTHÁNG ${month} NĂM ${year}`;
+        const title = `BẢNG KÊ CÁC KHOẢN ĐOÀN PHÍ CĐ + QUỸ XÃ HỘI \nTHÁNG ${month} NĂM ${year}`;
         sheet.getRange(3, 1, 2, totalCols).merge().setValue(title)
             .setHorizontalAlignment("center").setVerticalAlignment("middle")
             .setFontWeight('bold').setFontSize(14).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);

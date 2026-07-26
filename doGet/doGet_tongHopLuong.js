@@ -167,34 +167,61 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
         }
     });
 
-    // Override location from DataChotNSThang (primary for current month)
+    // Override location from DataChotNSThang (primary for current month, fallback to previous month)
     if (values7.length > 0) {
         const header7 = values7[0];
         const idxKy = getIdx(header7, 'Kỳ lương');
         const idxMa = getIdx(header7, 'Mã nhân sự');
         const idxKV = 38; // Column AM as confirmed by user
         const idxTrangThai = getIdx(header7, ['Trạng thái', 'Status', 'TrangThai']);
+        const idxLoaiHD = getIdx(header7, ['Loại hợp đồng', 'Loại HĐ', 'LoaiHD']);
 
+        // Group by KyLuong
+        const chotNSMap = {};
         data7.forEach(row => {
             const ky = String(row[idxKy]).trim();
-            if (ky === monthStr) {
-                const ma = String(row[idxMa]).trim();
-                const kv = normalizeLocation(row[idxKV]);
-                const trangThai = idxTrangThai !== -1 ? String(row[idxTrangThai]).trim() : '';
-                // Lọc theo khu vực nếu có yêu cầu (Ghi đè - Ưu tiên data chốt tháng)
-                if (locationNormalized && kv !== locationNormalized) {
-                    if (empMap[ma]) delete empMap[ma];
-                    return;
-                }
-                if (ma) {
-                    if (!empMap[ma]) empMap[ma] = { khuVuc: kv, trangThai: trangThai, amounts: {} };
-                    else {
-                        empMap[ma].khuVuc = kv;
-                        empMap[ma].trangThai = trangThai;
-                    }
-                }
+            const ma = String(row[idxMa]).trim();
+            if (!ma) return;
+            if (!chotNSMap[ky]) chotNSMap[ky] = {};
+            chotNSMap[ky][ma] = {
+                kv: normalizeLocation(row[idxKV]),
+                trangThai: idxTrangThai !== -1 ? String(row[idxTrangThai]).trim() : '',
+                loaiHD: idxLoaiHD !== -1 ? String(row[idxLoaiHD]).trim() : ''
+            };
+        });
+
+        // Now process employees
+        Object.keys(empMap).forEach(ma => {
+            const currentInfo = (chotNSMap[monthStr] && chotNSMap[monthStr][ma]) || (chotNSMap[prevMonthStr] && chotNSMap[prevMonthStr][ma]);
+            if (currentInfo) {
+                empMap[ma].khuVuc = currentInfo.kv;
+                empMap[ma].trangThai = currentInfo.trangThai;
+                if (currentInfo.loaiHD) empMap[ma].loaiHD = currentInfo.loaiHD;
             }
         });
+
+        // Add any missing employees from chotNSMap for monthStr or prevMonthStr
+        const addFromChot = (ky) => {
+            if (chotNSMap[ky]) {
+                Object.keys(chotNSMap[ky]).forEach(ma => {
+                    if (!empMap[ma]) {
+                        const info = chotNSMap[ky][ma];
+                        empMap[ma] = { khuVuc: info.kv, trangThai: info.trangThai, loaiHD: info.loaiHD, amounts: {} };
+                    }
+                });
+            }
+        };
+        addFromChot(monthStr);
+        addFromChot(prevMonthStr);
+        
+        // Filter by location if required
+        if (locationNormalized) {
+            Object.keys(empMap).forEach(ma => {
+                if (empMap[ma].khuVuc !== locationNormalized) {
+                    delete empMap[ma];
+                }
+            });
+        }
     }
 
     Logger.log('Loaded %s employees with finalized locations', Object.keys(empMap).length);
@@ -218,18 +245,29 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
 
     // 1. Process Dataluong1
     var countL1 = 0;
+    const luong1Map = {};
     data1.forEach(row => {
-        if (String(row[idx1.KyLuong]) !== monthStr) return;
+        const ky = String(row[idx1.KyLuong]).trim();
+        if (ky !== monthStr && ky !== prevMonthStr) return;
+        const ma = String(row[idx1.MaCB] || '').trim();
+        if (!ma) return;
+        if (!luong1Map[ky]) luong1Map[ky] = {};
+        luong1Map[ky][ma] = row;
+    });
 
-        const maCB = String(row[idx1.MaCB] || '').trim();
-        if (!maCB) return;
+    Object.keys(empMap).forEach(maCB => {
+        const emp = empMap[maCB];
+        const row = (luong1Map[monthStr] && luong1Map[monthStr][maCB]) || (luong1Map[prevMonthStr] && luong1Map[prevMonthStr][maCB]);
+        if (!row) return;
 
         countL1++;
-        const emp = ensureEmp(maCB);
-        if (!emp) return;
         if (!emp.hoTen) emp.hoTen = String(row[idx1.HovaTen] || '').trim();
-        emp.loaiHD = String(row[idx1.LoaiHD] || '').trim();
-        emp.amounts.tongLuong1 = (emp.amounts.tongLuong1 || 0) + (Number(row[idx1.TongLuong1]) || 0);
+        if (!emp.loaiHD) emp.loaiHD = String(row[idx1.LoaiHD] || '').trim();
+
+        const isCurrentMonth = String(row[idx1.KyLuong]).trim() === monthStr;
+        if (isCurrentMonth) {
+            emp.amounts.tongLuong1 = (emp.amounts.tongLuong1 || 0) + (Number(row[idx1.TongLuong1]) || 0);
+        }
         emp.amounts.hsNganh = (emp.amounts.hsNganh || 0) + (Number(row[idx1.HSNganh]) || 0);
         emp.amounts.hsDDocHai = (emp.amounts.hsDDocHai || 0) + (Number(row[idx1.HSDDocHai]) || 0);
         emp.amounts.hsTrachNhiem = (emp.amounts.hsTrachNhiem || 0) + (Number(row[idx1.HSTrachNhiem]) || 0);
@@ -368,12 +406,16 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
         else if (loaiHD === 'HĐ dài hạn') contractType = 'HĐ dài hạn';
         else if (loaiHD === 'HĐ vụ việc') contractType = 'HĐ vụ việc';
 
+        const tongL1 = (amt.tongLuong1 || 0) + (amt.truyThuL1 || 0);
+        const luong2_net = (amt.luong2 || 0) + (amt.truyThuL2 || 0);
+        const anCa_net = (amt.anCa || 0) + (amt.anCaTruyLinh || 0);
+        const thueTNCN = amt.thueTNCN || 0;
+        const netAmount = tongL1 + luong2_net + anCa_net - thueTNCN;
+
+        if (netAmount === 0) return;
+
         if (isTreoLuong) {
-            const tongL1 = (amt.tongLuong1 || 0) + (amt.truyThuL1 || 0);
-            const luong2_net = (amt.luong2 || 0) + (amt.truyThuL2 || 0);
-            const anCa_net = (amt.anCa || 0) + (amt.anCaTruyLinh || 0);
-            const thueTNCN = amt.thueTNCN || 0;
-            const netAmount = - (tongL1 + luong2_net + anCa_net - thueTNCN);
+            const suspendedNetAmount = - netAmount;
 
             if (contractType) {
                 suspendedList.push({
@@ -381,7 +423,7 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
                     hoTen: emp.hoTen || 'Không rõ',
                     contractType: contractType,
                     kv: kv,
-                    netAmount: netAmount
+                    netAmount: suspendedNetAmount
                 });
             }
             ALL_LOCATIONS.add(kv);
@@ -405,7 +447,7 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
                 const tongL1 = (amt.tongLuong1 || 0) + (amt.truyThuL1 || 0);
                 const pcGV = (amt.hsNganh || 0) * LUONG_CO_BAN + (amt.hsNganhTien || 0);
                 const pcDH = (amt.hsDDocHai || 0) * LUONG_CO_BAN;
-                const pcTN = (amt.hsTrachNhiem || 0) * LUONG_CO_BAN + (amt.hsTrachNhiemTien || 0);
+                const pcTN = (amt.hsTrachNhiem || 0) * LUONG_CO_BAN;
                 const pcTV = (amt.hsTuVe || 0) * LUONG_CO_BAN;
 
                 [targetLoc, targetTotal].forEach(o => {
@@ -507,7 +549,7 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
     };
 
     // First, calculate the data for 1.1, 2.1, 3.1 using unmodified totals
-    const row1_1_data = getComplexRowData('Biên chế', ['tong'], ['pcGiaoVien', 'pcDocHai', 'pcTrachNhiem', 'pcTuVe']);
+    const row1_1_data = getComplexRowData('Biên chế', ['tong'], ['pcGiaoVien', 'pcDocHai', 'pcTrachNhiem']);
     const row2_1_data = getComplexRowData('HĐ 68', ['tong'], ['pcTrachNhiem']);
     const row3_1_data = getComplexRowData('HĐ dài hạn', ['tong'], ['pcGiaoVien', 'pcTrachNhiem']);
 
@@ -931,4 +973,173 @@ function getPrevMonthStr(monthStr) {
         y--;
     }
     return "T" + String(m).padStart(2, '0') + "." + y;
+}
+
+function test_doiChieuLuong() {
+    // Thay đổi kỳ lương cần đối chiếu tại đây
+    var monthStr = "T01.2025";
+    var result = doGet_doiChieuLuongVaThuyetMinh(monthStr);
+    Logger.log(result);
+}
+
+function doGet_doiChieuLuongVaThuyetMinh(monthStr) {
+    const TARGET_FILE_ID = GLOBAL_CONFIG.FILES.EXPORT_DKB_TH_LUONG;
+    const ssMaster = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
+    const resources = {
+        ssMaster,
+        ssLuong1: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_1),
+        ssLuong2: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_2),
+        ssTruyThu1: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1),
+        ssTruyThu2: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_2),
+        ssAnCa: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_AN_CA)
+    };
+
+    // 1. Lấy dữ liệu tổng hợp thô từ code gốc
+    const values1 = getData(resources.ssLuong1, GLOBAL_CONFIG.SHEETS.DATA_LUONG_1);
+    const header1 = values1[0] || [];
+    const data1 = values1.slice(1);
+    const idx1 = {
+        KyLuong: getIdx(header1, 'Kỳ lương'),
+        MaCB: getIdx(header1, 'Mã CB'),
+        HovaTen: getIdx(header1, 'Họ và tên'),
+        LoaiHD: getIdx(header1, 'Loại HĐ'),
+        TongLuong1: getIdx(header1, 'Tổng lương 1'),
+        HSNganh: getIdx(header1, 'HS ngành'),
+        HSDDocHai: getIdx(header1, 'HS độc hại'),
+        HSTrachNhiem: getIdx(header1, 'HS trách nhiệm')
+    };
+
+    const values3 = getData(resources.ssTruyThu1, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU);
+    const header3 = values3[0] || [];
+    const data3 = values3.slice(1);
+    const idx3 = {
+        KyLuong: getIdx(header3, 'Kỳ trả lương'),
+        MaCB: getIdx(header3, 'Mã nhân sự'),
+        ConNhan: getIdx(header3, 'Còn nhận'),
+        HSNganhTien: getIdx(header3, 'HS PC ngành thành tiền'),
+        HSTrachNhiemTien: getIdx(header3, 'HS PC trách nhiệm thành tiền'),
+        HoTen: getIdx(header3, ['Họ và tên', 'Họ tên']),
+        LoaiHD: getIdx(header3, ['Loại hợp đồng', 'Loại HĐ'])
+    };
+
+    // Gom dữ liệu thô theo nhân viên
+    const rawEmpMap = {};
+    data1.forEach(row => {
+        if (String(row[idx1.KyLuong]) !== monthStr) return;
+        const maCB = String(row[idx1.MaCB] || '').trim();
+        if (!maCB) return;
+        if (!rawEmpMap[maCB]) {
+            rawEmpMap[maCB] = {
+                hoTen: String(row[idx1.HovaTen] || '').trim(),
+                loaiHD: String(row[idx1.LoaiHD] || '').trim(),
+                tongLuong1: 0,
+                pcNganh: 0,
+                pcDocHai: 0,
+                pcTrachNhiem: 0,
+                truyThuL1: 0
+            };
+        }
+        const emp = rawEmpMap[maCB];
+        emp.tongLuong1 += Number(row[idx1.TongLuong1]) || 0;
+        emp.pcNganh += (Number(row[idx1.HSNganh]) || 0) * 2340000;
+        emp.pcDocHai += (Number(row[idx1.HSDDocHai]) || 0) * 2340000;
+        emp.pcTrachNhiem += (Number(row[idx1.HSTrachNhiem]) || 0) * 2340000;
+    });
+
+    data3.forEach(row => {
+        if (String(row[idx3.KyLuong]) !== monthStr) return;
+        const maCB = String(row[idx3.MaCB] || '').trim();
+        if (!maCB) return;
+        if (!rawEmpMap[maCB]) {
+            rawEmpMap[maCB] = {
+                hoTen: idx3.HoTen !== -1 ? String(row[idx3.HoTen] || '').trim() : 'Không rõ tên (chỉ có truy thu)',
+                loaiHD: idx3.LoaiHD !== -1 ? String(row[idx3.LoaiHD] || '').trim() : '',
+                tongLuong1: 0,
+                pcNganh: 0,
+                pcDocHai: 0,
+                pcTrachNhiem: 0,
+                truyThuL1: 0
+            };
+        }
+        const emp = rawEmpMap[maCB];
+        emp.truyThuL1 += Number(row[idx3.ConNhan]) || 0;
+        emp.pcNganh += Number(row[idx3.HSNganhTien]) || 0;
+    });
+
+    // 2. Lấy dữ liệu Thuyết minh từ DatabaseL1
+    const DB_FILE_ID = '1-pKqPF-GpmoTXno1no5NN-JRIMLsHwBqGx1xdLHPgr4';
+    const DB_SHEET_NAME = 'DatabaseL1';
+    const dbValues = SpreadsheetApp.openById(DB_FILE_ID).getSheetByName(DB_SHEET_NAME).getDataRange().getValues();
+    const dbHeader = dbValues[0];
+    const dbData = dbValues.slice(1);
+    const dbIdx = {
+        KyLuong: dbHeader.indexOf('Kỳ lương'),
+        MaCB: dbHeader.indexOf('Mã CB'),
+        LuongTL: dbHeader.indexOf('Lương và truy lĩnh')
+    };
+
+    const dbEmpMap = {};
+    dbData.forEach(row => {
+        if (String(row[dbIdx.KyLuong]) !== monthStr) return;
+        const maCB = String(row[dbIdx.MaCB] || '').trim();
+        if (!maCB) return;
+        dbEmpMap[maCB] = {
+            luongTL: Number(row[dbIdx.LuongTL]) || 0
+        };
+    });
+
+    // 3. Tiến hành đối chiếu chênh lệch
+    const doiChieuRows = [];
+    const allMaCB = new Set([...Object.keys(rawEmpMap), ...Object.keys(dbEmpMap)]);
+
+    allMaCB.forEach(maCB => {
+        const raw = rawEmpMap[maCB] || { hoTen: 'Không có ở thô', loaiHD: '', tongLuong1: 0, truyThuL1: 0, pcNganh: 0, pcDocHai: 0, pcTrachNhiem: 0 };
+        const db = dbEmpMap[maCB] || { luongTL: 0 };
+
+        // Loại trừ các khoản phụ cấp tính theo hệ số tương tự như bảng tổng hợp lương
+        let pcTru = 0;
+        const loaiHDNorm = String(raw.loaiHD || '').trim();
+        if (loaiHDNorm === 'Biên chế') {
+            pcTru = (raw.pcNganh || 0) + (raw.pcDocHai || 0) + (raw.pcTrachNhiem || 0);
+        } else if (loaiHDNorm === 'HĐ 68') {
+            pcTru = raw.pcTrachNhiem || 0;
+        } else if (loaiHDNorm === 'HĐ dài hạn') {
+            pcTru = (raw.pcNganh || 0) + (raw.pcTrachNhiem || 0);
+        }
+
+        const tongThucNhanTho = raw.tongLuong1 + raw.truyThuL1 - pcTru;
+        const luongTLThuyetMinh = db.luongTL;
+        const lech = tongThucNhanTho - luongTLThuyetMinh;
+
+        // Chỉ đưa vào danh sách nếu có sự chênh lệch (lech != 0)
+        if (Math.abs(lech) > 0.01) {
+            doiChieuRows.push([
+                maCB,
+                raw.hoTen,
+                raw.loaiHD,
+                tongThucNhanTho,
+                luongTLThuyetMinh,
+                lech,
+                dbEmpMap[maCB] ? 'Lệch số liệu thực nhận' : 'Nhân viên có ở Lương thô nhưng thiếu ở Thuyết minh L1'
+            ]);
+        }
+    });
+
+    // 4. Ghi kết quả vào Sheet DOI_CHIEU_LECH trong file Tổng hợp lương
+    const ss = SpreadsheetApp.openById(TARGET_FILE_ID);
+    const shName = "DOI_CHIEU_LECH_" + monthStr.replace('.', '_');
+    let sh = ss.getSheetByName(shName);
+    if (!sh) sh = ss.insertSheet(shName);
+    else sh.clear();
+
+    sh.getRange(1, 1, 1, 7).setValues([['Mã CB', 'Họ và tên', 'Loại HĐ', 'Thực lĩnh thô (1)', 'Lương thuyết minh L1 (2)', 'Lệch (1 - 2)', 'Ghi chú / Đánh giá']]).setFontWeight('bold');
+    if (doiChieuRows.length > 0) {
+        sh.getRange(2, 1, doiChieuRows.length, 7).setValues(doiChieuRows);
+        sh.getRange(2, 4, doiChieuRows.length, 3).setNumberFormat('#,##0');
+    } else {
+        sh.getRange(2, 1).setValue("Không có nhân sự nào bị lệch số liệu!");
+    }
+    sh.autoResizeColumns(1, 7);
+
+    return "Đã đối chiếu xong! Số dòng lệch: " + doiChieuRows.length + ". Xem kết quả tại sheet " + shName;
 }

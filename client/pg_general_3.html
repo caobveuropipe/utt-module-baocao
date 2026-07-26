@@ -175,7 +175,7 @@
       ".summary-signature-block table{margin-top:0;}" +
       ".page-container > table:first-of-type{page-break-after:avoid; break-after:avoid-page;}" +
       "@media print{" +
-      "@page{size:A4 landscape; margin:15mm 10mm 15mm 15mm !important; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+      "@page{size:A4 landscape; margin:15mm 10mm 20mm 15mm !important; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
       "body{background:#fff; padding:0; margin:0 !important;}" +
       "thead{display:table-header-group;}" +
       "tfoot{display:table-footer-group;}" +
@@ -392,7 +392,7 @@
     });
 
     let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:9.5pt;margin:0;padding:15px;background:#eee;counter-reset:page;}" +
-      ".page-container{width:180mm;margin:0 auto;background:#fff;padding:8mm;box-shadow:0 0 10px rgba(0,0,0,0.1);overflow:hidden;}" +
+      ".page-container{width:98%;margin:0 auto;background:#fff;padding:8mm;box-shadow:0 0 10px rgba(0,0,0,0.1);overflow:hidden;}" +
       "table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:5px;}th,td{border:1px solid #000;padding:2px 1px;overflow:hidden;word-break:break-word}" +
       "th{background:#f2f2f2;font-weight:bold;font-size:10pt;text-align:center;vertical-align:middle}" +
       "td{font-size:8.2pt;}" +
@@ -408,10 +408,10 @@
       ".header-title{width:100%;text-align:center;padding-top:15px;clear:both;}" +
       ".sig-section{width:100%;margin-top:10px;border:none;page-break-inside:avoid !important; break-inside:avoid !important;} .sig-section td{border:none;text-align:center;vertical-align:top;font-size:10pt;padding-top:10px}" +
       ".sig-section-wrapper{page-break-inside:avoid; break-inside:avoid; page-break-before:avoid; break-before:avoid; margin-top:15px;}" +
-      ".no-print-header{display:flex;justify-content:center;gap:15px;margin-bottom:15px;padding:10px;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);width:180mm;margin-left:auto;margin-right:auto;}" +
+      ".no-print-header{display:flex;justify-content:center;gap:15px;margin-bottom:15px;padding:10px;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);width:98%;margin-left:auto;margin-right:auto;}" +
       ".btn-print{padding:8px 20px;background:#6366f1;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:8px;}" +
       ".btn-excel{padding:8px 20px;background:#22c55e;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:8px;}" +
-      "@page{size:A4 portrait; margin:12mm 10mm 14mm 20mm; @bottom-right{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+      "@page{size:A4 portrait; margin:12mm 10mm 20mm 20mm; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
       "@media print{.no-print-header{display:none;}body{background:#fff;padding:0;margin:0}.page-container{width:100%;box-shadow:none;padding:1mm;margin:0 auto;overflow:visible;}}";
 
     const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G +
@@ -544,7 +544,61 @@
     
     // Build Header HTML dynamically with cell merging
     let tHead = "";
-    if (headerRowCount > 1 && startSigIndex > 1) {
+    const isPhanBo23 = title.toUpperCase().includes("PHÂN BỔ") && data[0] && data[0].length === 23;
+    if (isPhanBo23) {
+      const th = (text, attrs, style) => {
+        const attrText = attrs || "";
+        const styleText = "text-align:center; vertical-align:middle; font-weight:bold;" + (style || "");
+        return _L + "th" + attrText + " style='" + styleText + "'" + _G + text + _S + "th" + _G;
+      };
+      tHead += _L + "thead" + _G +
+        _L + "tr class='header-row'" + _G +
+        th("Stt", " rowspan='2'") +
+        th("Nội dung", " rowspan='2'") +
+        th("Hệ số", " colspan='9'") +
+        th("") +
+        th("Các khoản phải nộp theo lương", " colspan='4'") +
+        th("Các khoản giảm trừ", " colspan='2'") +
+        th("Trừ khác", " colspan='2'") +
+        th("Cộng các khoản giảm trừ", " rowspan='2'") +
+        th("BH trả", " rowspan='2'") +
+        th("Số tiền được lĩnh", " rowspan='2'") +
+        _S + "tr" + _G +
+        _L + "tr class='header-row'" + _G +
+        th("Lương<br>ngạch bậc") +
+        th("HSB BL") +
+        th("Chức vụ") +
+        th("Vượt<br>khung") +
+        th("P/c<br>ngành") +
+        th("Thâm niên") +
+        th("ĐH") +
+        th("TN") +
+        th("Tự vệ") +
+        th("Tổng lương") +
+        th("BHXH") +
+        th("BHYT") +
+        th("BHTN") +
+        th("Đoàn phí<br>CĐ") +
+        th("N/ngoài") +
+        th("Nghỉ BHXH") +
+        th("Tạm ứng tạm<br>giữ") +
+        th("Quỹ XH") +
+        _S + "tr" + _G +
+        _L + "tr class='header-row formula-row'" + _G +
+        th("1") + th("2") + th("3") + th("4") + th("5") + th("6") + th("7") +
+        th("8") + th("9") + th("10") + th("11") +
+        th("12=(3+4+5+6+7+8+9+10+11)<br>*2.340.000") +
+        th("13=(3+4+5+6+8)<br>*2.340.000") +
+        th("14=(3+4+5+6+8)<br>*2.340.000") +
+        th("15=(3+4+5+6+8)<br>*2.340.000") +
+        th("16=(3+4+5+6+8)<br>*2.340.000") +
+        th("17") + th("18") + th("19") + th("20") +
+        th("21=<br>13+14+15+16+17+18+19+20") +
+        th("22") +
+        th("23=12-21") +
+        _S + "tr" + _G +
+        _S + "thead" + _G;
+    } else if (headerRowCount > 1 && startSigIndex > 1) {
       const covered = Array.from({ length: headerRowCount }, () => Array(data[0].length).fill(false));
       tHead += _L + "thead" + _G;
       for (let r = 0; r < headerRowCount; r++) {
@@ -652,10 +706,18 @@
           // If Col 0 is STT, then Col 1 is Nội dung
           cellStyle += "text-align:left; padding-left:5px; white-space:normal !important; vertical-align:middle;";
         } else if (typeof val === 'number') {
-          displayVal = val.toLocaleString('vi-VN');
+          if (title.toUpperCase().includes("PHÂN BỔ") && c >= 2 && c <= 10) {
+            displayVal = val.toLocaleString('vi-VN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+          } else {
+            displayVal = val.toLocaleString('vi-VN');
+          }
           cellStyle += "text-align:right; padding-right:5px; vertical-align:middle;";
         } else if (val && !isNaN(Number(val)) && String(val).trim() !== "") {
-          displayVal = Number(val).toLocaleString('vi-VN');
+          if (title.toUpperCase().includes("PHÂN BỔ") && c >= 2 && c <= 10) {
+            displayVal = Number(val).toLocaleString('vi-VN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+          } else {
+            displayVal = Number(val).toLocaleString('vi-VN');
+          }
           cellStyle += "text-align:right; padding-right:5px; vertical-align:middle;";
         } else {
           cellStyle += "text-align:left; padding-left:5px; vertical-align:middle;";
@@ -695,6 +757,32 @@
           _L + "col style='width:50px;'" + _G +  // Thuế TNCN
           _L + "col style='width:80px;'" + _G +  // Thực lĩnh
           _S + "colgroup" + _G;
+      } else if (data[0].length === 23) {
+        colgroupHtml = _L + "colgroup" + _G +
+          _L + "col style='width:30px;'" + _G + // STT
+          _L + "col style='width:145px;'" + _G + // Nội dung
+          _L + "col style='width:45px;'" + _G +  // Lương ngạch bậc
+          _L + "col style='width:38px;'" + _G +  // HSB BL
+          _L + "col style='width:42px;'" + _G +  // Chức vụ
+          _L + "col style='width:42px;'" + _G +  // Vượt khung
+          _L + "col style='width:42px;'" + _G +  // P/c ngành
+          _L + "col style='width:42px;'" + _G +  // Thâm niên
+          _L + "col style='width:42px;'" + _G +  // Độc hại
+          _L + "col style='width:42px;'" + _G +  // Trách nhiệm
+          _L + "col style='width:42px;'" + _G +  // Tự vệ
+          _L + "col style='width:72px;'" + _G +  // Tổng lương
+          _L + "col style='width:58px;'" + _G +  // BHXH
+          _L + "col style='width:58px;'" + _G +  // BHYT
+          _L + "col style='width:58px;'" + _G +  // BHTN
+          _L + "col style='width:58px;'" + _G +  // Đoàn phí CĐ (KPCĐ)
+          _L + "col style='width:52px;'" + _G +  // N/ngoài
+          _L + "col style='width:52px;'" + _G +  // Nghi BHXH
+          _L + "col style='width:38px;'" + _G +  // Tạm ứng
+          _L + "col style='width:48px;'" + _G +  // Quỹ XH
+          _L + "col style='width:54px;'" + _G +  // Cộng giảm trừ
+          _L + "col style='width:50px;'" + _G +  // BH trả
+          _L + "col style='width:80px;'" + _G +  // Số lĩnh
+          _S + "colgroup" + _G;
       } else if (data[0].length === 20) {
         colgroupHtml = _L + "colgroup" + _G +
           _L + "col style='width:30px;'" + _G + // STT
@@ -713,7 +801,7 @@
           _L + "col style='width:52px;'" + _G +  // N/ngoài
           _L + "col style='width:52px;'" + _G +  // Nghi BHXH
           _L + "col style='width:52px;'" + _G +  // Tạm ứng
-          _L + "col style='width:52px;'" + _G +  // Thiện nguyện
+          _L + "col style='width:52px;'" + _G +  // Quỹ XH
           _L + "col style='width:80px;'" + _G +  // Cộng giảm trừ
           _L + "col style='width:50px;'" + _G +  // BH trả
           _L + "col style='width:80px;'" + _G +  // Số lĩnh
@@ -815,7 +903,7 @@
     }
     
     let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:10pt;margin:0;padding:15px;background:#eee;counter-reset:page;}" +
-      ".page-container{width:" + (isLandscape ? "268mm" : "180mm") + ";margin:0 auto;background:#fff;padding:8mm;box-shadow:0 0 10px rgba(0,0,0,0.1);overflow:hidden;}" +
+      ".page-container{width:98%;margin:0 auto;background:#fff;padding:8mm;box-shadow:0 0 10px rgba(0,0,0,0.1);overflow:hidden;}" +
       "table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:5px;}th,td{border:1px solid #000;padding:2px 1px;overflow:hidden;word-break:break-word;vertical-align:middle;}" +
       "th{background:#f2f2f2;font-weight:bold;font-size:10pt;text-align:center;vertical-align:middle;}" +
       "td{font-size:8.2pt;vertical-align:middle;}" +
@@ -823,8 +911,10 @@
       "tr{page-break-inside:avoid;}" +
       "tr.detail-row td{border-bottom:1px dotted #000 !important;border-top:none !important;}" +
       "tr.bold-row td{font-weight:bold !important;border-top:1px solid #000 !important;border-bottom:1px solid #000 !important;}" +
-      ".phanbo-table th{font-size:6.8pt !important;padding:2px 1px !important;font-family:Tahoma,Arial,sans-serif !important;font-weight:bold !important;}" +
-      ".phanbo-table td{font-size:6.2pt !important;white-space:nowrap !important;padding:2px 3px !important;font-family:Tahoma,Arial,sans-serif !important;font-weight:500 !important;border-left:1px solid #000 !important;border-right:1px solid #000 !important;border-top:none !important;border-bottom:1px dotted #000 !important;}" +
+      ".phanbo-table th{font-size:6.8pt !important;padding:6px 1px !important;font-family:Tahoma,Arial,sans-serif !important;font-weight:bold !important;}" +
+      ".phanbo-table .formula-row th{font-size:4.8pt !important;}" +
+      ".phanbo-table td{font-size:6.2pt !important;white-space:nowrap !important;padding:6px 3px !important;font-family:Tahoma,Arial,sans-serif !important;font-weight:500 !important;border-left:1px solid #000 !important;border-right:1px solid #000 !important;border-top:none !important;border-bottom:1px dotted #000 !important;}" +
+      ".phanbo-table td:nth-child(2){white-space:normal !important;}" +
       ".phanbo-table tr.bold-row td{font-weight:bold !important;border-top:1px solid #000 !important;border-bottom:1px solid #000 !important;}" +
       ".report-header{width:100%;margin-bottom:15px;}" +
       ".school-header-block{display:inline-flex;flex-direction:column;align-items:center;text-align:center;}" +
@@ -832,10 +922,10 @@
       ".school-underline-no-branch{width:120px;border-bottom:1.5px solid #000;margin:4px auto 0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact;}" +
       ".school-branch-with-underline{font-weight:bold;font-size:9.5pt;margin-top:3px;display:inline-block;border-bottom:1.5px solid #000;padding-bottom:1px;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}" +
       ".header-title{width:100%;text-align:center;padding-top:15px;clear:both;}" +
-      ".no-print-header{display:flex;justify-content:center;gap:15px;margin-bottom:15px;padding:10px;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);width:" + (isLandscape ? "268mm" : "180mm") + ";margin-left:auto;margin-right:auto;}" +
+      ".no-print-header{display:flex;justify-content:center;gap:15px;margin-bottom:15px;padding:10px;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);width:98%;margin-left:auto;margin-right:auto;}" +
       ".btn-print{padding:8px 20px;background:#6366f1;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:8px;}" +
       ".sig-table-row td{font-size:9.5pt !important; padding:4px 0 !important;}" +
-      "@page{size:A4 " + (isLandscape ? "landscape" : "portrait") + "; margin:12mm " + (isLandscape ? "8mm" : "10mm") + " 14mm 20mm; @bottom-right{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+      "@page{size:A4 " + (isLandscape ? "landscape" : "portrait") + "; margin:12mm " + (isLandscape ? "8mm" : "10mm") + " 20mm 20mm; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
       "@media print{.no-print-header{display:none;}body{background:#fff;padding:0;margin:0}.page-container{width:100%;box-shadow:none;padding:1mm;margin:0 auto;overflow:visible;}}";
 
     const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G +
@@ -1032,7 +1122,7 @@
     }
     
     let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:10pt;margin:0;padding:15px;background:#eee;counter-reset:page;}" +
-      ".page-container{width:268mm;margin:0 auto;background:#fff;padding:8mm;box-shadow:0 0 10px rgba(0,0,0,0.1);overflow:hidden;}" +
+      ".page-container{width:98%;margin:0 auto;background:#fff;padding:8mm;box-shadow:0 0 10px rgba(0,0,0,0.1);overflow:hidden;}" +
       "table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:5px;}th,td{border:1px solid #000;padding:2px 1px;overflow:hidden;word-break:break-word;}" +
       "th{background:#f2f2f2;font-weight:bold;font-size:10pt;text-align:center;vertical-align:middle;}" +
       "td{font-size:8.2pt;}" +
@@ -1044,10 +1134,10 @@
       ".school-underline-no-branch{width:120px;border-bottom:1.5px solid #000;margin:4px auto 0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact;}" +
       ".school-branch-with-underline{font-weight:bold;font-size:9.5pt;margin-top:3px;display:inline-block;border-bottom:1.5px solid #000;padding-bottom:1px;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}" +
       ".header-title{width:100%;text-align:center;padding-top:15px;clear:both;}" +
-      ".no-print-header{display:flex;justify-content:center;gap:15px;margin-bottom:15px;padding:10px;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);width:268mm;margin-left:auto;margin-right:auto;}" +
+      ".no-print-header{display:flex;justify-content:center;gap:15px;margin-bottom:15px;padding:10px;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);width:98%;margin-left:auto;margin-right:auto;}" +
       ".btn-print{padding:8px 20px;background:#6366f1;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:8px;}" +
       ".sig-table-row td{font-size:9.5pt !important; padding:4px 0 !important;}" +
-      "@page{size:A4 landscape; margin:12mm 8mm 14mm 20mm; @bottom-right{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+      "@page{size:A4 landscape; margin:12mm 8mm 20mm 20mm; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
       "@media print{.no-print-header{display:none;}body{background:#fff;padding:0;margin:0}.page-container{width:100%;box-shadow:none;padding:1mm;margin:0 auto;overflow:visible;}}";
 
     const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G +
@@ -1157,7 +1247,7 @@
       .withSuccessHandler(function (res) {
         digicoreSpinner.hide();
         if (res.status === "success") {
-          const content = generateGenericReportHtml(res, "BẢNG TRÍCH NỘP KINH PHÍ CÔNG ĐOÀN", location, false);
+          const content = generateGenericReportHtml(res, "BẢNG TỔNG HỢP TIỀN ĐOÀN PHÍ CĐ", location, false);
           win.document.open();
           win.document.write(content);
           win.document.close();
@@ -1195,7 +1285,7 @@
       title = "BẢNG TỔNG HỢP HẠCH TOÁN BẢO HIỂM";
       isLandscape = true;
     } else if (type === 'taoBangHachToanKPCD') {
-      title = "BẢNG TỔNG HỢP TIỀN KPCĐ";
+      title = "BẢNG TỔNG HỢP TIỀN ĐOÀN PHÍ CĐ";
       isLandscape = false;
     } else if (type === 'taoBangPhanBoLuongBHXH') {
       title = "BẢNG PHÂN BỔ TIỀN LƯƠNG VÀ BẢO HIỂM XÃ HỘI";
@@ -1299,7 +1389,7 @@
     });
 
     let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:11pt;margin:0;padding:20px;background:#f5f5f5;counter-reset:page;}" +
-      ".page-container{width:210mm; margin:0 auto; background:#fff; padding:12mm 15mm; min-height:297mm; box-shadow:0 0 10px rgba(0,0,0,0.1);}" +
+      ".page-container{width:98%; margin:0 auto; background:#fff; padding:12mm 15mm; min-height:297mm; box-shadow:0 0 10px rgba(0,0,0,0.1);}" +
       "table{width:100%; border-collapse:collapse; margin-top:15px; table-layout:fixed;} th,td{border:1px solid #000; padding:6px 4px; font-size:9.5pt; word-break:break-word; overflow:hidden;}" +
       "th{background:#f8fafc; font-weight:bold; text-align:center; vertical-align:middle;}" +
       "thead{display:table-header-group;}" +
@@ -1315,7 +1405,7 @@
       ".footer-section{margin-top:10px; page-break-inside:avoid; break-inside:avoid; page-break-before:avoid; break-before:avoid;}" +
       ".footer-words{margin-top:10px; font-weight:bold; font-style:italic; font-size:11pt; page-break-before:avoid; break-before:avoid;}" +
       ".sig-container{width:100%; margin-top:15px; border:none; page-break-inside:avoid; break-inside:avoid; page-break-before:avoid; break-before:avoid;} .sig-container td{border:none; text-align:center; padding:10px 0; font-size:11pt;}" +
-      "@page{size:A4 portrait; margin:12mm 15mm 14mm 15mm; @bottom-right{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+      "@page{size:A4 portrait; margin:12mm 15mm 20mm 15mm; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
       "@media print{body{background:#fff; padding:0; margin:0;} .page-container{box-shadow:none; padding:0; margin:0; width:100%; min-height:auto;}}";
 
     const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G + _L + "style" + _G + css + _S + "style" + _G + _S + "head" + _G;
@@ -1326,7 +1416,7 @@
       _L + "th style='width:35px'" + _G + "STT" + _S + "th" + _G +
       _L + "th style='width:65px'" + _G + "Mã CB" + _S + "th" + _G +
       _L + "th style='width:155px'" + _G + "Họ và tên" + _S + "th" + _G +
-      _L + "th style='width:80px'" + _G + "KPCĐ" + _S + "th" + _G +
+      _L + "th style='width:80px'" + _G + "Đoàn phí CĐ" + _S + "th" + _G +
       _L + "th style='width:85px'" + _G + "Quỹ tình nghĩa" + _S + "th" + _G +
       _L + "th style='width:85px'" + _G + "Các khoản thu khác" + _S + "th" + _G +
       _L + "th style='width:95px'" + _G + "Ghi chú" + _S + "th" + _G +
@@ -1335,7 +1425,7 @@
 
     let headerContent = _L + "div class='report-header'" + _G +
       generatePrintHeaderHtml(location) +
-      _L + "div class='report-title'" + _G + "DANH SÁCH TRỪ KP CÔNG ĐOÀN VÀ CÁC QUỸ" + _L + "br" + _G + "THÁNG " + res.month + " NĂM " + res.year + _S + "div" + _G +
+      _L + "div class='report-title'" + _G + "DANH SÁCH TRỪ ĐOÀN PHÍ CĐ VÀ CÁC QUỸ" + _L + "br" + _G + "THÁNG " + res.month + " NĂM " + res.year + _S + "div" + _G +
       _S + "div" + _G;
 
     let totalRowHtml = _L + "tr class='row-total'" + _G +
@@ -1386,6 +1476,12 @@
   // --- 4. IN DANH MỤC ĐƠN VỊ (PORTRAIT) ---
   // =================================================================================================
   function printDanhMucDonVi() {
+    const monthStr = $('#modal_dataluong_2_ChonThang').val();
+    if (!monthStr) {
+      digicoreToast('Vui lòng chọn tháng', 'warning');
+      return;
+    }
+
     const win = window.open('', '_blank');
     if (!win) {
       digicoreToast('Trình duyệt đã chặn popup. Vui lòng cho phép popup và thử lại.', 'warning');
@@ -1412,7 +1508,7 @@
         win.close();
         digicoreToast('Lỗi kết nối: ' + err.message, 'error');
       })
-      .pg1_ed1_getPrintDanhMucDonVi();
+      .pg1_ed1_getPrintDanhMucDonVi(monthStr);
   }
 
   function generateDanhMucDonViHtml(res) {
@@ -1428,8 +1524,8 @@
     });
 
     let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:11pt;margin:0;padding:20px;background:#f5f5f5}" +
-      ".page-container{width:210mm; margin:0 auto; background:#fff; padding:12mm 15mm; min-height:297mm; box-shadow:0 0 10px rgba(0,0,0,0.1);}" +
-      "table{width:100%; border-collapse:collapse; margin-top:15px;} th,td{border:1px solid #000; padding:6px 4px; font-size:10pt;}" +
+      ".page-container{width:98%; margin:0 auto; background:#fff; padding:12mm 15mm; min-height:297mm; box-shadow:0 0 10px rgba(0,0,0,0.1);}" +
+      "table{width:100%; border-collapse:collapse; table-layout:fixed; margin-top:15px;} th,td{border:1px solid #000; padding:6px 4px; font-size:10pt; word-wrap:break-word; overflow:hidden;}" +
       "th{background:#f8fafc; font-weight:bold; text-align:center; vertical-align:middle;}" +
       ".report-header{width:100%; margin-bottom:20px;}" +
       ".school-header-block{display:inline-flex; flex-direction:column; align-items:center; text-align:center;}" +
@@ -1438,7 +1534,7 @@
       ".school-branch-with-underline{font-weight:bold; font-size:9.5pt; margin-top:3px; display:inline-block; border-bottom:1.5px solid #000; padding-bottom:1px; line-height:1.2; -webkit-print-color-adjust:exact; print-color-adjust:exact;}" +
       ".report-title{text-align:center; font-weight:bold; font-size:14pt; text-transform:uppercase; margin-bottom:20px; line-height:1.4; padding-top:5px;}" +
       ".sig-container{width:100%; margin-top:30px; border:none;} .sig-container td{border:none; text-align:center; padding:10px 0; font-size:11pt;}" +
-      "@media print{@page{size:A4 portrait; margin:12mm 12mm 14mm 12mm;} body{background:#fff; padding:0; margin:0;} .page-container{box-shadow:none; padding:0; margin:0; width:100%; min-height:auto;}}";
+      "@media print{@page{size:A4 portrait; margin:15mm 15mm 15mm 15mm;} body{background:#fff; padding:0; margin:0;} .page-container{box-shadow:none; padding:0; margin:0; width:100%; min-height:auto;}}";
 
     const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G + _L + "style" + _G + css + _S + "style" + _G + _S + "head" + _G;
 
@@ -1451,10 +1547,10 @@
       _L + "table" + _G +
       _L + "thead" + _G +
       _L + "tr" + _G +
-      _L + "th style='width:50px'" + _G + "STT" + _S + "th" + _G +
-      _L + "th style='width:120px'" + _G + "Mã đơn vị" + _S + "th" + _G +
-      _L + "th style='width:250px'" + _G + "TÊN ĐƠN VỊ" + _S + "th" + _G +
-      _L + "th" + _G + "Ghi chú" + _S + "th" + _G +
+      _L + "th style='width:8%'" + _G + "STT" + _S + "th" + _G +
+      _L + "th style='width:17%'" + _G + "Mã đơn vị" + _S + "th" + _G +
+      _L + "th style='width:45%'" + _G + "TÊN ĐƠN VỊ" + _S + "th" + _G +
+      _L + "th style='width:30%'" + _G + "Ghi chú" + _S + "th" + _G +
       _S + "tr" + _G +
       _S + "thead" + _G +
       _L + "tbody" + _G + rowsHtml + _S + "tbody" + _G +

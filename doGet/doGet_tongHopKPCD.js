@@ -223,7 +223,7 @@ function doGet_taoBangTongHopKPCD(monthStr, location = 'All') {
         // 1. TITLE & HEADERS
         sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center');
         sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
-        const title = `BẢNG TỔNG HỢP TIỀN KINH PHÍ CÔNG ĐOÀN \nTHÁNG ${month} NĂM ${year}`;
+        const title = `BẢNG TỔNG HỢP TIỀN ĐOÀN PHÍ CĐ \nTHÁNG ${month} NĂM ${year}`;
         sheet.getRange(3, 1, 2, totalCols).merge().setValue(title)
             .setHorizontalAlignment("center").setVerticalAlignment("middle")
             .setFontWeight('bold').setFontSize(14).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
