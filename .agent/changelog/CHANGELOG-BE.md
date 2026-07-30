@@ -1,5 +1,11 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-07-30] Bổ sung logic tính toán Treo Lương
+
+### Added
+- **Đọc Trạng thái Nhân sự:** Hỗ trợ index và đọc cột `Trạng thái` (`TrangThai`) từ sheet chốt nhân sự `DataChotNSThang` trong cả 2 hàm `test_chiTietThanhPhanHachToanLuong` và `doGet_processHachToanLuongVaTruyLinh`.
+- **Tính toán Treo Lương:** Tự động phát hiện nhân sự thuộc diện treo lương theo quy tắc `isTreoLuong = (kv === 'Phú Thọ' && (trangThai === 'Đi NN' || trangThai === 'Đi công tác NN'))` và tích lũy số tiền `Tổng lương 1` (Còn lĩnh) từ `DataLuong1` vào cột `Treo lương` của bảng hạch toán.
+
 ## [2026-07-26] Nâng cấp logic bóc tách Hạch toán lương và Truy lĩnh lương
 
 ### Added

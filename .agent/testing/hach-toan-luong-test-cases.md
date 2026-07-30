@@ -35,3 +35,9 @@
   - **Mục C**: Ăn ca (từ `DataAnCa`).
   - **Mục D**: Thuế TNCN.
   - **Dòng Tổng cộng**: Kết quả khớp công thức `A + B + C - D`.
+
+### TC-05: Kiểm tra tính toán Treo Lương
+- **Đầu vào**: Chạy hàm test với `location = 'Phú Thọ'`. Cán bộ thỏa mãn điều kiện thuộc `Phú Thọ` và có trạng thái `Đi NN` hoặc `Đi công tác NN`.
+- **Kỳ vọng**:
+  - Tiền ở cột `Tổng lương 1` (Còn nhận) trong `DataLuong1` của cán bộ này được tổng hợp chính xác vào cột **Treo lương** tương ứng với phân loại chi phí và loại hợp đồng của họ.
+  - Trường `Thực lĩnh` (`ThucLinh`) của cán bộ này bị khấu trừ đi số tiền treo lương này.
