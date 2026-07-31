@@ -4,7 +4,7 @@
      * @param {string} type - Loại báo cáo (định nghĩa trong ROUTE_MAP của Code.js)
      * @param {string} label - Tên hiển thị của báo cáo để thông báo cho người dùng
      */
-    async function pg_general_4_exportReportGeneric(type, label, locationParam = null, formatParam = null) {
+    async function pg_general_4_exportReportGeneric(type, label, locationParam = null, formatParam = null, addContent = '', addAmount = 0) {
         try {
             // Lấy tháng đã chọn
             const monthStr = $('#modal_dataluong_2_ChonThang').val();
@@ -52,7 +52,10 @@
             });
 
             // Tạo URL API với parameters
-            const apiUrl = `${url_api_doGet}?type=${type}&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}&exportFormat=${format}`;
+            let apiUrl = `${url_api_doGet}?type=${type}&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}&exportFormat=${format}`;
+            if (addContent && addAmount > 0) {
+                apiUrl += `&addContent=${encodeURIComponent(addContent)}&addAmount=${encodeURIComponent(addAmount)}`;
+            }
 
             // Gọi API
             const response = await fetch(apiUrl, { signal });
@@ -524,18 +527,101 @@
                 const getLoc = () => document.getElementById('swal-location-select-generic').value;
                 document.getElementById('swal-btn-pdf').addEventListener('click', () => {
                     Swal.close();
-                    pg_general_4_exportReportGeneric(type, label, getLoc(), 'pdf');
+                    if (type === 'taoBangHachToanBaoHiem') {
+                        pg_general_4_askAndExportHachToanBaoHiem('pdf', getLoc());
+                    } else {
+                        pg_general_4_exportReportGeneric(type, label, getLoc(), 'pdf');
+                    }
                 });
                 document.getElementById('swal-btn-excel').addEventListener('click', () => {
                     Swal.close();
-                    pg_general_4_exportReportGeneric(type, label, getLoc(), 'xlsx');
+                    if (type === 'taoBangHachToanBaoHiem') {
+                        pg_general_4_askAndExportHachToanBaoHiem('xlsx', getLoc());
+                    } else {
+                        pg_general_4_exportReportGeneric(type, label, getLoc(), 'xlsx');
+                    }
                 });
                 document.getElementById('swal-btn-print').addEventListener('click', () => {
                     Swal.close();
-                    printReportHachToan(type, label, getLoc());
+                    if (type === 'taoBangHachToanBaoHiem') {
+                        pg_general_4_askAndExportHachToanBaoHiem('print', getLoc());
+                    } else {
+                        printReportHachToan(type, label, getLoc());
+                    }
                 });
             }
         });
+    }
+
+    /**
+     * Hỏi người dùng có muốn nhập thêm khoản bổ sung BH TNLĐ-BNN trước khi xuất
+     */
+    async function pg_general_4_askAndExportHachToanBaoHiem(format, location) {
+        const monthStr = $('#modal_dataluong_2_ChonThang').val() || '';
+
+        const confirmSwal = await Swal.fire({
+            title: 'Khoản bổ sung?',
+            text: 'Bạn có muốn nhập bổ sung khoản BH TNLĐ-BNN không?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Có, tôi muốn nhập',
+            cancelButtonText: 'Không, xuất luôn'
+        });
+
+        let addContent = '';
+        let addAmount = 0;
+
+        if (confirmSwal.isConfirmed) {
+            const inputSwal = await Swal.fire({
+                title: 'Nhập khoản bổ sung BH TNLĐ-BNN',
+                html: `
+                    <div style="text-align: left; margin-top: 10px;">
+                        <label style="font-weight: bold; font-size: 13px;">Nội dung hiển thị</label>
+                        <input id="swal-add-content" class="form-control" type="text" value="BH TNLĐ-BNN ${monthStr}" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 5px; margin-bottom: 15px;">
+                        
+                        <label style="font-weight: bold; font-size: 13px;">Số tiền (BHXH 17.5% nhà trường trả)</label>
+                        <input id="swal-add-amount" class="form-control" type="number" placeholder="Nhập số tiền..." value="35100" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 5px;">
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonColor: '#22c55e',
+                cancelButtonColor: '#94a3b8',
+                confirmButtonText: 'Xác nhận',
+                cancelButtonText: 'Hủy bỏ',
+                preConfirm: () => {
+                    const content = document.getElementById('swal-add-content').value.trim();
+                    const amount = Number(document.getElementById('swal-add-amount').value || 0);
+                    if (!content) {
+                        Swal.showValidationMessage('Vui lòng nhập nội dung hiển thị');
+                        return false;
+                    }
+                    if (isNaN(amount) || amount <= 0) {
+                        Swal.showValidationMessage('Vui lòng nhập số tiền lớn hơn 0');
+                        return false;
+                    }
+                    return { content, amount };
+                }
+            });
+
+            if (inputSwal.isConfirmed) {
+                addContent = inputSwal.value.content;
+                addAmount = inputSwal.value.amount;
+            } else {
+                return;
+            }
+        } else if (confirmSwal.dismiss === Swal.DismissReason.cancel) {
+            // Không nhập, xuất luôn
+        } else {
+            return;
+        }
+
+        if (format === 'print') {
+            printReportHachToan('taoBangHachToanBaoHiem', 'hạch toán bảo hiểm', location, addContent, addAmount);
+        } else {
+            pg_general_4_exportReportGeneric('taoBangHachToanBaoHiem', 'hạch toán bảo hiểm', location, format, addContent, addAmount);
+        }
     }
 
     /**

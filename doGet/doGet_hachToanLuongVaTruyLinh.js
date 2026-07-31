@@ -123,7 +123,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
 
         const emptyMetric = () => ({
             SumLPC: 0, LC100: 0, Treo60: 0, LCHachToan: 0,
-            PCCV: 0, PCVK: 0, PCGV: 0, PCTNGV: 0, PCDH: 0, PCTN: 0,
+            PCCV: 0, PCVK: 0, PCGV: 0, PCTNGV: 0, PCDH: 0, PCTN: 0, PCTV: 0,
             BHXH: 0, BHYT: 0, BHTN: 0, KPCD: 0, QuyTN: 0,
             Huong40: 0, TamUng: 0, TreoLuong: 0, ThueTNCN: 0,
             ThucLinh: 0
@@ -141,8 +141,8 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
 
         const sumMetricRow = (m) => {
             m.LCHachToan = m.LC100 - m.Treo60;
-            m.SumLPC = m.LC100 + m.PCCV + m.PCVK + m.PCGV + m.PCTNGV + m.PCDH + m.PCTN;
-            m.ThucLinh = m.LCHachToan + (m.PCCV + m.PCVK + m.PCGV + m.PCTNGV + m.PCDH + m.PCTN)
+            m.SumLPC = m.LC100 + m.PCCV + m.PCVK + m.PCGV + m.PCTNGV + m.PCDH + m.PCTN + m.PCTV;
+            m.ThucLinh = m.LCHachToan + (m.PCCV + m.PCVK + m.PCGV + m.PCTNGV + m.PCDH + m.PCTN + m.PCTV)
                 - (m.BHXH + m.BHYT + m.BHTN + m.KPCD + m.QuyTN + m.Huong40 + m.TamUng + m.TreoLuong);
         };
 
@@ -207,7 +207,8 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
             const pcgv = parseNumber(row[l1Idx.HSGD]) * LCB;
             const pctngv = parseNumber(row[l1Idx.HSTNGV]) * LCB;
             const pcdh = parseNumber(row[l1Idx.HSDocHai]) * LCB;
-            const pctn = (parseNumber(row[l1Idx.HSTrachNhiem]) + parseNumber(row[l1Idx.HSTuVe])) * LCB;
+            const pctn = parseNumber(row[l1Idx.HSTrachNhiem]) * LCB;
+            const pctv = parseNumber(row[l1Idx.HSTuVe]) * LCB;
 
             let finalLC100 = lc100;
             const luongCDVal = (l1Idx.LuongCD !== -1 ? parseNumber(row[l1Idx.LuongCD]) : 0) || (pRecord ? (pRecord.LuongCD || 0) : 0);
@@ -217,7 +218,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
                 const tongLuongFromCol = parseNumber(row[l1Idx.TongLuong]);
                 if (tongLuongFromCol > 0) finalLC100 = tongLuongFromCol;
                 else if (luongCDVal > 0) finalLC100 = luongCDVal;
-                else finalLC100 = lc100 + pccv + pcvk + pcgv + pctngv + pcdh + pctn;
+                else finalLC100 = lc100 + pccv + pcvk + pcgv + pctngv + pcdh + pctn + pctv;
             }
 
             const s = getStore(ma, 'A', 'I', 'Regular', null, row);
@@ -236,6 +237,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
             s.PCTNGV += pctngv;
             s.PCDH += pcdh;
             s.PCTN += pctn;
+            s.PCTV += pctv;
             s.BHXH += parseNumber(row[l1Idx.BHXH]);
             s.BHYT += parseNumber(row[l1Idx.BHYT]);
             s.BHTN += parseNumber(row[l1Idx.BHTN]);
@@ -249,7 +251,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
                 ma: ma,
                 ten: empName,
                 metrics: {
-                    SumLPC: finalLC100 + pccv + pcvk + pcgv + pctngv + pcdh + pctn,
+                    SumLPC: finalLC100 + pccv + pcvk + pcgv + pctngv + pcdh + pctn + pctv,
                     LC100: finalLC100,
                     Treo60: parseNumber(row[l1Idx.NN]) + parseNumber(row[l1Idx.NghiBHXH]),
                     LCHachToan: finalLC100 - (parseNumber(row[l1Idx.NN]) + parseNumber(row[l1Idx.NghiBHXH])),
@@ -259,6 +261,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
                     PCTNGV: pctngv,
                     PCDH: pcdh,
                     PCTN: pctn,
+                    PCTV: pctv,
                     BHXH: parseNumber(row[l1Idx.BHXH]),
                     BHYT: parseNumber(row[l1Idx.BHYT]),
                     BHTN: parseNumber(row[l1Idx.BHTN]),
@@ -267,7 +270,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
                     Huong40: 0, TamUng: 0, TreoLuong: isTreoLuong ? tongLuong1 : 0,
                     ThueTNCN: parseNumber(row[l1Idx.ThueTNCN]),
                     ThucLinh: (finalLC100 - (parseNumber(row[l1Idx.NN]) + parseNumber(row[l1Idx.NghiBHXH])))
-                        + (pccv + pcvk + pcgv + pctngv + pcdh + pctn)
+                        + (pccv + pcvk + pcgv + pctngv + pcdh + pctn + pctv)
                         - (parseNumber(row[l1Idx.BHXH]) + parseNumber(row[l1Idx.BHYT]) + parseNumber(row[l1Idx.BHTN]) + parseNumber(row[l1Idx.KPCD]) + parseNumber(row[l1Idx.TruKhac]) + parseNumber(row[l1Idx.ThueTNCN]) + (isTreoLuong ? tongLuong1 : 0))
                 }
             });
@@ -377,11 +380,12 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
             let pcvk = tt1Idx.TienPCVK !== -1 ? parseNumber(row[tt1Idx.TienPCVK]) : (tt1Idx.HSVK !== -1 ? parseNumber(row[tt1Idx.HSVK]) * LCB : 0);
             let pcgv = tt1Idx.TienPCGV !== -1 ? parseNumber(row[tt1Idx.TienPCGV]) : (tt1Idx.HSGD !== -1 ? parseNumber(row[tt1Idx.HSGD]) * LCB : 0);
             let pctngv = tt1Idx.TienPCTNGV !== -1 ? parseNumber(row[tt1Idx.TienPCTNGV]) : (tt1Idx.HSTNGV !== -1 ? parseNumber(row[tt1Idx.HSTNGV]) * LCB : 0);
-            let pctn = tt1Idx.TienPCTN !== -1 ? parseNumber(row[tt1Idx.TienPCTN]) : ((tt1Idx.HSTrachNhiem !== -1 || tt1Idx.HSTuVe !== -1) ? (parseNumber(row[tt1Idx.HSTrachNhiem]) + parseNumber(row[tt1Idx.HSTuVe])) * LCB : 0);
+            let pctn = tt1Idx.TienPCTN !== -1 ? parseNumber(row[tt1Idx.TienPCTN]) : (tt1Idx.HSTrachNhiem !== -1 ? parseNumber(row[tt1Idx.HSTrachNhiem]) * LCB : 0);
+            let pctv = tt1Idx.HSTuVe !== -1 ? parseNumber(row[tt1Idx.HSTuVe]) * LCB : 0;
 
             const treo60 = parseNumber(row[tt1Idx.NN]) + parseNumber(row[tt1Idx.NghiBHXH]);
             const conNhan = tt1Idx.ConNhan !== -1 ? parseNumber(row[tt1Idx.ConNhan]) : 0;
-            const totalComponents = lc100 + pccv + pcvk + pcgv + pctngv + pctn;
+            const totalComponents = lc100 + pccv + pcvk + pcgv + pctngv + pctn + pctv;
 
             if (conNhan === 0 && totalComponents === 0) return;
 
@@ -396,6 +400,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
             s.PCTNGV += pctngv;
             s.PCDH += 0;
             s.PCTN += pctn;
+            s.PCTV += pctv;
             s.BHXH += parseNumber(row[tt1Idx.BHXH]);
             s.BHYT += parseNumber(row[tt1Idx.BHYT]);
             s.BHTN += parseNumber(row[tt1Idx.BHTN]);
@@ -482,7 +487,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
             sumMetricRow(m);
             return [
                 label, m.SumLPC, m.LC100, m.Treo60, m.LCHachToan,
-                m.PCCV, m.PCVK, m.PCGV, m.PCTNGV, m.PCDH, m.PCTN,
+                m.PCCV, m.PCVK, m.PCGV, m.PCTNGV, m.PCDH, m.PCTN, m.PCTV,
                 m.BHXH, m.BHYT, m.BHTN, m.KPCD, m.QuyTN,
                 m.Huong40, m.TamUng, m.TreoLuong, m.ThueTNCN,
                 m.ThucLinh
@@ -658,17 +663,17 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
         if (resultTable && resultTable.length > 0) {
             const header1 = [
                 "Nội dung", "Tổng lương, PC theo lương và truy lĩnh", "Lương chính tháng " + monthStr, "", "",
-                "Phụ cấp chức vụ", "Các khoản phụ cấp theo lương", "", "", "", "",
+                "Phụ cấp chức vụ", "Các khoản phụ cấp theo lương", "", "", "", "", "",
                 "Các khoản khấu trừ", "", "", "", "", "", "", "", "", "Thực lĩnh"
             ];
             const header2 = [
                 "", "", "LC 100%", "Treo 60% NN+Th.sản", "LC hạch toán",
-                "PCCV", "PCVK", "PCGV", "PCTNGV", "PCĐH", "PCTN",
+                "PCCV", "PCVK", "PCGV", "PCTNGV", "PCĐH", "PC TN", "PC TV",
                 "BHXH", "BHYT", "BHTN", "Đoàn phí CĐ", "Quỹ TN", "hưởng 40% đi NN", "Tạm ứng", "treo lương", "Thuế TNCN", ""
             ];
             auditSheet.getRange(4, 1, 1, header1.length).setValues([header1]);
             auditSheet.getRange(5, 1, 1, header2.length).setValues([header2]);
-            const merges = ["A4:A5", "B4:B5", "C4:E4", "F4:F5", "G4:K4", "L4:T4", "U4:U5"];
+            const merges = ["A4:A5", "B4:B5", "C4:E4", "F4:F5", "G4:L4", "M4:U4", "V4:V5"];
             merges.forEach(m => auditSheet.getRange(m).merge().setVerticalAlignment("middle").setHorizontalAlignment("center"));
 
             auditSheet.getRange(4, 1, 2, header1.length).setFontWeight("bold").setBackground("#E0E0E0").setBorder(true, true, true, true, true, true);
@@ -690,7 +695,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
 
             auditSheet.setColumnWidth(1, 400);
             auditSheet.setColumnWidth(2, 130);
-            for (let i = 3; i <= 21; i++) auditSheet.setColumnWidth(i, 100);
+            for (let i = 3; i <= 22; i++) auditSheet.setColumnWidth(i, 100);
         }
 
         const sheetUrl = `https://docs.google.com/spreadsheets/d/${EXPORT_FILE_ID}/edit#gid=${auditSheet.getSheetId()}`;
@@ -747,19 +752,19 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
         // 2. Header Structure
         const header1 = [
             "Nội dung", "Tổng lương, PC theo lương và truy lĩnh", "Lương chính tháng " + monthStr, "", "",
-            "Phụ cấp chức vụ", "Các khoản phụ cấp theo lương", "", "", "", "",
+            "Phụ cấp chức vụ", "Các khoản phụ cấp theo lương", "", "", "", "", "",
             "Các khoản khấu trừ", "", "", "", "", "", "", "", "", "Thực lĩnh"
         ];
         const header2 = [
             "", "", "LC 100%", "Treo 60% NN+Th.sản", "LC hạch toán",
-            "PCCV", "PCVK", "PCGV", "PCTNGV", "PCĐH", "PCTN",
+            "PCCV", "PCVK", "PCGV", "PCTNGV", "PCĐH", "PC TN", "PC TV",
             "BHXH", "BHYT", "BHTN", "Đoàn phí CĐ", "Quỹ TN", "hưởng 40% đi NN", "Tạm ứng", "treo lương", "Thuế TNCN", ""
         ];
 
         sheet.getRange(5, 1, 1, header1.length).setValues([header1]);
         sheet.getRange(6, 1, 1, header2.length).setValues([header2]);
 
-        const merges = ["A5:A6", "B5:B6", "C5:E5", "F5:F6", "G5:K5", "L5:T5", "U5:U6"];
+        const merges = ["A5:A6", "B5:B6", "C5:E5", "F5:F6", "G5:L5", "M5:U5", "V5:V6"];
         merges.forEach(m => sheet.getRange(m).merge().setVerticalAlignment("middle").setHorizontalAlignment("center"));
 
         const headRange = sheet.getRange(5, 1, 2, header1.length);
@@ -795,7 +800,7 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
 
         sheet.setColumnWidth(1, 400);
         sheet.setColumnWidth(2, 130);
-        for (let i = 3; i <= 21; i++) sheet.setColumnWidth(i, 95);
+        for (let i = 3; i <= 22; i++) sheet.setColumnWidth(i, 95);
 
         // Signature Area
         const targetRow = sheet.getLastRow() + 2;
@@ -1030,7 +1035,7 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
 
     const emptyMetric = () => ({
         SumLPC: 0, LC100: 0, Treo60: 0, LCHachToan: 0,
-        PCCV: 0, PCVK: 0, PCGV: 0, PCTNGV: 0, PCDH: 0, PCTN: 0,
+        PCCV: 0, PCVK: 0, PCGV: 0, PCTNGV: 0, PCDH: 0, PCTN: 0, PCTV: 0,
         BHXH: 0, BHYT: 0, BHTN: 0, KPCD: 0, QuyTN: 0,
         Huong40: 0, TamUng: 0, TreoLuong: 0, ThueTNCN: 0,
         ThucLinh: 0
@@ -1047,8 +1052,8 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
 
     const sumMetricRow = (m) => {
         m.LCHachToan = m.LC100 - m.Treo60;
-        m.SumLPC = m.LC100 + m.PCCV + m.PCVK + m.PCGV + m.PCTNGV + m.PCDH + m.PCTN;
-        m.ThucLinh = m.LCHachToan + (m.PCCV + m.PCVK + m.PCGV + m.PCTNGV + m.PCDH + m.PCTN)
+        m.SumLPC = m.LC100 + m.PCCV + m.PCVK + m.PCGV + m.PCTNGV + m.PCDH + m.PCTN + m.PCTV;
+        m.ThucLinh = m.LCHachToan + (m.PCCV + m.PCVK + m.PCGV + m.PCTNGV + m.PCDH + m.PCTN + m.PCTV)
             - (m.BHXH + m.BHYT + m.BHTN + m.KPCD + m.QuyTN + m.Huong40 + m.TamUng + m.TreoLuong);
         // m.ThueTNCN sẽ được trừ ở mục D (A+B+C-D), không trừ trực tiếp ở đây để đúng công thức yêu cầu
     };
@@ -1120,7 +1125,8 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
         const pcgv = parseNumber(row[l1Idx.HSGD]) * LCB;
         const pctngv = parseNumber(row[l1Idx.HSTNGV]) * LCB;
         const pcdh = parseNumber(row[l1Idx.HSDocHai]) * LCB;
-        const pctn = (parseNumber(row[l1Idx.HSTrachNhiem]) + parseNumber(row[l1Idx.HSTuVe])) * LCB;
+        const pctn = parseNumber(row[l1Idx.HSTrachNhiem]) * LCB;
+        const pctv = parseNumber(row[l1Idx.HSTuVe]) * LCB;
 
         // Áp dụng quy tắc: Nếu HĐ vụ việc → LC100 = Tổng lương (từ cột)
         let finalLC100 = lc100;
@@ -1135,7 +1141,7 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
             } else if (luongCDVal > 0) {
                 finalLC100 = luongCDVal;
             } else {
-                const tongLuong = lc100 + pccv + pcvk + pcgv + pctngv + pcdh + pctn;
+                const tongLuong = lc100 + pccv + pcvk + pcgv + pctngv + pcdh + pctn + pctv;
                 finalLC100 = tongLuong;
             }
         }
@@ -1157,6 +1163,7 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
         s.PCTNGV += pctngv;
         s.PCDH += pcdh;
         s.PCTN += pctn;
+        s.PCTV += pctv;
         s.BHXH += parseNumber(row[l1Idx.BHXH]);
         s.BHYT += parseNumber(row[l1Idx.BHYT]);
         s.BHTN += parseNumber(row[l1Idx.BHTN]);
@@ -1277,11 +1284,12 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
         let pcvk = tt1Idx.TienPCVK !== -1 ? parseNumber(row[tt1Idx.TienPCVK]) : (tt1Idx.HSVK !== -1 ? parseNumber(row[tt1Idx.HSVK]) * LCB : 0);
         let pcgv = tt1Idx.TienPCGV !== -1 ? parseNumber(row[tt1Idx.TienPCGV]) : (tt1Idx.HSGD !== -1 ? parseNumber(row[tt1Idx.HSGD]) * LCB : 0);
         let pctngv = tt1Idx.TienPCTNGV !== -1 ? parseNumber(row[tt1Idx.TienPCTNGV]) : (tt1Idx.HSTNGV !== -1 ? parseNumber(row[tt1Idx.HSTNGV]) * LCB : 0);
-        let pctn = tt1Idx.TienPCTN !== -1 ? parseNumber(row[tt1Idx.TienPCTN]) : ((tt1Idx.HSTrachNhiem !== -1 || tt1Idx.HSTuVe !== -1) ? (parseNumber(row[tt1Idx.HSTrachNhiem]) + parseNumber(row[tt1Idx.HSTuVe])) * LCB : 0);
+        let pctn = tt1Idx.TienPCTN !== -1 ? parseNumber(row[tt1Idx.TienPCTN]) : (tt1Idx.HSTrachNhiem !== -1 ? parseNumber(row[tt1Idx.HSTrachNhiem]) * LCB : 0);
+        let pctv = tt1Idx.HSTuVe !== -1 ? parseNumber(row[tt1Idx.HSTuVe]) * LCB : 0;
 
         const treo60 = parseNumber(row[tt1Idx.NN]) + parseNumber(row[tt1Idx.NghiBHXH]);
         const conNhan = tt1Idx.ConNhan !== -1 ? parseNumber(row[tt1Idx.ConNhan]) : 0;
-        const totalComponents = lc100 + pccv + pcvk + pcgv + pctngv + pctn;
+        const totalComponents = lc100 + pccv + pcvk + pcgv + pctngv + pctn + pctv;
 
         if (conNhan === 0 && totalComponents === 0) { skippedTT1++; return; }
 
@@ -1297,6 +1305,7 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
         s.PCTNGV += pctngv;
         s.PCDH += 0;
         s.PCTN += pctn;
+        s.PCTV += pctv;
         s.BHXH += parseNumber(row[tt1Idx.BHXH]);
         s.BHYT += parseNumber(row[tt1Idx.BHYT]);
         s.BHTN += parseNumber(row[tt1Idx.BHTN]);
@@ -1401,7 +1410,7 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
         sumMetricRow(m);
         return [
             l, m.SumLPC, m.LC100, m.Treo60, m.LCHachToan,
-            m.PCCV, m.PCVK, m.PCGV, m.PCTNGV, m.PCDH, m.PCTN,
+            m.PCCV, m.PCVK, m.PCGV, m.PCTNGV, m.PCDH, m.PCTN, m.PCTV,
             m.BHXH, m.BHYT, m.BHTN, m.KPCD, m.QuyTN,
             m.Huong40, m.TamUng, m.TreoLuong, m.ThueTNCN,
             m.ThucLinh
@@ -1745,7 +1754,8 @@ function test_auditTruyLinhBienChe(monthStr = 'T06.2026', location = 'Hà Nội'
             let pcvk = tt1Idx.TienPCVK !== -1 ? parseNumber(row[tt1Idx.TienPCVK]) : (tt1Idx.HSVK !== -1 ? parseNumber(row[tt1Idx.HSVK]) * LCB : 0);
             let pcgv = tt1Idx.TienPCGV !== -1 ? parseNumber(row[tt1Idx.TienPCGV]) : (tt1Idx.HSGD !== -1 ? parseNumber(row[tt1Idx.HSGD]) * LCB : 0);
             let pctngv = tt1Idx.TienPCTNGV !== -1 ? parseNumber(row[tt1Idx.TienPCTNGV]) : (tt1Idx.HSTNGV !== -1 ? parseNumber(row[tt1Idx.HSTNGV]) * LCB : 0);
-            let pctn = tt1Idx.TienPCTN !== -1 ? parseNumber(row[tt1Idx.TienPCTN]) : ((tt1Idx.HSTrachNhiem !== -1 || tt1Idx.HSTuVe !== -1) ? (parseNumber(row[tt1Idx.HSTrachNhiem]) + parseNumber(row[tt1Idx.HSTuVe])) * LCB : 0);
+            let pctn = tt1Idx.TienPCTN !== -1 ? parseNumber(row[tt1Idx.TienPCTN]) : (tt1Idx.HSTrachNhiem !== -1 ? parseNumber(row[tt1Idx.HSTrachNhiem]) * LCB : 0);
+            let pctv = tt1Idx.HSTuVe !== -1 ? parseNumber(row[tt1Idx.HSTuVe]) * LCB : 0;
 
             const conNhan = tt1Idx.ConNhan !== -1 ? parseNumber(row[tt1Idx.ConNhan]) : 0;
             let totalTruyLinh = lc100 + pccv + pcvk + pcgv + pctngv + pctn;
@@ -1767,6 +1777,7 @@ function test_auditTruyLinhBienChe(monthStr = 'T06.2026', location = 'Hà Nội'
                     pctngv,
                     0,
                     pctn,
+                    pctv,
                     totalTruyLinh,
                     'TRUY_THU_LUONG_1 (Sheet DataTruyThuLinh)',
                     `Cột Còn nhận = ${conNhan.toLocaleString('vi-VN')} VNĐ`
@@ -1813,7 +1824,7 @@ function test_auditTruyLinhBienChe(monthStr = 'T06.2026', location = 'Hà Nội'
                             tenBP,
                             phanLoai,
                             chenhLech,
-                            0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0,
                             chenhLech,
                             'DATA_LUONG_1 (Sheet DataLuong1)',
                             `Chênh lệch Lương CĐ: Chốt (${pRec.LuongCD.toLocaleString('vi-VN')}) - Nhận (${luongCDL1.toLocaleString('vi-VN')})`
@@ -1825,7 +1836,7 @@ function test_auditTruyLinhBienChe(monthStr = 'T06.2026', location = 'Hà Nội'
 
         // 5. Ghi kết quả vào Google Sheets: "Audit_TruyLinh_BC" và "Audit_TruyLinh_HD"
         const ss = SpreadsheetApp.openById(EXPORT_FILE_ID);
-        const headers = ["Mã NV", "Họ và tên", "Loại HĐ", "Đơn vị / Bộ phận", "Phân loại", "LC 100%", "PCCV", "PCVK", "PCGV", "PCTNGV", "PCĐH", "PCTN", "Tổng Truy Lĩnh", "Nguồn dữ liệu (Sheet)", "Ghi chú chi tiết"];
+        const headers = ["Mã NV", "Họ và tên", "Loại HĐ", "Đơn vị / Bộ phận", "Phân loại", "LC 100%", "PCCV", "PCVK", "PCGV", "PCTNGV", "PCĐH", "PC TN", "PC TV", "Tổng Truy Lĩnh", "Nguồn dữ liệu (Sheet)", "Ghi chú chi tiết"];
 
         const writeAuditSheet = (sheetName, titleText, dataList) => {
             let sheet = ss.getSheetByName(sheetName);
@@ -1833,9 +1844,9 @@ function test_auditTruyLinhBienChe(monthStr = 'T06.2026', location = 'Hà Nội'
                 sheet = ss.insertSheet(sheetName);
             }
             sheet.clear();
-            sheet.getRange("A:O").clearFormat();
+            sheet.getRange("A:P").clearFormat();
 
-            sheet.getRange("A1:O1").merge()
+            sheet.getRange("A1:P1").merge()
                 .setValue(titleText)
                 .setFontWeight("bold").setFontSize(12).setHorizontalAlignment("center").setBackground("#D1E7DD");
 
@@ -1845,15 +1856,15 @@ function test_auditTruyLinhBienChe(monthStr = 'T06.2026', location = 'Hà Nội'
             let totalAmount = 0;
             if (dataList.length > 0) {
                 sheet.getRange(4, 1, dataList.length, headers.length).setValues(dataList);
-                sheet.getRange(4, 6, dataList.length, 8).setNumberFormat("#,##0");
+                sheet.getRange(4, 6, dataList.length, 9).setNumberFormat("#,##0");
                 sheet.getRange(4, 1, dataList.length, headers.length).setBorder(true, true, true, true, true, true);
 
-                totalAmount = dataList.reduce((sum, item) => sum + Number(item[12] || 0), 0);
+                totalAmount = dataList.reduce((sum, item) => sum + Number(item[13] || 0), 0);
             }
 
             const totalRowIndex = 4 + dataList.length;
             sheet.getRange(totalRowIndex, 1, 1, 5).merge().setValue(`TỔNG CỘNG ${sheetName}`).setFontWeight("bold").setHorizontalAlignment("right");
-            sheet.getRange(totalRowIndex, 13).setValue(totalAmount).setFontWeight("bold").setNumberFormat("#,##0");
+            sheet.getRange(totalRowIndex, 14).setValue(totalAmount).setFontWeight("bold").setNumberFormat("#,##0");
             sheet.getRange(totalRowIndex, 1, 1, headers.length).setBackground("#E2E3E5").setBorder(true, true, true, true, true, true);
 
             sheet.setColumnWidth(1, 100);
@@ -1861,9 +1872,9 @@ function test_auditTruyLinhBienChe(monthStr = 'T06.2026', location = 'Hà Nội'
             sheet.setColumnWidth(3, 130);
             sheet.setColumnWidth(4, 200);
             sheet.setColumnWidth(5, 100);
-            for (let c = 6; c <= 13; c++) sheet.setColumnWidth(c, 110);
-            sheet.setColumnWidth(14, 260);
-            sheet.setColumnWidth(15, 300);
+            for (let c = 6; c <= 14; c++) sheet.setColumnWidth(c, 110);
+            sheet.setColumnWidth(15, 260);
+            sheet.setColumnWidth(16, 300);
 
             return totalAmount;
         };

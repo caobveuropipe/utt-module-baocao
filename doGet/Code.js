@@ -150,7 +150,13 @@ function doGet(e) {
         if (noMonthReports.includes(type)) {
           result = handlerInfo.fn();
         } else if (locationEnabledReports.includes(type)) {
-          result = handlerInfo.fn(month, location);
+          if (type === 'taoBangHachToanBaoHiem' || type === 'getPrintDataHachToanBaoHiem') {
+            const addContent = e.parameter.addContent || '';
+            const addAmount = Number(e.parameter.addAmount || 0);
+            result = handlerInfo.fn(month, location, addContent, addAmount);
+          } else {
+            result = handlerInfo.fn(month, location);
+          }
         } else {
           result = handlerInfo.fn(month);
         }

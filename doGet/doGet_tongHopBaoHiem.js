@@ -98,10 +98,22 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
     const idxL1 = {
         KyLuong: getIdx(headerL1, 'Kỳ lương'),
         MaCB: getIdx(headerL1, ['Mã CB', 'Mã nhân sự', 'MaNS']),
+        TongLuong1: getIdx(headerL1, ['T\u1ed5ng l\u01b0\u01a1ng 1', 'TongLuong1', 'Th\u1ef1c l\u0129nh', 'ThucLinh']),
         BHXH: getIdx(headerL1, 'BHXH'),
         BHYT: getIdx(headerL1, 'BHYT'),
         BHTN: getIdx(headerL1, 'BHTN')
     };
+    if (idxL1.TongLuong1 === -1) {
+        idxL1.TongLuong1 = headerL1.findIndex(value => String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\u0111/g, 'd')
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '') === 'tongluong1');
+    }
+    if (idxL1.TongLuong1 === -1) {
+        throw new Error('Khong tim thay cot Tong luong 1 trong DataLuong1; khong the lap bao cao bao hiem.');
+    }
 
     // C. Data Truy Thu / Truy Linh
     const dataTruyThuRaw = getData(resources.ssTruyThu1, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU);
@@ -211,9 +223,18 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
     }
 
     // Process Salary (Luong)
+    let excludedByTongLuong1 = 0;
+    let excludedBHXH = 0;
     dataLuong1Raw.slice(1).forEach(row => {
         const ky = String(row[idxL1.KyLuong]).trim();
         if (ky !== monthStr) return;
+        const tongLuong1Raw = row[idxL1.TongLuong1];
+        const tongLuong1 = parseNumber(tongLuong1Raw);
+        if (tongLuong1Raw === '' || tongLuong1Raw === null || tongLuong1Raw === undefined || tongLuong1 <= 0 || isNaN(tongLuong1)) {
+            excludedByTongLuong1++;
+            excludedBHXH += parseNumber(row[idxL1.BHXH]);
+            return;
+        }
 
         const maNS = String(row[idxL1.MaCB]).trim();
         if (!maNS) return;
@@ -239,6 +260,7 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
             store.sub.Luong.BHTN += vals.BHTN;
         }
     });
+    Logger.log(`Tong hop BHXH: da loai ${excludedByTongLuong1} dong co Tong luong 1 <= 0/rong; BHXH loai: ${excludedBHXH}`);
 
     // Process Arrears (Truy Thu / Truy Linh)
     dataTruyThuRaw.slice(1).forEach(row => {
@@ -261,12 +283,13 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
             const val = rawVals[field];
             if (val === 0) return;
 
-            const absVal = Math.abs(val);
-            const targetBucket = val < 0 ? 'TruyLinh' : 'TruyThu'; // < 0 is TruyLinh, > 0 is TruyThu
+            // Preserve the source sign so subtotal formulas calculate the true net value.
+            // Positive = truy lĩnh (add); negative = truy thu (deduct).
+            const targetBucket = val > 0 ? 'TruyLinh' : 'TruyThu';
 
-            store.main[targetBucket][field] += absVal;
+            store.main[targetBucket][field] += val;
             if (store.sub) {
-                store.sub[targetBucket][field] += absVal;
+                store.sub[targetBucket][field] += val;
             }
         });
     });
@@ -498,14 +521,14 @@ function doGet_tongHopBaoHiem(monthStr, resources, targetLocation) {
 
     // LA Detailed Rows (Row 27 & 28)
     const netLaBC = {
-        BHXH: laBienChe.Luong.BHXH + laBienChe.TruyThu.BHXH - laBienChe.TruyLinh.BHXH,
-        BHYT: laBienChe.Luong.BHYT + laBienChe.TruyThu.BHYT - laBienChe.TruyLinh.BHYT,
-        BHTN: laBienChe.Luong.BHTN + laBienChe.TruyThu.BHTN - laBienChe.TruyLinh.BHTN
+        BHXH: laBienChe.Luong.BHXH + laBienChe.TruyThu.BHXH + laBienChe.TruyLinh.BHXH,
+        BHYT: laBienChe.Luong.BHYT + laBienChe.TruyThu.BHYT + laBienChe.TruyLinh.BHYT,
+        BHTN: laBienChe.Luong.BHTN + laBienChe.TruyThu.BHTN + laBienChe.TruyLinh.BHTN
     };
     const netLaTX = {
-        BHXH: laThuongXuyen.Luong.BHXH + laThuongXuyen.TruyThu.BHXH - laThuongXuyen.TruyLinh.BHXH,
-        BHYT: laThuongXuyen.Luong.BHYT + laThuongXuyen.TruyThu.BHYT - laThuongXuyen.TruyLinh.BHTN,
-        BHTN: laThuongXuyen.Luong.BHTN + laThuongXuyen.TruyThu.BHTN - laThuongXuyen.TruyLinh.BHTN
+        BHXH: laThuongXuyen.Luong.BHXH + laThuongXuyen.TruyThu.BHXH + laThuongXuyen.TruyLinh.BHXH,
+        BHYT: laThuongXuyen.Luong.BHYT + laThuongXuyen.TruyThu.BHYT + laThuongXuyen.TruyLinh.BHYT,
+        BHTN: laThuongXuyen.Luong.BHTN + laThuongXuyen.TruyThu.BHTN + laThuongXuyen.TruyLinh.BHTN
     };
 
     result.push(createDetailedRowFormula('1', 'Diện biên chế', netLaBC));

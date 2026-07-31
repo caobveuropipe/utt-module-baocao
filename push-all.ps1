@@ -1,4 +1,5 @@
 # Push all scripts with backup
+$env:PATH = "C:\Program Files\nodejs;C:\Users\PC1433\AppData\Roaming\npm;" + $env:PATH
 $modules = @("doGet", "client")
 
 Write-Host ""

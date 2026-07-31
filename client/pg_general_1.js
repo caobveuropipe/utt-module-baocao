@@ -176,9 +176,12 @@ function pg1_ed1_getPrintDataTongHopKPCD(monthStr, location = 'All') {
   }
 }
 
-function pg1_ed1_getPrintDataHachToanBaoHiem(monthStr, location = 'All') {
+function pg1_ed1_getPrintDataHachToanBaoHiem(monthStr, location = 'All', addContent = '', addAmount = 0) {
   try {
-    const url = `${url_api_doGet}?type=getPrintDataHachToanBaoHiem&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    let url = `${url_api_doGet}?type=getPrintDataHachToanBaoHiem&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    if (addContent && addAmount > 0) {
+      url += `&addContent=${encodeURIComponent(addContent)}&addAmount=${encodeURIComponent(addAmount)}`;
+    }
     const response = UrlFetchApp.fetch(url, { method: 'get' });
     return JSON.parse(response.getContentText());
   } catch (error) {

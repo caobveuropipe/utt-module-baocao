@@ -29,6 +29,14 @@
   - Triển khai đường viền nét chấm (`1px dotted`) cho các dòng chi tiết thường, và nét liền (`solid`) phân tách rõ nét đối với dòng tiêu đề và dòng tổng.
   - Cải tiến thuật toán phát hiện cột STT (nhận diện "Số TT", "SO TT", "STT") để tự động căn lề giữa.
 
+
+## 2026-07-31
+
+### fix(print-ui): sửa lỗi in thiếu cột thực lĩnh và lấp số/tràn số cột tiền
+- **Đồng bộ hóa 22 cột in:** Cập nhật lại danh sách `<col>` (`colgroupHtml`) cho báo cáo Hạch toán lương để hiển thị đầy đủ 22 cột (thêm cột tự vệ `PC TV` và bổ sung cột độc hại `PCĐH`), khắc phục triệt để lỗi mất cột **Thực lĩnh**.
+- **Căn chỉnh độ rộng và cỡ chữ:** Tăng độ rộng cột dữ liệu từ cột thứ 2 (Tổng lương: 85px, Thực lĩnh: 90px, các cột bảo hiểm: 60px, v.v.), giảm cỡ chữ hiển thị xuống `5.8pt` (detail row) và `5.5pt` (bold row), giảm padding ngang xuống `1.5px` để đảm bảo vừa khít dữ liệu lớn như hàng tổng cộng `A+B+C-D` mà không bị lấp/che số.
+- **Tối ưu hóa Responsive:** Đổi thuộc tính `.page-container` từ `overflow: hidden` sang `overflow-x: auto` giúp hiển thị thanh cuộn ngang trên các màn hình thiết bị nhỏ hơn mà không ảnh hưởng khi in ra giấy.
+
 ---
 
 *Cập nhật tự động bởi update-docs*

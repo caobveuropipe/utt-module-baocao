@@ -11,8 +11,8 @@
  * 2. DataTruyThuLinh: Lấy cột KPCĐ (giữ nguyên).
  */
 function test_doGet_taoBangKPCD() {
-    var monthStr = 'T01.2025';
-    Logger.log(doGet_taoBangHachToanKPCD(monthStr));
+    var monthStr = 'T06.2026';
+    Logger.log(doGet_taoBangHachToanKPCD(monthStr, 'Hà Nội'));
 }
 
 function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
@@ -78,7 +78,7 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
     const idxL1 = {
         KyLuong: getIdx(headerL1, ['Kỳ lương', 'Ky']),
         MaCB: getIdx(headerL1, ['Mã CB', 'MaNS', 'Ma']),
-        KPCD: getIdx(headerL1, ['KPCĐ', 'KPCD'])
+        BHXH: getIdx(headerL1, ['BHXH'])
     };
 
     const dataTruyThuRaw = getData(resources.ssTruyThu1, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU);
@@ -86,7 +86,9 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
     const idxTT = {
         KyTraLuong: getIdx(headerTT, ['Kỳ trả lương', 'Kỳ lương', 'Ky']),
         MaNS: getIdx(headerTT, ['Mã nhân sự', 'MaNS', 'Ma']),
-        KPCD: getIdx(headerTT, ['KPCĐ', 'KPCD'])
+        BHXH: getIdx(headerTT, ['BHXH']),
+        KPCD: getIdx(headerTT, ['KPCĐ', 'KPCD']),
+        ConNhan: getIdx(headerTT, ['Còn nhận', 'ConNhan', 'Con nhan'])
     };
 
     // 4. Aggregation Structure
@@ -100,7 +102,11 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
     const createGroupStorage = () => {
         const store = {};
         Object.values(AGG_KEYS).forEach(k => {
-            store[k] = { Luong: 0, TruyThuLinh: 0 };
+            store[k] = {
+                Luong: 0,
+                TruyLinh: 0,
+                TruyThu: 0
+            };
         });
         return store;
     };
@@ -124,76 +130,119 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
         return info.IsTrucTiep ? aggTrucTiep[catKey] : aggGianTiep[catKey];
     }
 
-    // Process Luong (KPCD / 0.5 * 2)
+    // Process Luong: (BHXH / 8) * 2, làm tròn hàng đơn vị
     dataLuong1Raw.slice(1).forEach(row => {
         if (String(row[idxL1.KyLuong]).trim() !== monthStr) return;
         const store = getStorage(String(row[idxL1.MaCB]).trim());
         if (!store) return;
-        store.Luong += (parseNumber(row[idxL1.KPCD]) / 0.5) * 2;
+        store.Luong += Math.round((parseNumber(row[idxL1.BHXH]) / 8) * 2);
     });
 
-    // Process Truy Thu / Truy Linh (KPCD raw)
+    // Process Truy Thu / Truy Linh: KPCD * 2, làm tròn hàng đơn vị
     dataTruyThuRaw.slice(1).forEach(row => {
         if (String(row[idxTT.KyTraLuong]).trim() !== monthStr) return;
         const store = getStorage(String(row[idxTT.MaNS]).trim());
         if (!store) return;
-        store.TruyThuLinh += parseNumber(row[idxTT.KPCD]);
+
+        const conNhanIdx = idxTT.ConNhan !== -1 ? idxTT.ConNhan : 33; // Fallback to index 33 (AH)
+        const conNhanVal = parseNumber(row[conNhanIdx]);
+        if (conNhanVal === 0) return;
+
+        const bhxhVal = idxTT.BHXH !== -1 ? parseNumber(row[idxTT.BHXH]) : 0;
+        const kpcdVal = idxTT.KPCD !== -1 ? parseNumber(row[idxTT.KPCD]) : 0;
+        const rawVal = bhxhVal > 0 ? (bhxhVal / 8) * 2 : (kpcdVal / 0.5) * 2;
+        const val = Math.round(rawVal);
+        if (val === 0) return;
+        const absVal = Math.abs(val);
+
+        if (conNhanVal > 0) store.TruyLinh += absVal;
+        else store.TruyThu += absVal;
     });
 
     // 5. Build Result Table
-    const result = [];
-    const ORDER = [AGG_KEYS.BIEN_CHE, AGG_KEYS.THUONG_XUYEN, AGG_KEYS.HD_68, AGG_KEYS.VU_VIEC];
-
-    function buildSection(roman, groupLabel, groupAgg) {
-        const groupKey = groupLabel.toLowerCase();
-
-        let sectionTotal = 0;
-        ORDER.forEach(key => {
-            const store = groupAgg[key];
-            sectionTotal += (store.Luong + store.TruyThuLinh);
-        });
-
-        // Header Group (I, II)
-        const headerContent = `Tổng ${groupKey}: 1+2+3+4`;
-        result.push([roman, headerContent, sectionTotal, '']);
-
-        const VT = {
-            [AGG_KEYS.BIEN_CHE]: 'BC',
-            [AGG_KEYS.THUONG_XUYEN]: 'HĐ dài hạn',
-            [AGG_KEYS.HD_68]: 'HĐ 68',
-            [AGG_KEYS.VU_VIEC]: 'HĐ vụ việc'
-        };
-
-        const NAME = {
-            [AGG_KEYS.BIEN_CHE]: 'biên chế',
-            [AGG_KEYS.THUONG_XUYEN]: 'hợp đồng dài hạn',
-            [AGG_KEYS.HD_68]: 'hợp đồng 68',
-            [AGG_KEYS.VU_VIEC]: 'hợp đồng vụ việc'
-        };
-
-        ORDER.forEach((key, i) => {
-            const store = groupAgg[key];
-            const vt = VT[key];
-            const name = NAME[key];
-            const stt = (i + 1).toString();
-
-            // 1. Dòng Lương
-            result.push([stt, `${groupLabel} ${name}`, store.Luong, '']);
-
-            // 2. Dòng Truy lĩnh, truy thu
-            result.push(['', `Truy lĩnh, truy thu ${groupKey} ${vt}`, store.TruyThuLinh, '']);
-
-            // 3. Dòng Cộng
-            result.push(['', `Cộng ${groupKey} ${vt}`, store.Luong + store.TruyThuLinh, '']);
-        });
-
-        return sectionTotal;
+    function createRow(stt, content, val) {
+        return [stt, content, val, ''];
     }
 
-    const totalGianTiep = buildSection('I', 'Gián tiếp', aggGianTiep);
-    const totalTrucTiep = buildSection('II', 'Trực tiếp', aggTrucTiep);
+    function sumRows(row1, row2, sign = 1) {
+        const resRow = [...row1];
+        resRow[2] = Math.round(row1[2] || 0) + sign * Math.round(row2[2] || 0);
+        return resRow;
+    }
 
-    result.push(['', 'Tổng cộng: I+II', totalGianTiep + totalTrucTiep, '']);
+    const result = [];
+
+    // --- Section I: Gián tiếp ---
+    const orderGianTiep = [AGG_KEYS.BIEN_CHE, AGG_KEYS.THUONG_XUYEN, AGG_KEYS.HD_68, AGG_KEYS.VU_VIEC];
+    const vtGianTiep = { [AGG_KEYS.BIEN_CHE]: 'BC', [AGG_KEYS.THUONG_XUYEN]: 'HĐ', [AGG_KEYS.HD_68]: 'HĐ 68', [AGG_KEYS.VU_VIEC]: 'HĐ vụ việc' };
+    const nameGianTiep = { [AGG_KEYS.BIEN_CHE]: 'biên chế', [AGG_KEYS.THUONG_XUYEN]: 'hợp đồng', [AGG_KEYS.HD_68]: 'hợp đồng 68', [AGG_KEYS.VU_VIEC]: 'hợp đồng vụ việc' };
+
+    let totalGianTiepRow = ['I', 'Tổng gián tiếp: 1+2+3+4', 0, ''];
+    const rowsGianTiep = [];
+    orderGianTiep.forEach((key, i) => {
+        const store = aggGianTiep[key];
+        const stt = (i + 1).toString();
+        const rowLuong = createRow(stt, `Gián tiếp ${nameGianTiep[key]}`, store.Luong);
+        const rowLinh = createRow('', `Truy lĩnh gián tiếp ${vtGianTiep[key]}`, store.TruyLinh);
+        const rowThu = createRow('', `Truy thu gián tiếp ${vtGianTiep[key]}`, store.TruyThu);
+
+        let rowCong = sumRows(rowLuong, rowLinh, -1);
+        rowCong = sumRows(rowCong, rowThu, 1);
+        rowCong[0] = '';
+        rowCong[1] = `Cộng gián tiếp ${vtGianTiep[key]}`;
+
+        rowsGianTiep.push(rowLuong, rowLinh, rowThu, rowCong);
+        totalGianTiepRow = sumRows(totalGianTiepRow, rowCong);
+    });
+    totalGianTiepRow[0] = 'I';
+    totalGianTiepRow[1] = 'Tổng gián tiếp: 1+2+3+4';
+    result.push(totalGianTiepRow);
+    rowsGianTiep.forEach(r => result.push(r));
+
+    // --- Section II: Trực tiếp ---
+    let totalTrucTiepRow = ['II', 'Tổng trực tiếp: 1+2', 0, ''];
+    const rowsTrucTiep = [];
+
+    // Nhóm 1: Trực tiếp biên chế
+    const storeBC = aggTrucTiep[AGG_KEYS.BIEN_CHE];
+    const rowBCLuong = createRow('1', 'Trực tiếp biên chế', storeBC.Luong);
+    const rowBCLinh = createRow('', 'Truy lĩnh trực tiếp BC', storeBC.TruyLinh);
+    const rowBCThu = createRow('', 'Truy thu trực tiếp BC', storeBC.TruyThu);
+    let rowBCCong = sumRows(rowBCLuong, rowBCLinh, -1);
+    rowBCCong = sumRows(rowBCCong, rowBCThu, 1);
+    rowBCCong[0] = '';
+    rowBCCong[1] = 'Cộng trực tiếp BC';
+    rowsTrucTiep.push(rowBCLuong, rowBCLinh, rowBCThu, rowBCCong);
+    totalTrucTiepRow = sumRows(totalTrucTiepRow, rowBCCong);
+
+    // Nhóm 2: Trực tiếp hợp đồng (gộp HĐ dài hạn, HĐ 68, HĐ vụ việc)
+    const storeHDTotal = { Luong: 0, TruyLinh: 0, TruyThu: 0 };
+    [AGG_KEYS.THUONG_XUYEN, AGG_KEYS.HD_68, AGG_KEYS.VU_VIEC].forEach(k => {
+        storeHDTotal.Luong += aggTrucTiep[k].Luong;
+        storeHDTotal.TruyLinh += aggTrucTiep[k].TruyLinh;
+        storeHDTotal.TruyThu += aggTrucTiep[k].TruyThu;
+    });
+
+    const rowHDLuong = createRow('2', 'Trực tiếp hợp đồng', storeHDTotal.Luong);
+    const rowHDLinh = createRow('', 'Truy lĩnh trực tiếp HĐ', storeHDTotal.TruyLinh);
+    const rowHDThu = createRow('', 'Truy thu trực tiếp HĐ', storeHDTotal.TruyThu);
+    let rowHDCong = sumRows(rowHDLuong, rowHDLinh, -1);
+    rowHDCong = sumRows(rowHDCong, rowHDThu, 1);
+    rowHDCong[0] = '';
+    rowHDCong[1] = 'Cộng trực tiếp HĐ';
+    rowsTrucTiep.push(rowHDLuong, rowHDLinh, rowHDThu, rowHDCong);
+    totalTrucTiepRow = sumRows(totalTrucTiepRow, rowHDCong);
+
+    totalTrucTiepRow[0] = 'II';
+    totalTrucTiepRow[1] = 'Tổng trực tiếp: 1+2';
+    result.push(totalTrucTiepRow);
+    rowsTrucTiep.forEach(r => result.push(r));
+
+    // --- Grand Total ---
+    let grandTotalRow = sumRows(totalGianTiepRow, totalTrucTiepRow, 1);
+    grandTotalRow[0] = '';
+    grandTotalRow[1] = 'Tổng cộng: I+II';
+    result.push(grandTotalRow);
 
     return result;
 }
@@ -211,7 +260,7 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
     const data = doGet_tongHopHachToanKPCD(monthStr, resources, location);
 
     // 2. Prepare Header
-    const headerRow = ['SỐ TT', 'Nội dung', 'Đoàn phí CĐ 2%', 'Ghi chú'];
+    const headerRow = ['SỐTT', 'Nội dung', 'Đoàn phí công đoàn 2%', 'Ghi chú'];
 
     const fullData = [headerRow].concat(data);
     const rows = fullData.length;
@@ -238,7 +287,7 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
 
     sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
     sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
-    sheet.getRange("A3:D3").merge().setValue(`BẢNG TỔNG HỢP TIỀN ĐOÀN PHÍ CĐ`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
+    sheet.getRange("A3:D3").merge().setValue(`BẢNG TỔNG HỢP TIỀN KINH PHÍ CÔNG ĐOÀN`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
     sheet.getRange("A4:D4").merge().setValue(`THÁNG ${month < 10 ? '0' + month : month} NĂM ${year}`).setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
 
     // 5. Write Header & Data (Start row 6)

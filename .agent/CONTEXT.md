@@ -64,6 +64,7 @@ Hàm `doGet(e)` trong `doGet/Code.js` điều hướng dựa trên tham số `ty
 | Tham số `type` | Chức năng (Handler) |
 | :--- | :--- |
 | `taoBangTongHopLuong` | Tổng hợp bảng lương (Vĩnh Phúc/Hà Nội) |
+| `taoBangHachToanLuongVaTruyLinh` | Bảng kê Hạch toán lương và Truy lĩnh lương |
 | `taoBangTongHopBaoHiem` | Tổng hợp BHXH/YT/TN |
 | `taoBangTongHopKhoanTru` | Tổng hợp các khoản trừ qua lương |
 | `taoBangTongHopKPCD` | Tổng hợp kinh phí công đoàn (x2 hệ số) |

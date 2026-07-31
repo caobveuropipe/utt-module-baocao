@@ -1,5 +1,11 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-07-31] Tách cột PCTN thành PC TN và PC TV
+
+### Changed
+- **Logic bóc tách phụ cấp:** Tách biệt Phụ cấp trách nhiệm (`HSTrachNhiem * LCB` -> `s.PCTN`) và Phụ cấp tự vệ (`HSTuVe * LCB` -> `s.PCTV`) thay vì gộp chung trong cả hai luồng xử lý `DataLuong1` và `TruyThu1`.
+- **Kết xuất bảng tính Excel:** Cấu trúc lại bảng `THHachToanLuong` từ 21 thành 22 cột, thêm cột `PC TV` và cập nhật lại dải ghép ô (merge ranges) tiêu đề.
+
 ## [2026-07-30] Bổ sung logic tính toán Treo Lương
 
 ### Added
