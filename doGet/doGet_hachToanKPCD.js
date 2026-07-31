@@ -186,8 +186,8 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
         const rowLinh = createRow('', `Truy lĩnh gián tiếp ${vtGianTiep[key]}`, store.TruyLinh);
         const rowThu = createRow('', `Truy thu gián tiếp ${vtGianTiep[key]}`, store.TruyThu);
 
-        let rowCong = sumRows(rowLuong, rowLinh, -1);
-        rowCong = sumRows(rowCong, rowThu, 1);
+        let rowCong = sumRows(rowLuong, rowLinh, 1);
+        rowCong = sumRows(rowCong, rowThu, -1);
         rowCong[0] = '';
         rowCong[1] = `Cộng gián tiếp ${vtGianTiep[key]}`;
 
@@ -208,8 +208,8 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
     const rowBCLuong = createRow('1', 'Trực tiếp biên chế', storeBC.Luong);
     const rowBCLinh = createRow('', 'Truy lĩnh trực tiếp BC', storeBC.TruyLinh);
     const rowBCThu = createRow('', 'Truy thu trực tiếp BC', storeBC.TruyThu);
-    let rowBCCong = sumRows(rowBCLuong, rowBCLinh, -1);
-    rowBCCong = sumRows(rowBCCong, rowBCThu, 1);
+    let rowBCCong = sumRows(rowBCLuong, rowBCLinh, 1);
+    rowBCCong = sumRows(rowBCCong, rowBCThu, -1);
     rowBCCong[0] = '';
     rowBCCong[1] = 'Cộng trực tiếp BC';
     rowsTrucTiep.push(rowBCLuong, rowBCLinh, rowBCThu, rowBCCong);
@@ -226,8 +226,8 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
     const rowHDLuong = createRow('2', 'Trực tiếp hợp đồng', storeHDTotal.Luong);
     const rowHDLinh = createRow('', 'Truy lĩnh trực tiếp HĐ', storeHDTotal.TruyLinh);
     const rowHDThu = createRow('', 'Truy thu trực tiếp HĐ', storeHDTotal.TruyThu);
-    let rowHDCong = sumRows(rowHDLuong, rowHDLinh, -1);
-    rowHDCong = sumRows(rowHDCong, rowHDThu, 1);
+    let rowHDCong = sumRows(rowHDLuong, rowHDLinh, 1);
+    rowHDCong = sumRows(rowHDCong, rowHDThu, -1);
     rowHDCong[0] = '';
     rowHDCong[1] = 'Cộng trực tiếp HĐ';
     rowsTrucTiep.push(rowHDLuong, rowHDLinh, rowHDThu, rowHDCong);
@@ -260,7 +260,7 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
     const data = doGet_tongHopHachToanKPCD(monthStr, resources, location);
 
     // 2. Prepare Header
-    const headerRow = ['SỐTT', 'Nội dung', 'Đoàn phí công đoàn 2%', 'Ghi chú'];
+    const headerRow = ['SỐ TT', 'Nội dung', 'Đoàn phí công đoàn 2%', 'Ghi chú'];
 
     const fullData = [headerRow].concat(data);
     const rows = fullData.length;

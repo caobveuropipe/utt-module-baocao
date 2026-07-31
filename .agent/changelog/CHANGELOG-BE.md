@@ -1,5 +1,14 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-07-31] Hạch toán HĐ ngắn hạn trực tiếp & Sửa dấu KPCĐ
+
+### Added
+- **Dòng "Tổng truy lĩnh HĐ N.hạn-TT"**: Thêm dòng mới để hạch toán truy lĩnh cho hợp đồng ngắn hạn Trực tiếp, đồng thời khấu trừ khoản này khỏi tổng Trực tiếp (`sumTotalTT`) tương tự như gián tiếp, và cập nhật lại tính toán `totalA`.
+
+### Changed
+- **Sửa dấu Kinh phí Công đoàn (doGet_hachToanKPCD.js)**: Chuyển đổi công thức tính dòng Cộng từ `Lương - Truy lĩnh + Truy thu` thành `Lương + Truy lĩnh - Truy thu` để đồng bộ đúng logic tính toán với bảng Bảo hiểm.
+- **Tiêu đề cột**: Đổi tiêu đề `"SỐTT"` thành `"SỐ TT"` trong bảng hạch toán Kinh phí Công đoàn.
+
 ## [2026-07-31] Tách cột PCTN thành PC TN và PC TV
 
 ### Changed

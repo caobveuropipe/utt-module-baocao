@@ -37,6 +37,10 @@
 - **Căn chỉnh độ rộng và cỡ chữ:** Tăng độ rộng cột dữ liệu từ cột thứ 2 (Tổng lương: 85px, Thực lĩnh: 90px, các cột bảo hiểm: 60px, v.v.), giảm cỡ chữ hiển thị xuống `5.8pt` (detail row) và `5.5pt` (bold row), giảm padding ngang xuống `1.5px` để đảm bảo vừa khít dữ liệu lớn như hàng tổng cộng `A+B+C-D` mà không bị lấp/che số.
 - **Tối ưu hóa Responsive:** Đổi thuộc tính `.page-container` từ `overflow: hidden` sang `overflow-x: auto` giúp hiển thị thanh cuộn ngang trên các màn hình thiết bị nhỏ hơn mà không ảnh hưởng khi in ra giấy.
 
+### fix(print-ui): Cải tiến căn lề giữa cột STT và nhận diện từ khóa
+- Bổ sung thêm từ khóa viết liền `"SỐTT"` vào bộ quét tự động căn lề giữa cột STT của bảng dữ liệu xem trước.
+- Files: `client/pg_general_3.html`
+
 ---
 
 *Cập nhật tự động bởi update-docs*

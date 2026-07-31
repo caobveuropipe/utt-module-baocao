@@ -233,8 +233,8 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
         const rowLinh = createRow('', `Truy lĩnh gián tiếp ${vtGianTiep[key]}`, store.TruyLinh);
         const rowThu = createRow('', `Truy thu gián tiếp ${vtGianTiep[key]}`, store.TruyThu);
 
-        let rowCong = sumRows(rowLuong, rowLinh, -1);
-        rowCong = sumRows(rowCong, rowThu, 1);
+        let rowCong = sumRows(rowLuong, rowLinh, 1);
+        rowCong = sumRows(rowCong, rowThu, -1);
         rowCong[0] = '';
         rowCong[1] = `Cộng gián tiếp ${vtGianTiep[key]}`;
 
@@ -257,8 +257,8 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
     const rowBCLuong = createRow('1', 'Trực tiếp biên chế', storeBC.Luong);
     const rowBCLinh = createRow('', 'Truy lĩnh trực tiếp BC', storeBC.TruyLinh);
     const rowBCThu = createRow('', 'Truy thu trực tiếp BC', storeBC.TruyThu);
-    let rowBCCong = sumRows(rowBCLuong, rowBCLinh, -1);
-    rowBCCong = sumRows(rowBCCong, rowBCThu, 1);
+    let rowBCCong = sumRows(rowBCLuong, rowBCLinh, 1);
+    rowBCCong = sumRows(rowBCCong, rowBCThu, -1);
     rowBCCong[0] = '';
     rowBCCong[1] = 'Cộng trực tiếp BC';
     rowsTrucTiep.push(rowBCLuong, rowBCLinh, rowBCThu, rowBCCong);
@@ -281,8 +281,8 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
     const rowHDLuong = createRow('2', 'Trực tiếp hợp đồng', storeHDTotal.Luong);
     const rowHDLinh = createRow('', 'Truy lĩnh trực tiếp HĐ', storeHDTotal.TruyLinh);
     const rowHDThu = createRow('', 'Truy thu trực tiếp HĐ', storeHDTotal.TruyThu);
-    let rowHDCong = sumRows(rowHDLuong, rowHDLinh, -1);
-    rowHDCong = sumRows(rowHDCong, rowHDThu, 1);
+    let rowHDCong = sumRows(rowHDLuong, rowHDLinh, 1);
+    rowHDCong = sumRows(rowHDCong, rowHDThu, -1);
     rowHDCong[0] = '';
     rowHDCong[1] = 'Cộng trực tiếp HĐ';
 
@@ -383,27 +383,29 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location, addContent = '', addAm
         sheet.setFrozenColumns(0);
     }
 
-    // 4. Ghi dữ liệu
-    sheet.getRange(5, 1, rows, cols).setValues(fullData);
+    // 4. Ghi dữ liệu (Dịch xuống dòng 6 để chừa dòng 4 cho Month)
+    sheet.getRange(6, 1, rows, cols).setValues(fullData);
 
     // 5. Định dạng Header & Tiêu đề
     const monthParts = monthStr.substring(1).split('.');
     const month = parseInt(monthParts[0], 10);
     const year = monthParts[1];
 
-    sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center');
-    sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(10).setHorizontalAlignment('center');
-    const titleText = `BẢNG TỔNG HỢP HẠCH TOÁN BẢO HIỂM THÁNG ${month} NĂM ${year}`;
-    sheet.getRange("A3:K3").merge().setHorizontalAlignment('center').setValue(titleText).setFontWeight('bold').setFontSize(12);
+    sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center');
+    sheet.getRange(2, 1, 1, 3).merge().setValue("──────────").setFontWeight('normal').setFontSize(9).setHorizontalAlignment('center');
+    
+    // Tách tiêu đề và tháng thành 2 dòng giống HTML
+    sheet.getRange("A3:K3").merge().setHorizontalAlignment('center').setValue("BẢNG TỔNG HỢP HẠCH TOÁN BẢO HIỂM").setFontWeight('bold').setFontSize(12);
+    sheet.getRange("A4:K4").merge().setHorizontalAlignment('center').setValue(`THÁNG ${month} NĂM ${year}`).setFontWeight('bold').setFontSize(11);
 
-    sheet.getRange("A5:A6").merge();
-    sheet.getRange("B5:B6").merge();
-    sheet.getRange("C5:F5").merge();
-    sheet.getRange("G5:J5").merge();
-    sheet.getRange("K5:K6").merge();
+    sheet.getRange("A6:A7").merge();
+    sheet.getRange("B6:B7").merge();
+    sheet.getRange("C6:F6").merge();
+    sheet.getRange("G6:J6").merge();
+    sheet.getRange("K6:K7").merge();
 
-    const headerRange = sheet.getRange("A5:K6");
-    headerRange.setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(11);
+    const headerRange = sheet.getRange("A6:K7");
+    headerRange.setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle').setFontSize(10);
 
     // --- STYLING CHUẨN ---
     const lastR = sheet.getLastRow();
@@ -411,24 +413,32 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location, addContent = '', addAm
     const fullRange = sheet.getRange(1, 1, lastR, lastC);
 
     // 1. Ẩn gridlines, Reset border & Set Font
-    fullRange.setBackground('#FFFFFF').setBorder(false, false, false, false, false, false).setFontFamily('Arial').setFontSize(10);
+    fullRange.setBackground('#FFFFFF').setBorder(false, false, false, false, false, false).setFontFamily('Arial').setFontSize(9.5);
 
     // Cấu hình lại font size cho dòng tiêu đề và header để không bị ghi đè bởi fullRange
-    sheet.getRange("A1").setFontSize(12);
+    sheet.getRange("A1").setFontSize(10);
     sheet.getRange("A3").setFontSize(12);
-    sheet.getRange("A5:K6").setFontSize(11);
+    sheet.getRange("A4").setFontSize(11);
+    sheet.getRange("A6:K7").setFontSize(10);
 
     // 2. Alignment for STT column (center)
-    sheet.getRange(5, 1, rows, 1).setHorizontalAlignment('center');
+    sheet.getRange(6, 1, rows, 1).setHorizontalAlignment('center');
 
     // Định dạng số phân cách hàng nghìn cho cột C -> K
-    sheet.getRange(7, 3, rows - 2, cols - 2).setNumberFormat("#,##0");
+    sheet.getRange(8, 3, rows - 2, cols - 2).setNumberFormat("#,##0");
+
+    // Thiết lập khoảng cách dòng 5 trống ở mức gọn gàng để tránh tràn trang
+    sheet.setRowHeight(5, 10);
 
     // 3. Bold rows where STT is not empty OR contains "Cộng"/"Tổng cộng"
     for (let i = 0; i < data.length; i++) {
-        const rowIdx = 7 + i;
+        const rowIdx = 8 + i;
         const stt = String(data[i][0]).trim();
         const content = String(data[i][1]).trim();
+
+        // Thu gọn size chữ (9pt) và chiều cao dòng (17px) tối đa để toàn bộ bảng + chữ ký vừa khít trong 1 trang A4 landscape
+        sheet.setRowHeight(rowIdx, 17);
+        sheet.getRange(rowIdx, 1, 1, cols).setFontSize(9);
 
         const isBoldRow = (stt !== '' || content.includes('Cộng') || content.includes('Tổng cộng'));
 
@@ -475,26 +485,33 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location, addContent = '', addAm
         }
     }
 
-    // sheet.autoResizeColumns(1, cols); // Bỏ auto resize theo yêu cầu
-
     // ====== BƯỚC CUỐI: TẠO ĐƯỜNG KẺ BẢNG ======
-    const finalTableRange = sheet.getRange(5, 1, rows, cols);
+    const finalTableRange = sheet.getRange(6, 1, rows, cols);
     // 1. Viền ngoài và kẻ dọc: Nét liền (SOLID)
     finalTableRange.setBorder(true, true, true, true, true, null, 'black', SpreadsheetApp.BorderStyle.SOLID);
     // 2. Kẻ ngang nội dung: Nét đứt (DOTTED)
     finalTableRange.setBorder(null, null, null, null, null, true, 'black', SpreadsheetApp.BorderStyle.DOTTED);
     // 3. Header: Nét liền toàn bộ
-    sheet.getRange(5, 1, 2, cols).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(6, 1, 2, cols).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
 
-    // FR-02: set row height for school name & underline at the very end
-    sheet.setRowHeight(1, 22);
-    sheet.setRowHeight(2, 18);
+    // FR-02: set row height for school name & title
+    sheet.setRowHeight(1, 18);
+    sheet.setRowHeight(2, 10);
+    sheet.setRowHeight(3, 18);
+    sheet.setRowHeight(4, 15);
+    sheet.setRowHeight(5, 10); // Spacing
+    sheet.setRowHeight(6, 18); // Header 1
+    sheet.setRowHeight(7, 18); // Header 2
+    sheet.setRowHeight(targetRow - 1, 8); // Spacing trước chữ ký
+    sheet.setRowHeight(targetRow, 16); 
+    sheet.setRowHeight(targetRow + 1, 16); 
+
     sheet.getRange(1, 1, 1, 3).setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
     sheet.getRange(2, 1, 1, 3).setFontSize(10).setFontWeight('normal').setHorizontalAlignment('center');
     sheet.getRange("A3:K3").setFontSize(12).setFontWeight('bold').setHorizontalAlignment('center');
 
-    // Đóng băng 6 dòng đầu để lặp lại header ở các trang in tiếp theo
-    sheet.setFrozenRows(6);
+    // Đóng băng 7 dòng đầu để lặp lại header ở các trang in tiếp theo nếu có tràn
+    sheet.setFrozenRows(7);
 
     return `https://docs.google.com/spreadsheets/d/${ss.getId()}/export?format=pdf&size=A4&portrait=false&fitw=true&gridlines=false&horizontal_alignment=CENTER&left_margin=0.5&right_margin=0.25&top_margin=0.5&bottom_margin=0.25&fzr=true`;
 }

@@ -150,6 +150,10 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
             for (let key in source) { target[key] += source[key]; }
         };
 
+        const subtractMetrics = (target, source) => {
+            for (let key in source) { target[key] -= source[key]; }
+        };
+
         // Process DataLuong1
         const l1Header = dataLuong1[0] || [];
         const l1Idx = {
@@ -583,23 +587,36 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
         const sumTotalGT = emptyMetric(); addMetrics(sumTotalGT, AI_GT); addMetrics(sumTotalGT, AII_GT);
         const sumTotalTT = emptyMetric(); addMetrics(sumTotalTT, AI_TT); addMetrics(sumTotalTT, AII_TT);
 
-        resultTable.push(getRow("Tổng lương ngạch bậc và truy lĩnh-GT", sumTotalGT));
-
-        const nhGt = emptyMetric();
         const getValTest = (g, t, ut, sub, ct) => {
             const prefix = `${g}|${t}|${ut}|${sub}|${ct}|`;
             const m = emptyMetric();
             Object.keys(storage).filter(k => k.startsWith(prefix)).forEach(k => addMetrics(m, storage[k]));
             return m;
         };
+
+        const nhGt = emptyMetric();
         addMetrics(nhGt, getValTest('A', 'I', 'Gián tiếp', 'Regular', 'HĐ ngắn hạn'));
         addMetrics(nhGt, getValTest('A', 'II', 'Gián tiếp', 'TL', 'HĐ ngắn hạn'));
         addMetrics(nhGt, getValTest('A', 'II', 'Gián tiếp', 'TT', 'HĐ ngắn hạn'));
-        resultTable.push(getRow("Tổng truy lĩnh HĐ N.hạn-GT", nhGt));
 
+        const nhTt = emptyMetric();
+        addMetrics(nhTt, getValTest('A', 'I', 'Trực tiếp', 'Regular', 'HĐ ngắn hạn'));
+        addMetrics(nhTt, getValTest('A', 'II', 'Trực tiếp', 'TL', 'HĐ ngắn hạn'));
+        addMetrics(nhTt, getValTest('A', 'II', 'Trực tiếp', 'TT', 'HĐ ngắn hạn'));
+
+        subtractMetrics(sumTotalGT, nhGt);
+        subtractMetrics(sumTotalTT, nhTt);
+
+        resultTable.push(getRow("Tổng lương ngạch bậc và truy lĩnh-GT", sumTotalGT));
+        resultTable.push(getRow("Tổng truy lĩnh HĐ N.hạn-GT", nhGt));
+        resultTable.push(getRow("Tổng truy lĩnh HĐ N.hạn-TT", nhTt));
         resultTable.push(getRow("Tổng lương ngạch bậc và truy lĩnh-TT", sumTotalTT));
 
-        const totalA = emptyMetric(); addMetrics(totalA, sumTotalGT); addMetrics(totalA, sumTotalTT); addMetrics(totalA, nhGt);
+        const totalA = emptyMetric();
+        addMetrics(totalA, sumTotalGT);
+        addMetrics(totalA, sumTotalTT);
+        addMetrics(totalA, nhGt);
+        addMetrics(totalA, nhTt);
         resultTable.push(getRow("A. Tổng lương ngạch bậc và truy lĩnh GT+TT", totalA));
 
         // Section B
@@ -690,6 +707,13 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
                     auditSheet.getRange(rowIndex, 1, 1, resultTable[0].length).setFontStyle("italic").setFontSize(8).setFontColor("#666666");
                 } else if (content.match(/^[I-V]\./) || content.match(/^[1-9]\./) || content.includes("Tổng cộng")) {
                     auditSheet.getRange(rowIndex, 1, 1, resultTable[0].length).setFontWeight("bold");
+                }
+                const isItalic = content.includes("Tổng lương ngạch bậc và truy lĩnh-GT") ||
+                                 content.includes("Tổng truy lĩnh HĐ N.hạn-GT") ||
+                                 content.includes("Tổng truy lĩnh HĐ N.hạn-TT") ||
+                                 content.includes("Tổng lương ngạch bậc và truy lĩnh-TT");
+                if (isItalic) {
+                    auditSheet.getRange(rowIndex, 1, 1, resultTable[0].length).setFontStyle("italic");
                 }
             });
 
@@ -794,6 +818,13 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
                     sheet.getRange(rowIndex, 1, 1, result[0].length).setBackground("#E0F2F1");
                 } else if (content.startsWith("A.") || content.startsWith("B.") || content.startsWith("C.") || content.startsWith("D.") || content.includes("Tổng cộng") || content.includes("TỔNG CỘNG")) {
                     sheet.getRange(rowIndex, 1, 1, result[0].length).setBackground("#FFEBEE");
+                }
+                const isItalic = content.includes("Tổng lương ngạch bậc và truy lĩnh-GT") ||
+                                 content.includes("Tổng truy lĩnh HĐ N.hạn-GT") ||
+                                 content.includes("Tổng truy lĩnh HĐ N.hạn-TT") ||
+                                 content.includes("Tổng lương ngạch bậc và truy lĩnh-TT");
+                if (isItalic) {
+                    sheet.getRange(rowIndex, 1, 1, result[0].length).setFontStyle("italic");
                 }
             });
         }
@@ -1060,6 +1091,10 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
 
     const addMetrics = (target, source) => {
         for (let key in source) { target[key] += source[key]; }
+    };
+
+    const subtractMetrics = (target, source) => {
+        for (let key in source) { target[key] -= source[key]; }
     };
 
     // 3. DATA_LUONG_1 (Part A-I)
@@ -1504,17 +1539,29 @@ function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, d
     const sumTotalGT = emptyMetric(); addMetrics(sumTotalGT, I1); addMetrics(sumTotalGT, AII_GT);
     const sumTotalTT = emptyMetric(); addMetrics(sumTotalTT, I2); addMetrics(sumTotalTT, AII_TT);
 
-    table.push(getRow("Tổng lương ngạch bậc và truy lĩnh-GT", sumTotalGT));
-
     const nhGt = emptyMetric();
     addMetrics(nhGt, getVal('A', 'I', 'Gián tiếp', 'Regular', 'HĐ ngắn hạn'));
     addMetrics(nhGt, getVal('A', 'II', 'Gián tiếp', 'TL', 'HĐ ngắn hạn'));
     addMetrics(nhGt, getVal('A', 'II', 'Gián tiếp', 'TT', 'HĐ ngắn hạn'));
-    table.push(getRow("Tổng truy lĩnh HĐ N.hạn-GT", nhGt));
 
+    const nhTt = emptyMetric();
+    addMetrics(nhTt, getVal('A', 'I', 'Trực tiếp', 'Regular', 'HĐ ngắn hạn'));
+    addMetrics(nhTt, getVal('A', 'II', 'Trực tiếp', 'TL', 'HĐ ngắn hạn'));
+    addMetrics(nhTt, getVal('A', 'II', 'Trực tiếp', 'TT', 'HĐ ngắn hạn'));
+
+    subtractMetrics(sumTotalGT, nhGt);
+    subtractMetrics(sumTotalTT, nhTt);
+
+    table.push(getRow("Tổng lương ngạch bậc và truy lĩnh-GT", sumTotalGT));
+    table.push(getRow("Tổng truy lĩnh HĐ N.hạn-GT", nhGt));
+    table.push(getRow("Tổng truy lĩnh HĐ N.hạn-TT", nhTt));
     table.push(getRow("Tổng lương ngạch bậc và truy lĩnh-TT", sumTotalTT));
 
-    const totalA = emptyMetric(); addMetrics(totalA, sumTotalGT); addMetrics(totalA, sumTotalTT); addMetrics(totalA, nhGt);
+    const totalA = emptyMetric();
+    addMetrics(totalA, sumTotalGT);
+    addMetrics(totalA, sumTotalTT);
+    addMetrics(totalA, nhGt);
+    addMetrics(totalA, nhTt);
     table.push(getRow("A. Tổng lương ngạch bậc và truy lĩnh GT+TT", totalA));
 
     // Section B
