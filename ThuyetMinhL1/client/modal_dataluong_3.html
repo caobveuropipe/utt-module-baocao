@@ -1,4 +1,38 @@
 <script>
+  let modal_dataluong_3_spinnerHideTimer = null;
+
+  function modal_dataluong_3_showSpinner() {
+    if (modal_dataluong_3_spinnerHideTimer) {
+      clearTimeout(modal_dataluong_3_spinnerHideTimer);
+      modal_dataluong_3_spinnerHideTimer = null;
+    }
+    $('#spinnerModal').modal('show');
+  }
+
+  function modal_dataluong_3_hideSpinnerAfterNetIdle(delayMs, afterHide) {
+    if (typeof delayMs === 'function') {
+      afterHide = delayMs;
+      delayMs = undefined;
+    }
+    if (modal_dataluong_3_spinnerHideTimer) {
+      clearTimeout(modal_dataluong_3_spinnerHideTimer);
+    }
+    const delay = typeof delayMs === 'number' ? delayMs : 800;
+    modal_dataluong_3_spinnerHideTimer = setTimeout(function () {
+      const hideNow = function () {
+        $('#spinnerModal').modal('hide');
+        modal_dataluong_3_spinnerHideTimer = null;
+        if (typeof afterHide === 'function') afterHide();
+      };
+      if (window.requestAnimationFrame) {
+        window.requestAnimationFrame(function () {
+          setTimeout(hideNow, 0);
+        });
+      } else {
+        hideNow();
+      }
+    }, delay);
+  }
   /**CÁC HÀM PHỤ*/
   function modal_dataluong_3_Reset() {
     var trangThaiDuLieu = $('#modal_dataluong_2_trangthaidulieu').text();
@@ -100,14 +134,14 @@
       return;
     }
 
-    $('#spinnerModal').modal('show');
+    modal_dataluong_3_showSpinner();
 
     // Bước 2: kiểm tra tháng chọn nếu đã có tính lương thì gọi hàm lấy dữ liệu tính lương
     // Kiểm tra currentMonthStr trong cached
     const foundRow = pg_general_3_cacheDataStatusTinhLuong.find(row => row[0] === currentMonthStr);
 
     if (foundRow && foundRow[1] === 'Đã tạo thuyết minh') {
-      $('#spinnerModal').modal('hide'); // tắt spinner trong khi chờ người dùng chọn
+      modal_dataluong_3_hideSpinnerAfterNetIdle(); // tắt spinner trong khi chờ người dùng chọn
 
       const resultAsk = await Swal.fire({
         title: 'Bảng thuyết minh tháng ' + currentMonthStr + ' đã tồn tại',
@@ -123,7 +157,7 @@
 
       if (resultAsk.isConfirmed) {
         // Người dùng chọn Xem lại
-        $('#spinnerModal').modal('show');
+        modal_dataluong_3_showSpinner();
         google.script.run
           .withSuccessHandler(function (result) {
             //console.log("Data xem lại: ", result.dataLuongAnCa)
@@ -133,9 +167,9 @@
               pg_general_3_cacheDataLuongAnCa = result.dataLuongAnCa || [];
               // Gọi vẽ bảng lương ở đây, sau khi có dữ liệu
               modal_dataluong_3_TaoBangLuong(pg_general_3_cacheDataLuongAnCa);
-              $('#spinnerModal').modal('hide');
+              modal_dataluong_3_hideSpinnerAfterNetIdle();
             } else if (result.status === "no permission") {
-              $('#spinnerModal').modal('hide');
+              modal_dataluong_3_hideSpinnerAfterNetIdle();
               digicoreToast('Bạn không có quyền xem', 'error');
             } else {
               console.error("Lỗi từ server: ", result.message);
@@ -165,7 +199,7 @@
           // Set trạng thái hành động thành "Đang sửa" để kích hoạt cảnh báo đóng tab
           $('#modal_dataluong_2_trangthaiaction').text('Đang sửa');
 
-          $('#spinnerModal').modal('hide');
+          modal_dataluong_3_hideSpinnerAfterNetIdle();
 
           // Hiển thị thông báo để tạo tương tác người dùng -> Kích hoạt beforeunload
           Swal.fire({
@@ -176,7 +210,7 @@
           });
 
         } else if (result.status === "no permission") {
-          $('#spinnerModal').modal('hide');
+          modal_dataluong_3_hideSpinnerAfterNetIdle();
           digicoreToast('Bạn không có quyền xem', 'error');
         } else {
           console.error("Lỗi từ server: ", result.message);
@@ -488,7 +522,7 @@
     // 🔴 Sort theo cột "Đơn vị" (index 7 vì có cột # ở đầu) trước khi lưu
     table.order([7, 'asc']).draw();
 
-    const rows = table.rows({ search: 'applied' }).nodes(); // ✅ lấy toàn bộ DOM dòng (không bị giới hạn bởi phân trang)
+    const rows = table.rows().nodes(); // ✅ lấy toàn bộ DOM dòng (không bị giới hạn bởi phân trang hay bộ lọc)
 
     const allData = [];
 
@@ -512,7 +546,7 @@
 
   //Step 2: ghi dữ liệu vào sheet
   async function modal_dataluong_3_luuTinhLuong() {
-    $('#spinnerModal').modal('show');
+    modal_dataluong_3_showSpinner();
     let currentMonthStr = $('#modal_dataluong_2_ChonThang').val();
     const targetMonthStr = currentMonthStr || pg_general_3_getTodayMonthStr();
 
@@ -573,7 +607,7 @@
     google.script.run
       .withSuccessHandler(function (result) {
         if (result.status === "success") {
-          $('#spinnerModal').modal('hide');
+          modal_dataluong_3_hideSpinnerAfterNetIdle();
           digicoreToast("Dữ liệu đã được lưu thành công", "success");
 
           // ✅ Cập nhật cột trạng thái thành "Đã lưu"
@@ -583,7 +617,7 @@
 
           functionInit(false);
         } else if (result.status === "no permission") {
-          $('#spinnerModal').modal('hide');
+          modal_dataluong_3_hideSpinnerAfterNetIdle();
           digicoreToast('Bạn không có quyền lưu', 'error');
         } else {
           console.error("Lỗi từ server: ", result.message);
@@ -619,14 +653,14 @@
       }
 
       //Bật spinner
-      $('#spinnerModal').modal('show');
+      modal_dataluong_3_showSpinner();
       // Nếu người dùng chọn Có, thực hiện xóa dữ liệu cũ
       try {
         await new Promise((resolve, reject) => {
           google.script.run
             .withSuccessHandler(() => {
               resolve();// Đánh dấu promise hoàn tất
-              $('#spinnerModal').modal('hide');
+              modal_dataluong_3_hideSpinnerAfterNetIdle();
               modal_dataluong_3_Reset();
               functionInit(false, false);
               digicoreToast('Xóa thành công', 'success');
@@ -758,22 +792,22 @@
       }).then((result) => {
         if (result.isConfirmed) {
           // ===== PHẦN 1: BẢNG ĐI NGÂN HÀNG =====
-          $('#spinnerModal').modal('show');
+          modal_dataluong_3_showSpinner();
 
           google.script.run
             .withSuccessHandler(function (response) {
-              $('#spinnerModal').modal('hide');
-
               if (response.status === "success") {
                 const rows = response.dataPrint;
 
                 if (!rows || rows.length === 0) {
+                  modal_dataluong_3_hideSpinnerAfterNetIdle();
                   digicoreToast("Không có dữ liệu đi ngân hàng để in!", "warning");
                   return;
                 }
 
                 // Gọi function in cho phần 1
-                openPrintWindow_diNganHang(rows, vThang, vNam);
+                modal_dataluong_3_hideSpinnerAfterNetIdle();
+                openPrintWindow_diNganHang(rows, vThang, vNam, selectedRegion);
 
               } else if (response.status === "no permission") {
                 digicoreToast('Bạn không có quyền xem', 'error');
@@ -783,7 +817,7 @@
               }
             })
             .withFailureHandler(function (error) {
-              $('#spinnerModal').modal('hide');
+              modal_dataluong_3_hideSpinnerAfterNetIdle();
               console.error("Lỗi API:", error);
               digicoreToast("Lỗi kết nối server!", "error");
             })
@@ -791,12 +825,10 @@
 
         } else if (result.isDenied) {
           // ===== PHẦN 2: BẢNG THUYẾT MINH =====
-          $('#spinnerModal').modal('show');
+          modal_dataluong_3_showSpinner();
 
           google.script.run
             .withSuccessHandler(function (response) {
-              $('#spinnerModal').modal('hide');
-
               if (response.status === "success") {
                 const rows = response.dataPrint;
 
@@ -804,9 +836,53 @@
                   digicoreToast("Không có dữ liệu thuyết minh để in!", "warning");
                   return;
                 }
-
-                // Gọi function in cho phần 2
-                openPrintWindow_ThuyetMinh(rows, vThang, vNam, response.totalSums);
+                const printRows = rows;
+                const totalSums = response.totalSums || null;
+                google.script.run
+                  .withSuccessHandler(function (configResponse) {
+                    const configData = (configResponse.status === 'success' && configResponse.configData)
+                      ? configResponse.configData
+                      : [{ label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }];
+                    modal_dataluong_3_hideSpinnerAfterNetIdle();
+                    showConfigThuyetMinhModal(configData, targetMonthStr, selectedRegion, function (confirmedConfig, isModified) {
+                      if (isModified) {
+                        modal_dataluong_3_showSpinner();
+                        google.script.run
+                          .withSuccessHandler(function (saveResp) {
+                            if (saveResp.status !== 'success') console.warn('Luu config khong thanh cong:', saveResp.message);
+                            openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                          })
+                          .withFailureHandler(function (err) {
+                            console.error('Loi luu config:', err);
+                            openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                          })
+                          .modal_dataluong_1_saveConfigThuyetMinh(targetMonthStr, selectedRegion, confirmedConfig);
+                      } else {
+                        openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                      }
+                    });
+                  })
+                  .withFailureHandler(function (err) {
+                    console.error('Loi load config:', err);
+                    const emptyConfig = [{ label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }];
+                    modal_dataluong_3_hideSpinnerAfterNetIdle();
+                    showConfigThuyetMinhModal(emptyConfig, targetMonthStr, selectedRegion, function (confirmedConfig, isModified) {
+                      if (isModified) {
+                        modal_dataluong_3_showSpinner();
+                        google.script.run
+                          .withSuccessHandler(function () {
+                            openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                          })
+                          .withFailureHandler(function () {
+                            openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                          })
+                          .modal_dataluong_1_saveConfigThuyetMinh(targetMonthStr, selectedRegion, confirmedConfig);
+                      } else {
+                        openPrintWindow_ThuyetMinh(printRows, vThang, vNam, confirmedConfig, totalSums);
+                      }
+                    });
+                  })
+                  .modal_dataluong_1_loadConfigThuyetMinh(targetMonthStr, selectedRegion);
 
               } else if (response.status === "no permission") {
                 digicoreToast('Bạn không có quyền xem', 'error');
@@ -816,7 +892,7 @@
               }
             })
             .withFailureHandler(function (error) {
-              $('#spinnerModal').modal('hide');
+              modal_dataluong_3_hideSpinnerAfterNetIdle();
               console.error("Lỗi API:", error);
               digicoreToast("Lỗi kết nối server!", "error");
             })
@@ -832,7 +908,76 @@
    * @param {number} thangT Tháng hiện tại (T)
    * @param {string} nam Năm
    */
-  function openPrintWindow_ThuyetMinh(rows, thangT, nam, totalSums) {
+
+  function showConfigThuyetMinhModal(configData, monthStr, region, onConfirm) {
+    $('#configThuyetMinhModal').remove();
+    function formatDots(val) {
+      if (val === null || val === undefined || val === '') return '';
+      const str = val.toString().trim();
+      const isNegative = str.startsWith('-');
+      const cleanVal = str.replace(/\D/g, '');
+      if (!cleanVal) return isNegative ? '-' : '';
+      const formatted = cleanVal.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      return isNegative ? '-' + formatted : formatted;
+    }
+    function normalizeRegionText(value) {
+      return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    }
+    function emptyConfigLines(regionName) {
+      return [0, 1, 2, 3].map(function () { return { region: regionName, label: '', value: '' }; });
+    }
+    function buildConfigGroups(rawConfig, regionName) {
+      const isAllRegion = normalizeRegionText(regionName) === 'tat ca';
+      const defaultRegions = isAllRegion ? ['H\u00e0 N\u1ed9i', 'Ph\u00fa Th\u1ecd'] : [regionName || 'T\u1ea5t c\u1ea3'];
+      const groupsByRegion = {};
+      defaultRegions.forEach(function (regionItem) { groupsByRegion[regionItem] = emptyConfigLines(regionItem); });
+      (Array.isArray(rawConfig) ? rawConfig : []).forEach(function (line) {
+        const lineRegion = line.region || defaultRegions[0];
+        if (!groupsByRegion[lineRegion]) groupsByRegion[lineRegion] = emptyConfigLines(lineRegion);
+        const lineIndex = Number.isInteger(line.index) ? line.index : groupsByRegion[lineRegion].findIndex(item => !item.label && !item.value);
+        if (lineIndex >= 0 && lineIndex < 4) groupsByRegion[lineRegion][lineIndex] = { region: lineRegion, label: line.label || '', value: line.value || '' };
+      });
+      return defaultRegions.map(function (regionItem) { return { region: regionItem, lines: groupsByRegion[regionItem] }; });
+    }
+    const configGroups = buildConfigGroups(configData, region);
+    const hasMultipleRegions = configGroups.length > 1;
+    const modalHtml = `
+    <div class="modal fade" id="configThuyetMinhModal" tabindex="-1" role="dialog" data-backdrop="static">
+      <div class="modal-dialog modal-lg" role="document"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="fas fa-edit"></i> Thông tin bổ sung - Bảng Thuyết Minh ${monthStr} (${region || 'T\u1ea5t c\u1ea3'})</h5><button type="button" class="close" id="btnCloseConfigTop"><span>&times;</span></button></div>
+        <div class="modal-body"><p class="text-muted mb-3"><small>Dòng trống sẽ không hiển thị trên bản in.</small></p><div class="table-responsive"><table class="table table-bordered table-sm"><thead class="thead-light"><tr><th style="width:5%">#</th>${hasMultipleRegions ? '<th style="width:18%">Khu vuc</th>' : ''}<th style="width:60%">Mô tả</th><th style="width:35%">So tien</th></tr></thead><tbody>
+        ${configGroups.map(group => group.lines.map((line, i) => {
+      const rowId = `${group.region.replace(/\W/g, '')}_${i}`;
+      const safeRegion = group.region.replace(/"/g, '&quot;');
+      return `<tr><td class="text-center font-weight-bold">(${i + 1})</td>${hasMultipleRegions ? `<td class="font-weight-bold">${group.region}</td>` : ''}<td><input type="text" class="form-control form-control-sm" id="cfgLabel${rowId}" data-region="${safeRegion}" data-index="${i}" value="${(line?.label || '').replace(/"/g, '&quot;')}" placeholder="Nhập mô tả..."></td><td><input type="text" class="form-control form-control-sm cfg-money-input" id="cfgValue${rowId}" data-region="${safeRegion}" data-index="${i}" style="text-align: right !important;" value="${formatDots(line?.value || '')}" placeholder="Nhập số tiền..."></td></tr>`;
+    }).join('')).join('')}
+        </tbody></table></div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" id="btnCancelConfig"><i class="fas fa-times"></i> Huy</button><button type="button" class="btn btn-primary" id="btnSaveAndPrintConfig"><i class="fas fa-print"></i> Luu &amp; In</button></div>
+      </div></div>
+    </div>`;
+    $('body').append(modalHtml);
+    $('.cfg-money-input').on('input', function () { $(this).val(formatDots($(this).val())); });
+    $('#configThuyetMinhModal input').on('keypress', function (e) { if (e.which === 13) $('#btnSaveAndPrintConfig').trigger('click'); });
+    $('#btnSaveAndPrintConfig').on('click', function () {
+      let isModified = false;
+      const confirmedConfig = [];
+      configGroups.forEach(function (group) {
+        group.lines.forEach(function (line, i) {
+          const rowId = `${group.region.replace(/\W/g, '')}_${i}`;
+          const lbl = ($('#cfgLabel' + rowId).val() || '').trim();
+          const rawVal = ($('#cfgValue' + rowId).val() || '').replace(/\./g, '').trim();
+          if (lbl !== (line?.label || '').trim() || rawVal !== (line?.value || '').trim()) isModified = true;
+          confirmedConfig.push({ region: group.region, index: i, label: lbl, value: rawVal });
+        });
+      });
+      $('#configThuyetMinhModal').modal('hide');
+      $('#configThuyetMinhModal').one('hidden.bs.modal', function () { $(this).remove(); if (typeof onConfirm === 'function') onConfirm(confirmedConfig, isModified); });
+    });
+    $('#btnCancelConfig, #btnCloseConfigTop').on('click', function () { $('#configThuyetMinhModal').modal('hide'); });
+    $('#configThuyetMinhModal').on('hidden.bs.modal', function () { $(this).remove(); });
+    $('#configThuyetMinhModal').modal('show');
+  }
+  function openPrintWindow_ThuyetMinh(rows, thangT, nam, configLines, totalSums) {
     // Tính tháng T-1
     let thangT1 = thangT - 1;
     let namT1 = nam;
@@ -846,10 +991,15 @@
     <style>
       @page {
         size: A4 landscape;
-        margin-top: 25mm;
-        margin-bottom: 25mm;
-        margin-left: 25mm;
-        margin-right: 20mm;
+        margin-top: 14mm;
+        margin-bottom: 14mm;
+        margin-left: 12mm;
+        margin-right: 12mm;
+        @bottom-center {
+          content: "Trang " counter(page);
+          font-size: 10pt;
+          color: black;
+        }
       }
 
 
@@ -859,6 +1009,7 @@
         font-size: 12px;
         color: #000;
         line-height: 1.2;
+        margin: 0;
       }
 
       /* === A. TIÊU ĐỀ === */
@@ -886,6 +1037,14 @@
         table-layout: fixed;
       }
 
+      .data-table {
+        margin-bottom: 0;
+      }
+
+      .total-table {
+        margin-top: -1px;
+      }
+
       thead {
         display: table-header-group;
       }
@@ -900,7 +1059,7 @@
 
       th, td {
         border: 1px solid #000;
-        padding: 4px 6px;
+        padding: 3px 4px;
         vertical-align: middle;
         text-align: center;
         word-wrap: break-word;
@@ -923,6 +1082,16 @@
       }
 
       tr {
+        page-break-inside: avoid;
+      }
+
+      .closing-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .closing-section table {
+        break-inside: avoid;
         page-break-inside: avoid;
       }
 
@@ -952,7 +1121,9 @@
 
       /* === D. PHẦN CHỮ KÝ === */
       .signature-section {
-        margin-top: 20px;
+        margin-top: 12px;
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
 
       .signature-date {
@@ -965,7 +1136,13 @@
         display: flex;
         justify-content: space-between;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 14px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .signature-row--second {
+        margin-top: 28px;
       }
 
       .signature-col {
@@ -981,7 +1158,7 @@
       .signature-subtitle {
         font-style: italic;
         font-size: 12px;
-        margin-bottom: 60px;
+        margin-bottom: 44px;
       }
 
       .signature-placeholder {
@@ -995,10 +1172,47 @@
         margin-top: 4px;
       }
 
+      .no-print {
+        display: block;
+      }
+      .toolbar {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 8px 16px;
+        position: sticky;
+        top: 0;
+        z-index: 9999;
+        display: flex;
+        justify-content: flex-start;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+      .btn-excel {
+        background-color: #1f7244;
+        color: #ffffff;
+        border: none;
+        padding: 6px 12px;
+        font-weight: bold;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-family: Arial, sans-serif;
+      }
+      .btn-excel:hover {
+        background-color: #154c2e;
+      }
+
       /* CSS IN – @media print */
       @media print {
+        .no-print {
+          display: none !important;
+        }
         body {
-          zoom: 0.95;
+          zoom: 1;
+          margin-top: 0 !important;
         }
 
         th, td {
@@ -1030,13 +1244,25 @@
         <th style="width: 5%;">STT</th>
         <th style="width: 6%;">Mã ĐT</th>
         <th style="width: 21%;">Họ và tên</th>
-        <th style="width: 12.5%;">Lương và T.Lĩnh<br>(tháng ${thangT}/${nam})</th>
-        <th style="width: 12.5%;">Lương và T.Lĩnh<br>(tháng ${thangT1})/${namT1}</th>
+        <th style="width: 12.5%;">Lương và T.Lĩnh<br>tháng ${thangT}/${nam}</th>
+        <th style="width: 12.5%;">Lương và T.Lĩnh<br>tháng ${thangT1}/${namT1}</th>
         <th style="width: 11%;">Tăng</th>
         <th style="width: 11%;">Giảm</th>
         <th style="width: 21%;">Ghi chú</th>
       </tr>
     </thead>`;
+
+    const colgroupHtml = `
+    <colgroup>
+      <col style="width: 5%;">
+      <col style="width: 6%;">
+      <col style="width: 21%;">
+      <col style="width: 12.5%;">
+      <col style="width: 12.5%;">
+      <col style="width: 11%;">
+      <col style="width: 11%;">
+      <col style="width: 21%;">
+    </colgroup>`;
 
     // Xử lý dữ liệu từ rows
     // rows có cấu trúc: [STT, MãCB, Họ tên, Mã ngạch, Ăn ca, Truy lĩnh, Còn lĩnh]
@@ -1047,7 +1273,23 @@
     let tongTang = 0;
     let tongGiam = 0;
 
-    const tbodyHtml = rows.map((r, idx) => {
+    const getMaDTValue = (row) => {
+      const rawMaDT = (row && row[1] != null ? row[1] : '').toString().trim();
+      const cleanedMaDT = rawMaDT.replace(/^CB/i, '');
+      const numericMaDT = parseInt(cleanedMaDT, 10);
+      return Number.isNaN(numericMaDT) ? Number.MAX_SAFE_INTEGER : numericMaDT;
+    };
+
+    const sortedRows = rows.slice().sort((a, b) => {
+      const diff = getMaDTValue(a) - getMaDTValue(b);
+      if (diff !== 0) return diff;
+
+      const maA = (a && a[1] != null ? a[1] : '').toString().replace(/^CB/i, '');
+      const maB = (b && b[1] != null ? b[1] : '').toString().replace(/^CB/i, '');
+      return maA.localeCompare(maB, 'vi', { numeric: true, sensitivity: 'base' });
+    });
+
+    const tbodyHtml = sortedRows.map((r, idx) => {
       // Lấy dữ liệu từ row (giả sử cấu trúc: [STT, MãCB, Họ tên, Mã ngạch, Ăn ca, Truy lĩnh, Còn lĩnh])
       const stt = idx + 1;
       const maCanBo = (r[1] || '').toString().replace(/^CB/i, ''); // Bỏ chữ "CB"
@@ -1093,7 +1335,7 @@
 
     // ✅ Thêm dòng tổng cộng
     const totalRowHtml = `
-      <tr style="font-weight: bold; font-size: 12px;">
+      <tr class="total-row" style="font-weight: bold; font-size: 12px;">
         <td colspan="3" style="text-align: center;">Tổng cộng</td>
         <td class="num" style="text-align: right;">${tongLuongT.toLocaleString('de-DE')}</td>
         <td class="num" style="text-align: right;">${tongLuongT1.toLocaleString('de-DE')}</td>
@@ -1103,117 +1345,94 @@
       </tr>`;
 
     const tableHtml = `
-    <table>
+    <table class="data-table">
+      ${colgroupHtml}
       ${theadHtml}
       <tbody>
         ${tbodyHtml}
+      </tbody>
+    </table>`;
+
+    const totalTableHtml = `
+    <table class="total-table">
+      ${colgroupHtml}
+      <tbody>
         ${totalRowHtml}
       </tbody>
     </table>`;
 
-    // ✅4. Phần C - TỔNG HỢP (dạng table, giá trị ở cột Tăng)
+    // Phan C - Tong hop cuoi ban in
     const finalLuongT = (totalSums && typeof totalSums.totalLuongT === 'number') ? totalSums.totalLuongT : tongLuongT;
     const finalLuongT1 = (totalSums && typeof totalSums.totalLuongT1 === 'number') ? totalSums.totalLuongT1 : tongLuongT1;
-    const tangGiamTheoCot = tongTang - tongGiam;
     const tangGiamVal = finalLuongT - finalLuongT1;
-    if (Math.abs(tangGiamTheoCot - tangGiamVal) > 1) {
-      console.warn('Chênh lệch tăng/giảm Phần II không khớp tổng lương thực tế', {
-        tangGiamTheoCot,
-        tangGiamTheoTong: tangGiamVal,
-        tongTang,
-        tongGiam,
-        finalLuongT,
-        finalLuongT1
-      });
-    }
-    const formatNum = (val) => val.toLocaleString('de-DE');
+    const formatNum = (val) => (Number(val) || 0).toLocaleString('de-DE');
+    const safeConfigLinesForSummary = Array.isArray(configLines) ? configLines : [];
+    const configRegionsForSummary = Array.from(new Set(safeConfigLinesForSummary.map(line => (line.region || '').trim()).filter(Boolean)));
+    const summaryAdditionalLines = safeConfigLinesForSummary
+      .map(function (line) {
+        const label = (line.label || '').trim();
+        const value = (line.value || '').trim();
+        const numVal = parseFloat(String(value).replace(/[,.]/g, ''));
+        return { label, value, region: (line.region || '').trim(), amount: !isNaN(numVal) ? numVal : 0 };
+      })
+      .filter(line => line.label || line.value);
+    const summaryAdditionalTotal = summaryAdditionalLines.reduce((sum, line) => sum + line.amount, 0);
+    const summaryGrandTotal = finalLuongT + summaryAdditionalTotal;
+    const summaryFormula = [1].concat(summaryAdditionalLines.map((_, i) => i + 2)).map(index => `(${index})`).join(' + ');
+    const summaryAdditionalHtml = summaryAdditionalLines.map((line, i) => {
+      const regionPrefix = configRegionsForSummary.length > 1 && line.region ? `${line.region} - ` : '';
+      const displayValue = line.value ? (!isNaN(line.amount) && line.amount !== 0 ? line.amount.toLocaleString('de-DE') : line.value) : '';
+      return `
+    <tr style="border: none;">
+      <td colspan="4" style="border: none; text-align: left; padding-left: 20px; font-size: 13px;">${regionPrefix}${line.label}</td>
+      <td style="border: none; text-align: center; font-weight: 600;">(${i + 2})</td>
+      <td style="border: none; text-align: right; font-weight: 600;">${displayValue}</td>
+      <td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td>
+    </tr>`;
+    }).join('');
+    const summaryGrandTotalHtml = summaryAdditionalLines.length > 0 ? `
+    <tr style="border: none;">
+      <td colspan="4" style="border: none; text-align: center; padding-left: 0; font-size: 13px; font-weight: 700;">Tổng cộng = ${summaryFormula}</td>
+      <td style="border: none;"></td>
+      <td style="border: none; text-align: right; font-weight: 700;">${formatNum(summaryGrandTotal)}</td>
+      <td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td>
+    </tr>` : '';
 
     const summaryHtml = `
-<table style="border: none; width: 100%;">
+<table class="summary-table" style="border: none; width: 100%;">
   <tbody>
     <tr style="border: none;">
-      <td colspan="4" style="border: none; text-align: left; padding-left: 0; font-size: 13px;">
-        Tổng lương và truy lĩnh tháng ${thangT1}/${namT1} của CB:
-      </td>
-      <td style="border: none; text-align: right; font-weight: 600;">
-        ${formatNum(finalLuongT1)}
-      </td>
+      <td colspan="4" style="border: none; text-align: left; padding-left: 0; font-size: 13px;">Tổng lương và truy lĩnh tháng ${thangT1}/${namT1} của CB:</td>
       <td style="border: none;"></td>
-      <td style="border: none;"></td>
-      <td style="border: none;"></td>
-      <td style="border: none;"></td>
+      <td style="border: none; text-align: right; font-weight: 600;">${formatNum(finalLuongT1)}</td>
+      <td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td>
     </tr>
-
-    <tr style="border: none; magin-top: 5px;">
-      <td colspan="4" style="border: none; text-align: left; padding-left: 0; font-size: 13px;">
-        Lương tháng ${thangT}/${nam} ${tangGiamVal >= 0 ? 'tăng' : 'giảm'} so với tháng ${thangT1}/${namT1} là:
-      </td>
-      <td style="border: none; text-align: right; font-weight: 600;">
-        ${tangGiamVal >= 0 ? formatNum(tangGiamVal) : formatNum(Math.abs(tangGiamVal))}
-      </td>
+    <tr style="border: none; margin-top: 5px;">
+      <td colspan="4" style="border: none; text-align: left; padding-left: 0; font-size: 13px;">Lương tháng ${thangT}/${nam} ${tangGiamVal >= 0 ? 'tăng' : 'giảm'} so với tháng ${thangT1}/${namT1} là:</td>
       <td style="border: none;"></td>
-      <td style="border: none;"></td>
-      <td style="border: none;"></td>
-      <td style="border: none;"></td>
+      <td style="border: none; text-align: right; font-weight: 600;">${tangGiamVal >= 0 ? formatNum(tangGiamVal) : formatNum(Math.abs(tangGiamVal))}</td>
+      <td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td>
     </tr>
-
     <tr style="border: none;">
-      <td colspan="4" style="border: none; text-align: left; padding-left: 0; font-size: 13px;">
-        Tổng lương và truy lĩnh tháng ${thangT}/${nam}:
-      </td>
-      <td style="border: none; text-align: right; font-weight: 600;">
-        ${formatNum(finalLuongT)}
-      </td>
-      <td style="border: none;"></td>
-      <td style="border: none;"></td>
-      <td style="border: none;"></td>
-      <td style="border: none;"></td>
+      <td colspan="4" style="border: none; text-align: left; padding-left: 0; font-size: 13px;">Tổng lương và truy lĩnh tháng ${thangT}/${nam}:</td>
+      <td style="border: none; text-align: center; font-weight: 600;">${summaryAdditionalLines.length > 0 ? '(1)' : ''}</td>
+      <td style="border: none; text-align: right; font-weight: 600;">${formatNum(finalLuongT)}</td>
+      <td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td>
     </tr>
+    ${summaryAdditionalHtml}
+    ${summaryGrandTotalHtml}
   </tbody>
 </table>`;
 
 
 
 
-    // ✅5. Phần D - CHỮ KÝ (2 HÀNG, 3 CỘT MỖI HÀNG)
-    const today = new Date();
-    const dateStr = `Ngày ${today.getDate()} tháng ${today.getMonth() + 1} năm ${today.getFullYear()}`;
-
+    // Phan D - Chu ky: chi giu Nguoi lap bang
     const signatureHtml = `
-    <div class="signature-section" stype:" margin-top: 0px;">
-      
-      <!-- HÀNG 1: 3 cột -->
-      <div class="signature-row" stype:" margin-top: 0px;">
-        <div class="signature-col">
-          <div class="signature-title"><br>Người lập bảng</div>
-          <div class="signature-subtitle">(Ký, ghi họ tên)</div>
-        </div>
-        <div class="signature-col">
-          <div class="signature-title"><br>Kế toán trưởng</div>
-          <div class="signature-subtitle">(Ký, ghi họ tên)</div>
-        </div>
-        <div class="signature-col">
-          <div class="signature-date">${dateStr}</div>
-          <div class="signature-title">Thủ trưởng đơn vị</div>
-          <div class="signature-subtitle">(Ký, ghi họ tên)</div>
-
-        </div>
-      </div>
-
-      <!-- HÀNG 2: 3 cột -->
-      <div class="signature-row">
-        <div class="signature-col">
-          <div class="signature-title"><br>Chuyên viên kiểm soát chi /<br>Giao dịch viên</div>
-          <div class="signature-subtitle">(Ký, ghi họ tên)</div>
-        </div>
-        <div class="signature-col">
-          <div class="signature-title">KHO BẠC NHÀ NƯỚC<br>Chuyên viên kiểm soát chi /<br>Giao dịch viên</div>
-          <div class="signature-subtitle">(Ký, ghi họ tên)</div>
-        </div>
-        <div class="signature-col">
-          <div class="signature-title">Ngày ... tháng ... năm ...<br>Giám đốc KBNN Quận/Huyện</div>
-          <div class="signature-subtitle">(Ký, ghi họ tên)</div>
-        </div>
+    <div class="signature-section excel-signature" style="margin-top: 26px; padding-right: 95px; text-align: right; box-sizing: border-box; break-inside: avoid; page-break-inside: avoid;">
+      <div style="display: inline-block; min-width: 210px; text-align: center;">
+        <div style="font-weight: 700; font-size: 13px;">Người lập bảng</div>
+        
       </div>
     </div>`;
 
@@ -1225,31 +1444,445 @@
       <meta charset="utf-8">
       <title>Thuyết minh lương - Tháng ${thangT}/${nam}</title>
       ${css}
+      <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>
     </head>
     <body>
-      ${headerHtml}
-      ${tableHtml}
-      ${summaryHtml}
-      ${signatureHtml}
+      <div class="no-print toolbar">
+        <button class="btn-excel" onclick="exportExcel()">Xuất Excel</button>
+      </div>
+      <div id="print-content">
+        ${headerHtml}
+        ${tableHtml}
+        <div class="closing-section">
+          ${totalTableHtml}
+          ${summaryHtml}
+          ${signatureHtml}
+        </div>
+      </div>
+      <script>
+        function cleanNumberString(str) {
+          let s = str.trim().replace(/\\s+/g, '');
+          if (!s) return '';
+          if (s.includes('.') && s.includes(',')) {
+            s = s.replace(/\\./g, '').replace(/,/g, '.');
+          } else if (s.includes('.')) {
+            const dotCount = (s.match(/\\./g) || []).length;
+            if (dotCount > 1) {
+              s = s.replace(/\\./g, '');
+            } else {
+              const parts = s.split('.');
+              if (parts[1].length === 3) {
+                s = s.replace(/\\./g, '');
+              }
+            }
+          } else if (s.includes(',')) {
+            const commaCount = (s.match(/,/g) || []).length;
+            if (commaCount > 1) {
+              s = s.replace(/,/g, '');
+            } else {
+              const parts = s.split(',');
+              if (parts[1].length === 3) {
+                s = s.replace(/,/g, '');
+              } else {
+                s = s.replace(/,/g, '.');
+              }
+            }
+          }
+          return s;
+        }
+
+        function sanitizeExcelText(str) {
+          let s = str.trim();
+          if (!s) return '';
+          if (/^[=+\\t\\r@-]/.test(s)) {
+            return "'" + s;
+          }
+          return s;
+        }
+
+        function exportExcel() {
+          const container = document.getElementById('print-content');
+          const clone = container.cloneNode(true);
+          const tables = clone.querySelectorAll('table');
+          
+          tables.forEach(table => {
+            const cells = table.querySelectorAll('td, th');
+            cells.forEach(cell => {
+              const row = cell.closest('tr');
+              const isTotalRow = row.classList.contains('total-row') || row.style.fontWeight === 'bold';
+              const cellIndex = cell.cellIndex;
+              
+              const isNumericCell = cell.classList.contains('num') || 
+                                    cell.style.textAlign === 'right' || 
+                                    (cell.getAttribute('style') && cell.getAttribute('style').includes('text-align: right')) ||
+                                    (isTotalRow && cellIndex >= 3 && cellIndex <= 6);
+
+              if (isNumericCell) {
+                let text = cell.innerText.trim();
+                if (text && !/^[a-zA-ZÀ-ỹ\\s]+$/.test(text)) {
+                  cell.innerText = cleanNumberString(text);
+                  cell.setAttribute('data-t', 'n'); // Gán kiểu Số
+                }
+              } else {
+                cell.innerText = sanitizeExcelText(cell.innerText);
+                cell.setAttribute('data-t', 's'); // Gán kiểu Chuỗi
+              }
+            });
+          });
+
+          // Tạo worksheet trống với tiêu đề Thuyết minh lương
+          const ws = XLSX.utils.aoa_to_sheet([
+            ["Phần II: Thuyết minh tăng giảm lương ngạch bậc và các khoản phụ cấp tháng ${thangT}/${nam}"],
+            []
+          ]);
+
+          // Chèn bảng 1 bắt đầu từ dòng index 2 (hàng 3)
+          XLSX.utils.sheet_add_dom(ws, tables[0], { origin: 2, raw: false });
+          
+          for (let i = 1; i < tables.length; i++) {
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            const nextRow = range.e.r + (i === 1 ? 1 : 2);
+            XLSX.utils.sheet_add_dom(ws, tables[i], { origin: nextRow, raw: false });
+          }
+
+          // Chèn phần chữ ký cuối trang
+          const rangeAfterTables = XLSX.utils.decode_range(ws['!ref']);
+          XLSX.utils.sheet_add_aoa(ws, [
+            [],
+            ['', '', '', '', '', 'Ng\u01b0\u1eddi l\u1eadp b\u1ea3ng'],
+            ['', '', '', '', '', '(K\u00fd, ghi h\u1ecd t\u00ean)']
+          ], { origin: rangeAfterTables.e.r + 2 });
+
+          const finalRange = XLSX.utils.decode_range(ws['!ref']);
+          const colWidths = [];
+          for (let C = finalRange.s.c; C <= finalRange.e.c; ++C) {
+            let maxLen = 10;
+            for (let R = finalRange.s.r; R <= finalRange.e.r; ++R) {
+              const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
+              const cell = ws[cellRef];
+              if (cell) {
+                if (cell.t === 'n') {
+                  cell.z = '#,##0'; // Định dạng hiển thị dấu phẩy hàng nghìn
+                }
+                const valStr = String(cell.v || '');
+                if (valStr.length > maxLen) {
+                  maxLen = valStr.length;
+                }
+              }
+            }
+            colWidths.push({ wch: maxLen + 3 }); // Thêm khoảng đệm cột
+          }
+          ws['!cols'] = colWidths;
+
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+          
+          const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+          
+          function s2ab(s) {
+            const buf = new ArrayBuffer(s.length);
+            const view = new Uint8Array(buf);
+            for (let i = 0; i < s.length; i++) {
+              view[i] = s.charCodeAt(i) & 0xFF;
+            }
+            return buf;
+          }
+
+          const blob = new Blob([s2ab(wbout)], { type: "application/octet-stream" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'Thuyet_minh_luong_Thang_${thangT}_${nam}.xlsx';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      <\/script>
     </body>
     </html>`;
 
     // ✅7. Mở cửa sổ in
     const printWin = window.open("", "_blank");
     if (!printWin) {
-      alert("Trình duyệt đang chặn popup. Hãy cho phép popup để in.");
+      alert("Trinh duyet dang chan popup. Hay cho phep popup de in.");
       return;
     }
-    printWin.document.open();
-    printWin.document.write(html);
-    printWin.document.close();
+    modal_dataluong_3_showSpinner();
 
-    // Kích hoạt in khi cửa sổ con tải xong
-    printWin.onload = function () {
-      setTimeout(function () {
-        printWin.print();
-      }, 100);
+    const hideThuyetMinhSpinner = function () {
+      modal_dataluong_3_hideSpinnerAfterNetIdle(900);
     };
+
+    const cleanThuyetMinhExcelNumber = function (str) {
+      let s = String(str || '').trim().replace(/\s+/g, '');
+      if (!s) return '';
+      if (s.includes('.') && s.includes(',')) {
+        s = s.replace(/\./g, '').replace(/,/g, '.');
+      } else if (s.includes('.')) {
+        const dotCount = (s.match(/\./g) || []).length;
+        if (dotCount > 1) {
+          s = s.replace(/\./g, '');
+        } else {
+          const parts = s.split('.');
+          if (parts[1] && parts[1].length === 3) s = s.replace(/\./g, '');
+        }
+      } else if (s.includes(',')) {
+        const commaCount = (s.match(/,/g) || []).length;
+        if (commaCount > 1) {
+          s = s.replace(/,/g, '');
+        } else {
+          const parts = s.split(',');
+          if (parts[1] && parts[1].length === 3) {
+            s = s.replace(/,/g, '');
+          } else {
+            s = s.replace(/,/g, '.');
+          }
+        }
+      }
+      return s;
+    };
+
+    const sanitizeThuyetMinhExcelText = function (str) {
+      const s = String(str || '').trim();
+      if (!s) return '';
+      return /^[=+\t\r@-]/.test(s) ? "'" + s : s;
+    };
+
+    const getThuyetMinhXlsx = function (callback) {
+      if (printWin.XLSX) {
+        callback(printWin.XLSX);
+        return;
+      }
+      if (window.XLSX) {
+        callback(window.XLSX);
+        return;
+      }
+
+      const existingScript = printWin.document.getElementById('xlsx-lib');
+      if (existingScript) {
+        existingScript.addEventListener('load', function () {
+          if (printWin.XLSX) callback(printWin.XLSX);
+        }, { once: true });
+        return;
+      }
+
+      const script = printWin.document.createElement('script');
+      script.id = 'xlsx-lib';
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      script.onload = function () {
+        if (printWin.XLSX) {
+          callback(printWin.XLSX);
+        } else {
+          alert('Kh\u00f4ng t\u1ea3i \u0111\u01b0\u1ee3c th\u01b0 vi\u1ec7n xu\u1ea5t Excel. Vui l\u00f2ng th\u1eed l\u1ea1i.');
+        }
+      };
+      script.onerror = function () {
+        alert('Kh\u00f4ng t\u1ea3i \u0111\u01b0\u1ee3c th\u01b0 vi\u1ec7n xu\u1ea5t Excel. Vui l\u00f2ng ki\u1ec3m tra k\u1ebft n\u1ed1i m\u1ea1ng.');
+      };
+      printWin.document.head.appendChild(script);
+    };
+
+    const exportThuyetMinhExcel = function () {
+      const exportButton = printWin.document.getElementById('btnExportExcelThuyetMinh');
+      if (exportButton) exportButton.disabled = true;
+
+      getThuyetMinhXlsx(function (XLSXRef) {
+        try {
+          const doc = printWin.document;
+          const container = doc.getElementById('print-content');
+          if (!container) {
+            alert('Ch\u01b0a c\u00f3 n\u1ed9i dung \u0111\u1ec3 xu\u1ea5t Excel.');
+            return;
+          }
+
+          const clone = container.cloneNode(true);
+          const tables = clone.querySelectorAll('table');
+          if (!tables.length) {
+            alert('Ch\u01b0a c\u00f3 b\u1ea3ng d\u1eef li\u1ec7u \u0111\u1ec3 xu\u1ea5t Excel.');
+            return;
+          }
+
+          tables.forEach(function (table) {
+            table.querySelectorAll('td, th').forEach(function (cell) {
+              const row = cell.closest('tr');
+              const isTotalRow = row && (row.classList.contains('total-row') || row.style.fontWeight === 'bold');
+              const cellIndex = cell.cellIndex;
+              const styleText = cell.getAttribute('style') || '';
+              const isNumericCell = cell.classList.contains('num') ||
+                cell.style.textAlign === 'right' ||
+                styleText.includes('text-align: right') ||
+                (isTotalRow && cellIndex >= 3 && cellIndex <= 6);
+
+              if (isNumericCell) {
+                const text = cell.innerText.trim();
+                if (text && !/^[\p{L}\s]+$/u.test(text)) {
+                  cell.innerText = cleanThuyetMinhExcelNumber(text);
+                  cell.setAttribute('data-t', 'n');
+                }
+              } else {
+                cell.innerText = sanitizeThuyetMinhExcelText(cell.innerText);
+                cell.setAttribute('data-t', 's');
+              }
+            });
+          });
+
+          const ws = XLSXRef.utils.aoa_to_sheet([
+            [`Ph\u1ea7n II: Thuy\u1ebft minh t\u0103ng gi\u1ea3m l\u01b0\u01a1ng ng\u1ea1ch b\u1eadc v\u00e0 c\u00e1c kho\u1ea3n ph\u1ee5 c\u1ea5p th\u00e1ng ${thangT}/${nam}`],
+            []
+          ]);
+
+          XLSXRef.utils.sheet_add_dom(ws, tables[0], { origin: 2, raw: false });
+          for (let i = 1; i < tables.length; i++) {
+            const range = XLSXRef.utils.decode_range(ws['!ref']);
+            XLSXRef.utils.sheet_add_dom(ws, tables[i], { origin: range.e.r + (i === 1 ? 1 : 2), raw: false });
+          }
+
+          const rangeAfterTables = XLSXRef.utils.decode_range(ws['!ref']);
+          XLSXRef.utils.sheet_add_aoa(ws, [
+            [],
+            ['', '', '', '', '', 'Ng\u01b0\u1eddi l\u1eadp b\u1ea3ng'],
+            ['', '', '', '', '', '(K\u00fd, ghi h\u1ecd t\u00ean)']
+          ], { origin: rangeAfterTables.e.r + 2 });
+
+          const finalRange = XLSXRef.utils.decode_range(ws['!ref']);
+          const colWidths = [];
+          for (let C = finalRange.s.c; C <= finalRange.e.c; ++C) {
+            let maxLen = 10;
+            for (let R = finalRange.s.r; R <= finalRange.e.r; ++R) {
+              const cellRef = XLSXRef.utils.encode_cell({ c: C, r: R });
+              const cell = ws[cellRef];
+              if (cell) {
+                if (cell.t === 'n') cell.z = '#,##0';
+                maxLen = Math.max(maxLen, String(cell.v || '').length);
+              }
+            }
+            colWidths.push({ wch: maxLen + 3 });
+          }
+          ws['!cols'] = colWidths;
+
+          const wb = XLSXRef.utils.book_new();
+          XLSXRef.utils.book_append_sheet(wb, ws, 'Sheet1');
+          XLSXRef.writeFile(wb, `Thuyet_minh_luong_Thang_${thangT}_${nam}.xlsx`);
+        } catch (err) {
+          console.error('L\u1ed7i xu\u1ea5t Excel thuy\u1ebft minh:', err);
+          alert('Kh\u00f4ng xu\u1ea5t \u0111\u01b0\u1ee3c Excel. Vui l\u00f2ng ki\u1ec3m tra console \u0111\u1ec3 xem l\u1ed7i.');
+        } finally {
+          if (exportButton) exportButton.disabled = false;
+        }
+      });
+    };
+
+    const renderThuyetMinhPopupContent = function () {
+      const doc = printWin.document;
+      doc.open();
+      doc.close();
+      doc.title = `Thuy\u1ebft minh l\u01b0\u01a1ng - Th\u00e1ng ${thangT}/${nam}`;
+      doc.documentElement.innerHTML = '<head><meta charset="utf-8"><title></title></head><body></body>';
+      doc.title = `Thuy\u1ebft minh l\u01b0\u01a1ng - Th\u00e1ng ${thangT}/${nam}`;
+      doc.head.insertAdjacentHTML('beforeend', css);
+      doc.body.innerHTML = `
+        <div class="no-print toolbar">
+          <button class="btn-excel" id="btnExportExcelThuyetMinh">Xu\u1ea5t Excel</button>
+        </div>
+        <div id="print-content">
+          ${headerHtml}
+          ${tableHtml}
+          <div class="closing-section">
+            ${totalTableHtml}
+            ${summaryHtml}
+            ${signatureHtml}
+          </div>
+        </div>`;
+
+      printWin.exportExcel = exportThuyetMinhExcel;
+      const exportButton = doc.getElementById('btnExportExcelThuyetMinh');
+      if (exportButton) {
+        exportButton.onclick = function () {
+          printWin.exportExcel();
+        };
+      }
+    };
+
+    renderThuyetMinhPopupContent();
+
+    const applyThuyetMinhPrintStyles = function () {
+      const doc = printWin.document;
+      if (!doc || !doc.body) return;
+      doc.body.style.fontFamily = '"Times New Roman", Times, serif';
+      if (!doc.getElementById('thuyet-minh-print-page-style')) {
+        const pageStyle = doc.createElement('style');
+        pageStyle.id = 'thuyet-minh-print-page-style';
+        pageStyle.textContent = `
+          @page { size: A4 landscape; margin-top: 14mm; margin-bottom: 14mm; margin-left: 12mm; margin-right: 12mm; }
+          @media print { .no-print { display: none !important; } }
+        `;
+        doc.head.appendChild(pageStyle);
+      }
+    };
+    applyThuyetMinhPrintStyles();
+    printWin.onbeforeprint = function () {
+      const toolbar = printWin.document.querySelector('.toolbar');
+      if (toolbar) toolbar.style.display = 'none';
+    };
+    printWin.onafterprint = function () {
+      const toolbar = printWin.document.querySelector('.toolbar');
+      if (toolbar) toolbar.style.display = 'flex';
+      applyThuyetMinhPrintStyles();
+    };
+    let thuyetMinhPrintStarted = false;
+    let thuyetMinhPrintAttempts = 0;
+    const triggerThuyetMinhPrint = function () {
+      if (thuyetMinhPrintStarted) return;
+
+      const doc = printWin.document;
+      const content = doc && doc.getElementById('print-content');
+      const contentHeight = content ? content.getBoundingClientRect().height : 0;
+      const hasPrintableContent = !!(content && content.innerHTML.trim() && contentHeight > 20);
+
+      if (!hasPrintableContent && thuyetMinhPrintAttempts < 30) {
+        thuyetMinhPrintAttempts++;
+        setTimeout(triggerThuyetMinhPrint, 150);
+        return;
+      }
+
+      if (!hasPrintableContent) {
+        hideThuyetMinhSpinner();
+        if (typeof digicoreToast === 'function') {
+          digicoreToast('Popup in chua render duoc noi dung. Vui long thu lai.', 'error');
+        } else {
+          alert('Popup in chua render duoc noi dung. Vui long thu lai.');
+        }
+        console.error('ThuyetMinh print content is not ready', {
+          hasContentNode: !!content,
+          contentLength: content ? content.innerHTML.length : 0,
+          contentHeight: contentHeight
+        });
+        return;
+      }
+
+      thuyetMinhPrintStarted = true;
+      hideThuyetMinhSpinner();
+      const doPrintAfterPaint = function () {
+        applyThuyetMinhPrintStyles();
+        printWin.focus();
+        printWin.print();
+      };
+
+      if (printWin.requestAnimationFrame) {
+        printWin.requestAnimationFrame(function () {
+          printWin.requestAnimationFrame(doPrintAfterPaint);
+        });
+      } else {
+        setTimeout(doPrintAfterPaint, 300);
+      }
+    };
+    printWin.onload = triggerThuyetMinhPrint;
+    setTimeout(triggerThuyetMinhPrint, 600);
+    setTimeout(function () {
+      if (!thuyetMinhPrintStarted) triggerThuyetMinhPrint();
+      if (thuyetMinhPrintStarted) hideThuyetMinhSpinner();
+    }, 1600);
   }
 
   /**
@@ -1258,13 +1891,18 @@
    * @param {number} thangT Tháng hiện tại (T)
    * @param {string} nam Năm
    */
-  function openPrintWindow_diNganHang(rows, thangT, nam) {
+  function openPrintWindow_diNganHang(rows, thangT, nam, regionFilter) {
     // ✅1. CSS in ấn - tối ưu A4 — CẬP NHẬT: tăng độ ưu tiên cho .num
     const css = `
   <style>
     @page {
       size: A4 landscape;
       margin: 10mm 10mm 10mm 10mm;
+      @bottom-center {
+        content: "Trang " counter(page);
+        font-size: 10pt;
+        color: black;
+      }
     }
 
     body {
@@ -1274,7 +1912,6 @@
       line-height: 1.1;
     }
 
-    /* ✅ Thêm vào phần CSS */
     .header-section {
       position: relative;
       margin-bottom: 10px;
@@ -1311,6 +1948,7 @@
       font-variant-numeric: tabular-nums;
       font-size: 10px;
       white-space: nowrap; /* Ngăn xuống dòng số */
+      min-width: 65px; /* Giữ kích thước tối thiểu để không bị khuất chữ số */
     }
 
     /* Họ tên (cột thứ 2) */
@@ -1324,6 +1962,7 @@
     /* Số tài khoản (cột thứ 3) */
     tbody tr:not(.total-row) td:nth-child(3) {
       white-space: nowrap;
+      text-align: left !important;
     }
 
     tr { page-break-inside: avoid; }
@@ -1333,17 +1972,52 @@
       background-color: #f9f9f9;
     }
 
+    .no-print {
+      display: block;
+    }
+    .toolbar {
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
+      padding: 8px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+      display: flex;
+      justify-content: flex-start;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .btn-excel {
+      background-color: #1f7244;
+      color: #ffffff;
+      border: none;
+      padding: 6px 12px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: Arial, sans-serif;
+    }
+    .btn-excel:hover {
+      background-color: #154c2e;
+    }
+
     @media print {
-      body { zoom: 1; }
+      .no-print { display: none !important; }
+      body { zoom: 1; margin-top: 0 !important; }
       th, td { border: 0.5pt solid #000; }
       thead th {
         background-color: #f0f0f0 !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
+      .print-no-border-top {
+        border-top: none !important;
+      }
     }
-    
-
   </style>`;
 
     // ✅2. Tiêu đề - CẬP NHẬT THEO MẪU HÌNH
@@ -1364,22 +2038,22 @@
 
   <div style="margin-bottom: 5px;">
     <span style="font-weight: bold;">1. Đơn vị sử dụng ngân sách</span>
-    &nbsp;&nbsp;<span style="border-bottom: 1px solid #000; padding: 0 5px;">Phân hiệu Trường Đại học Công nghệ GTVT</span>
+    &nbsp;&nbsp;<span style="padding: 0 5px;">Phân hiệu Trường Đại học Công nghệ GTVT</span>
   </div>
 
   <div style="margin-bottom: 5px;">
     <span style="font-weight: bold;">2. Mã đơn vị</span>
-    &nbsp;&nbsp;<span style="border-bottom: 1px solid #000; padding: 0 5px;">1055621</span>
+    &nbsp;&nbsp;<span style="padding: 0 5px;">1055621</span>
   </div>
 
   <div style="margin-bottom: 10px;">
     <span style="font-weight: bold;">3. Tài khoản thanh toán của đơn vị mở tại ngân hàng thương mại</span>
-    &nbsp;&nbsp;<span style="border-bottom: 1px solid #000; padding: 0 5px;">Ngân hàng SHB - chi nhánh Hà Nội</span>
+    &nbsp;&nbsp;<span style="padding: 0 5px;">Ngân hàng SHB - chi nhánh Hà Nội</span>
   </div>
 
-  <div style="border-top: 1px solid #000; padding-top: 5px; margin-bottom: 10px;">
+  <div style="padding-top: 5px; margin-bottom: 10px;">
     <span style="font-weight: bold;">I- Nội dung thanh toán</span>
-    &nbsp;&nbsp;<span style="border-bottom: 1px solid #000; padding: 0 5px;">Thu nhập tháng ${thangT}/${nam}</span>
+    &nbsp;&nbsp;<span style="padding: 0 5px;">Lương, phụ cấp tháng ${thangT}/${nam}</span>
   </div>
 
   <!-- Thông tin bên phải (Mẫu số 09, Mã hiệu, Số) -->
@@ -1390,59 +2064,104 @@
   </div>
 </div>`;
 
+    // ✅4. Xử lý dữ liệu - Lấy sums trước để phục vụ việc ẩn/hiển thị cột
+    let sums = {
+      col4: 0, col5: 0, col6: 0, col7: 0, col8: 0, col9: 0, col10: 0, col11: 0, col12: 0, col13: 0
+    };
+
+    rows.forEach(r => {
+      const hoTen = (r[1] || '').trim();
+      const isTotalRow = /^[Tt]ổng/i.test(hoTen);
+      if (!isTotalRow) {
+        for (let i = 4; i <= 13; i++) {
+          const rawV = r[i];
+          const v = typeof rawV === 'number' ? rawV : (parseFloat(String(rawV || 0).replace(/[,]/g, '')) || 0);
+          sums['col' + i] += v;
+        }
+      }
+    });
+
+    const hideTuVe = (String(regionFilter || '').trim() === 'Hà Nội' && sums.col11 === 0);
+
+    const formatNum = (val) => {
+      if (val == null || val === '' || val === 0) return '';
+      const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[,]/g, '')) || 0;
+      if (num === 0) return '';
+      return num.toLocaleString('de-DE');
+    };
+
+    // Calculate dynamic percentage widths based on the column values to make total = 100%
+    let wSoTT = 3;
+    let wHoTen = 14;
+    let wSoTK = 9.5;
+    let wTenNH = 5.5;
+    
+    let wCol4 = sums.col4 > 100000 ? 8.5 : 7.5;
+    let wCol5 = sums.col5 > 100000 ? 8.5 : 7.5;
+    let wCol6 = sums.col6 > 100000 ? 7.5 : 6.5;
+    
+    let wCol7 = sums.col7 > 100000 ? 9.2 : 3.5;
+    let wCol8 = sums.col8 > 100000 ? 6.5 : 3.5;
+    let wCol9 = sums.col9 > 100000 ? 6.5 : 3.5;
+    let wCol10 = sums.col10 > 100000 ? 6.5 : 3.5;
+    let wCol11 = hideTuVe ? 0 : (sums.col11 > 100000 ? 6.5 : 3.5);
+    
+    let wCol12 = sums.col12 > 100000 ? 6.5 : 3.5;
+    let wCol13 = sums.col13 > 100000 ? 6.5 : 3.5;
+    let wGhiChu = 6;
+    
+    let totalAssigned = wSoTT + wHoTen + wSoTK + wTenNH + wCol4 + wCol5 + wCol6 + wCol7 + wCol8 + wCol9 + wCol10 + wCol11 + wCol12 + wCol13 + wGhiChu;
+    let remaining = 100 - totalAssigned;
+    if (remaining !== 0) {
+      wHoTen += remaining * 0.6;
+      wSoTK += remaining * 0.4;
+    }
 
     // ✅3. Thead - CẬP NHẬT THEO MẪU HÌNH 1 & 2
     const theadHtml = `
   <thead>
     <tr>
-      <th rowspan="2" style="width: 3%;">Số<br>TT</th>
-      <th rowspan="2" style="width: 14%;">Họ và tên</th>
-      <th colspan="2" style="width: 16%;">Tài khoản ngân hàng</th>
-      <th rowspan="2" style="width: 8%;">Tổng số</th>
-      <th rowspan="2" style="width: 8%;">Lương và PC theo lương</th>
-      <th rowspan="2" style="width: 8%;">Tiền công LĐ TX (theo HĐ)</th>
-      <th colspan="4" style="width: 24%;">Tiền phụ cấp và trợ cấp khác</th>
-      <th rowspan="2" style="width: 6%;">Tiền khoán</th>
-      <th rowspan="2" style="width: 6%;">Tiền học bổng</th>
-      <th rowspan="2" style="width: 7%;">Ghi chú</th>
+      <th rowspan="2" style="width: ${wSoTT}%; min-width: 25px;">Số<br>TT</th>
+      <th rowspan="2" style="width: ${wHoTen}%; min-width: 110px;">Họ và tên</th>
+      <th colspan="2" style="width: ${wSoTK + wTenNH}%;">Tài khoản ngân hàng</th>
+      <th rowspan="2" style="width: ${wCol4}%; min-width: 65px;">Tổng số</th>
+      <th rowspan="2" style="width: ${wCol5}%; min-width: 65px;">Lương và PC theo lương</th>
+      <th rowspan="2" style="width: ${wCol6}%; min-width: 65px;">Tiền công LĐ TX (theo HĐ)</th>
+      <th colspan="${hideTuVe ? 4 : 5}" style="width: ${wCol7 + wCol8 + wCol9 + wCol10 + wCol11}%;">Tiền phụ cấp và trợ cấp khác</th>
+      <th rowspan="2" style="width: ${wCol12}%; min-width: 50px;">Tiền khoán</th>
+      <th rowspan="2" style="width: ${wCol13}%; min-width: 50px;">Tiền học bổng</th>
+      <th rowspan="2" style="width: ${wGhiChu}%; min-width: 55px;">Ghi chú</th>
     </tr>
     <tr>
-      <th style="width: 9%;">Số TK người được hưởng</th>
-      <th style="width: 7%;">Tên ngân hàng</th>
-      <th style="width: 6%;">Ngành</th>
-      <th style="width: 6%;">Đ.hại</th>
-      <th style="width: 6%;">T.Nhiệm</th>
-      <th style="width: 6%;">Đ.Doàn</th>
+      <th style="width: ${wSoTK}%; min-width: 85px;">Số TK người được hưởng</th>
+      <th style="width: ${wTenNH}%; min-width: 55px;">Tên ngân hàng</th>
+      <th style="width: ${wCol7}%; min-width: 50px;">Ngành</th>
+      <th style="width: ${wCol8}%; min-width: 40px;">Đ.hại</th>
+      <th style="width: ${wCol9}%; min-width: 50px;">T.Nhiệm</th>
+      <th style="width: ${wCol10}%; min-width: 40px;">Đ.Đoàn</th>
+      ${hideTuVe ? '' : `<th style="width: ${wCol11}%; min-width: 40px;">T.vệ</th>`}
     </tr>
-    <!-- ✅ DÒNG HEADER ĐÁNH SỐ THEO MẪU HÌNH 2 -->
+    <!-- ✅ DÒNG HEADER ĐÁNH SỐ THEO MẪU HÌNH 2 (ĐÁNH SỐ RIÊNG TỪNG CỘT) -->
     <tr style="background-color: #f0f0f0; font-weight: bold; font-size: 10px;">
       <th>(1)</th>
       <th>(2)</th>
-      <th colspan="2">(3)</th>
+      <th>(3)</th>
       <th>(4)</th>
       <th>(5)</th>
       <th>(6)</th>
-      <th colspan="4">(9)</th>
+      <th>(7)</th>
+      <th>(8)</th>
+      <th>(9)</th>
       <th>(10)</th>
       <th>(11)</th>
-      <th>(12)</th>
+      ${hideTuVe ? '' : '<th>(12)</th>'}
+      <th>(${hideTuVe ? 12 : 13})</th>
+      <th>(${hideTuVe ? 13 : 14})</th>
+      <th>(${hideTuVe ? 14 : 15})</th>
     </tr>
   </thead>`;
 
-    // ✅4. Xử lý dữ liệu
-    let sums = {
-      col4: 0, col5: 0, col6: 0, col7: 0, col8: 0, col9: 0, col10: 0, col11: 0, col12: 0
-    };
-
     let sttCounter = 1; // Khởi tạo biến đếm STT riêng
-
-    const formatNum = (val) => {
-      if (val == null || val === '' || val === 0) return '';
-      // Nếu là số, dùng trực tiếp. Nếu là chuỗi, mới cần làm sạch.
-      const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[,]/g, '')) || 0;
-      if (num === 0) return '';
-      return num.toLocaleString('de-DE');
-    };
 
     const tbodyHtml = rows.map((r, idx) => {
       const hoTen = (r[1] || '').trim();
@@ -1453,15 +2172,12 @@
       const soTaiKhoan = String(rawSoTaiKhoan).replace(/^'/, '');
       const tenNganHang = r[3] || '';
 
-      // Map các cột tiền từ index 4 -> 12
+      // Map các cột tiền từ index 4 -> 13
       const vals = [];
-      for (let i = 4; i <= 12; i++) {
+      for (let i = 4; i <= 13; i++) {
         const rawV = r[i];
         const v = typeof rawV === 'number' ? rawV : (parseFloat(String(rawV || 0).replace(/[,]/g, '')) || 0);
         vals[i] = v;
-        if (!isTotalRow) {
-          sums['col' + i] += v;
-        }
       }
 
       const rowStyle = isTotalRow ? 'style="font-weight: bold; background-color: #fafafa;"' : '';
@@ -1471,7 +2187,7 @@
       <tr ${rowStyle}>
         <td>${stt}</td>
         <td style="${nameAlign}">${hoTen}</td>
-        <td>${soTaiKhoan}</td>
+        <td style="text-align: left;">${soTaiKhoan}</td>
         <td>${tenNganHang}</td>
         <td class="num">${formatNum(isTotalRow ? r[4] : vals[4])}</td>
         <td class="num">${formatNum(isTotalRow ? r[5] : vals[5])}</td>
@@ -1480,9 +2196,10 @@
         <td class="num">${formatNum(isTotalRow ? r[8] : vals[8])}</td>
         <td class="num">${formatNum(isTotalRow ? r[9] : vals[9])}</td>
         <td class="num">${formatNum(isTotalRow ? r[10] : vals[10])}</td>
-        <td class="num">${formatNum(isTotalRow ? r[11] : vals[11])}</td>
+        ${hideTuVe ? '' : `<td class="num">${formatNum(isTotalRow ? r[11] : vals[11])}</td>`}
         <td class="num">${formatNum(isTotalRow ? r[12] : vals[12])}</td>
-        <td style="text-align: left;">${r[13] || ''}</td>
+        <td class="num">${formatNum(isTotalRow ? r[13] : vals[13])}</td>
+        <td style="text-align: left;">${r[14] || ''}</td>
       </tr>`;
     }).join('');
 
@@ -1498,8 +2215,9 @@
       <td class="num">${formatNum(sums.col8)}</td>
       <td class="num">${formatNum(sums.col9)}</td>
       <td class="num">${formatNum(sums.col10)}</td>
-      <td class="num">${formatNum(sums.col11)}</td>
+      ${hideTuVe ? '' : `<td class="num">${formatNum(sums.col11)}</td>`}
       <td class="num">${formatNum(sums.col12)}</td>
+      <td class="num">${formatNum(sums.col13)}</td>
       <td></td>
     </tr>
   ` : '';
@@ -1529,11 +2247,157 @@
     <meta charset="utf-8">
     <title>Bảng chuyển lương - Tháng ${thangT}/${nam}</title>
     ${css}
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>
   </head>
   <body>
-    ${headerHtml}
-    ${tableHtml}
-    ${amountInWordsHtml}
+    <div class="no-print toolbar">
+      <button class="btn-excel" onclick="exportExcel()">Xuất Excel</button>
+    </div>
+    <div id="print-content">
+      ${headerHtml}
+      ${tableHtml}
+      ${amountInWordsHtml}
+    </div>
+    <script>
+      function cleanNumberString(str) {
+        let s = str.trim().replace(/\\s+/g, '');
+        if (!s) return '';
+        if (s.includes('.') && s.includes(',')) {
+          s = s.replace(/\\./g, '').replace(/,/g, '.');
+        } else if (s.includes('.')) {
+          const dotCount = (s.match(/\\./g) || []).length;
+          if (dotCount > 1) {
+            s = s.replace(/\\./g, '');
+          } else {
+            const parts = s.split('.');
+            if (parts[1].length === 3) {
+              s = s.replace(/\\./g, '');
+            }
+          }
+        } else if (s.includes(',')) {
+          const commaCount = (s.match(/,/g) || []).length;
+          if (commaCount > 1) {
+            s = s.replace(/,/g, '');
+          } else {
+            const parts = s.split(',');
+            if (parts[1].length === 3) {
+              s = s.replace(/,/g, '');
+            } else {
+              s = s.replace(/,/g, '.');
+            }
+          }
+        }
+        return s;
+      }
+
+      function sanitizeExcelText(str) {
+        let s = str.trim();
+        if (!s) return '';
+        if (/^[=+\\t\\r@-]/.test(s)) {
+          return "'" + s;
+        }
+        return s;
+      }
+
+      function exportExcel() {
+        const container = document.getElementById('print-content');
+        const clone = container.cloneNode(true);
+        const tables = clone.querySelectorAll('table');
+        
+        tables.forEach(table => {
+          const cells = table.querySelectorAll('td, th');
+          cells.forEach(cell => {
+            const row = cell.closest('tr');
+            const isTotalRow = row.classList.contains('total-row') || row.style.fontWeight === 'bold';
+            const cellIndex = cell.cellIndex;
+            const isAccountNumber = cellIndex === 2 && !isTotalRow && cell.tagName.toLowerCase() === 'td';
+            
+            if (cell.classList.contains('num') || (isTotalRow && cellIndex >= 4 && cellIndex <= 12)) {
+              let text = cell.innerText.trim();
+              if (text && !/^[a-zA-ZÀ-ỹ\\s]+$/.test(text)) {
+                cell.innerText = cleanNumberString(text);
+                cell.setAttribute('data-t', 'n'); // Gán kiểu Số
+              }
+            } else if (isAccountNumber) {
+              cell.innerText = sanitizeExcelText(cell.innerText);
+              cell.setAttribute('data-t', 's'); // Gán kiểu Chuỗi
+            } else {
+              cell.innerText = sanitizeExcelText(cell.innerText);
+              cell.setAttribute('data-t', 's'); // Gán kiểu Chuỗi
+            }
+          });
+        });
+
+        // Tạo worksheet trống và ghi các dòng tiêu đề Phần 1 trước
+        const ws = XLSX.utils.aoa_to_sheet([
+          ["BẢNG THANH TOÁN CHO ĐỐI TƯỢNG THỤ HƯỞNG"],
+          ["(Kèm theo giấy rút dự toán/ ủy nhiệm chi số ........ ) Ngày .... Tháng .... năm ...."],
+          ["1. Đơn vị sử dụng ngân sách: Phân hiệu Trường Đại học Công nghệ GTVT"],
+          ["2. Mã đơn vị: 1055621"],
+          ["3. Tài khoản thanh toán của đơn vị mở tại ngân hàng thương mại: Ngân hàng SHB - chi nhánh Hà Nội"],
+          []
+        ]);
+
+        // Chèn bảng dữ liệu bắt đầu từ dòng index 6 (hàng 7)
+        XLSX.utils.sheet_add_dom(ws, tables[0], { origin: 6, raw: false });
+
+        // Đọc số tiền bằng chữ từ DOM của giao diện và chèn vào cuối worksheet
+        const wordsDiv = container.querySelector('div[style*="font-style: italic"]');
+        const textBangChu = wordsDiv ? wordsDiv.innerText.replace(/Số tiền bằng chữ:/i, "").trim() : "";
+        
+        const rangeAfterTable = XLSX.utils.decode_range(ws['!ref']);
+        XLSX.utils.sheet_add_aoa(ws, [
+          [],
+          ["Số tiền bằng chữ: " + textBangChu]
+        ], { origin: rangeAfterTable.e.r + 2 });
+
+        // Tự động căn chỉnh độ rộng cột và gán định dạng phân tách hàng nghìn cho số
+        const finalRange = XLSX.utils.decode_range(ws['!ref']);
+        const colWidths = [];
+        for (let C = finalRange.s.c; C <= finalRange.e.c; ++C) {
+          let maxLen = 10;
+          for (let R = finalRange.s.r; R <= finalRange.e.r; ++R) {
+            const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
+            const cell = ws[cellRef];
+            if (cell) {
+              if (cell.t === 'n') {
+                cell.z = '#,##0'; // Định dạng hiển thị dấu phẩy hàng nghìn
+              }
+              const valStr = String(cell.v || '');
+              if (valStr.length > maxLen) {
+                maxLen = valStr.length;
+              }
+            }
+          }
+          colWidths.push({ wch: maxLen + 3 }); // Thêm khoảng đệm cột
+        }
+        ws['!cols'] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+        
+        function s2ab(s) {
+          const buf = new ArrayBuffer(s.length);
+          const view = new Uint8Array(buf);
+          for (let i = 0; i < s.length; i++) {
+            view[i] = s.charCodeAt(i) & 0xFF;
+          }
+          return buf;
+        }
+
+        const blob = new Blob([s2ab(wbout)], { type: "application/octet-stream" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Bang_di_ngan_hang_Thang_${thangT}_${nam}.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    <\/script>
   </body>
   </html>`;
 
@@ -1566,7 +2430,7 @@
         return ketqua;
       }
 
-      let result = "";
+      let words = [];
       let blocks = [];
       let tempSo = Math.abs(Math.round(so));
       while (tempSo > 0) {
@@ -1577,11 +2441,11 @@
       for (let i = blocks.length - 1; i >= 0; i--) {
         let blockText = docBlock(blocks[i]);
         if (blockText !== "") {
-          result += blockText + Tien[i] + " ";
+          words.push((blockText + Tien[i]).replace(/\s+/g, " ").trim());
         }
       }
 
-      result = result.trim();
+      let result = words.join(", ").replace(/\s+/g, " ").trim();
       if (result === "") return "Không đồng";
       return result.charAt(0).toUpperCase() + result.slice(1) + " đồng.";
     }
@@ -1589,7 +2453,7 @@
     // ✅ In
     const printWin = window.open("", "_blank");
     if (!printWin) {
-      alert("Trình duyệt đang chặn popup. Hãy cho phép popup để in.");
+      alert("Trinh duyet dang chan popup. Hay cho phep popup de in.");
       return;
     }
     printWin.document.open();

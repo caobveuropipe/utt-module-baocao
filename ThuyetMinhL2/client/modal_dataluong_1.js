@@ -247,8 +247,9 @@ function modal_dataluong_1_getTotalDataPrint(month,type) {
  * @param {string} month Kỳ lương (VD: "T02.2026")
  * @returns {{status, configData}} configData là mảng [{label, value}, ...]
  */
-function modal_dataluong_1_loadConfigThuyetMinh(month) {
-  const urlGetType = url_api_doGet + `?month=${month}&type=loadConfigThuyetMinhL2`;
+function modal_dataluong_1_loadConfigThuyetMinh(month, region) {
+  const regionParam = region ? `&region=${encodeURIComponent(region)}` : '';
+  const urlGetType = url_api_doGet + `?month=${month}&type=loadConfigThuyetMinhL2${regionParam}`;
   try {
     const response = UrlFetchApp.fetch(urlGetType, { method: 'get' });
     const result = JSON.parse(response.getContentText());
@@ -268,9 +269,10 @@ function modal_dataluong_1_loadConfigThuyetMinh(month) {
  * @param {Array} configLines Mảng [{label, value}, ...]
  * @returns {{status}}
  */
-function modal_dataluong_1_saveConfigThuyetMinh(month, configLines) {
+function modal_dataluong_1_saveConfigThuyetMinh(month, region, configLines) {
+  const regionParam = region ? `&region=${encodeURIComponent(region)}` : '';
   const urlGetType = url_api_doGet +
-    `?month=${month}&type=saveConfigThuyetMinhL2&data=${encodeURIComponent(JSON.stringify(configLines))}`;
+    `?month=${month}&type=saveConfigThuyetMinhL2${regionParam}&data=${encodeURIComponent(JSON.stringify(configLines))}`;
   try {
     const response = UrlFetchApp.fetch(urlGetType, { method: 'get' });
     const result = JSON.parse(response.getContentText());

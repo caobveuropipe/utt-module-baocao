@@ -92,14 +92,14 @@ function doGet(e) {
         downloadUrl
       })).setMimeType(ContentService.MimeType.JSON);
     } else if (type === 'loadConfigThuyetMinhL2') {
-      const configData = doGet_loadConfigThuyetMinhL2(month);
+      const configData = doGet_loadConfigThuyetMinhL2(month, region);
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
         configData
       })).setMimeType(ContentService.MimeType.JSON);
     } else if (type === 'saveConfigThuyetMinhL2') {
       const configLines = JSON.parse(e.parameter.data || '[]');
-      const saveResult = doGet_saveConfigThuyetMinhL2(month, configLines);
+      const saveResult = doGet_saveConfigThuyetMinhL2(month, region, configLines);
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
         message: saveResult
@@ -602,4 +602,32 @@ function testChotCongMap() {
   } else {
     Logger.log("Không tìm thấy CB97");
   }
+}
+
+function testGetDataTruyThuLinhMap() {
+  const map = doGet_getDataTruyThuLinhMap('T01.2025');
+  Logger.log(JSON.stringify(map));
+}
+
+function testGetBankPrintData() {
+  const result = doGet_getDataPrint_DiNganHang('T01.2025', 'Tất cả');
+  Logger.log('Số dòng kết quả: ' + result.length);
+  if (result.length > 0) {
+    Logger.log('Dòng đầu: ' + JSON.stringify(result[0]));
+    Logger.log('Dòng cuối/Dòng tổng cộng: ' + JSON.stringify(result[result.length - 1]));
+  }
+}
+
+function testCB1081() {
+  const month = 'T05.2026';
+  const truyThuMap = doGet_getDataTruyThuLinhMap(month);
+  Logger.log('truyThuMap CB1081: ' + JSON.stringify(truyThuMap['CB1081']));
+  
+  const originalData = doGet_getDataFromSheet(month);
+  const employeeRow = originalData.find(row => String(row[1]).trim().toUpperCase() === 'CB1081');
+  Logger.log('Database row CB1081: ' + JSON.stringify(employeeRow));
+  
+  const printData = doGet_getDataPrint_DiNganHang(month, 'Tất cả');
+  const printRow = printData.find(row => String(row[1]).trim() === 'Trần Xuân Hoàng');
+  Logger.log('Print row CB1081: ' + JSON.stringify(printRow));
 }

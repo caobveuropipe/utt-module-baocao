@@ -74,7 +74,7 @@ function doGet_getDataToCompare(kyTStr) {
     if (!ma) return;
     const key = ky + '||' + ma;
 
-    const luong2 = Number(r[idx1.Luong2]) || 0;
+    const luong2 = doGet_safeParseMoney(r[idx1.Luong2]);
     if (!mapLuong2[key]) {
       mapLuong2[key] = {
         totalLuong2: 0,
@@ -96,14 +96,14 @@ function doGet_getDataToCompare(kyTStr) {
     }
     const obj = mapLuong2[key];
     obj.totalLuong2 += luong2;
-    obj.byComponent['Ổn định thu nhập'] += Number(r[idx1.OnDinh]) || 0;
-    obj.byComponent['Quản lý'] += Number(r[idx1.QuanLy]) || 0;
-    obj.byComponent['Hỗ trợ hành chính phục vụ'] += Number(r[idx1.HanhChinh]) || 0;
-    obj.byComponent['Thu hút lao động'] += Number(r[idx1.ThuHut]) || 0;
-    obj.byComponent['Hỗ trợ khác'] += Number(r[idx1.HoTroKhac]) || 0;
-    obj.byComponent['Tạm ứng nghiên cứu sinh'] += Number(r[idx1.NCS]) || 0;
-    obj.byComponent['Tạm trừ thuế'] += Number(r[idx1.TamTruThue]) || 0;
-    obj.byComponent['Quyết toán thuế'] += Number(r[idx1.QTT]) || 0;
+    obj.byComponent['Ổn định thu nhập'] += doGet_safeParseMoney(r[idx1.OnDinh]);
+    obj.byComponent['Quản lý'] += doGet_safeParseMoney(r[idx1.QuanLy]);
+    obj.byComponent['Hỗ trợ hành chính phục vụ'] += doGet_safeParseMoney(r[idx1.HanhChinh]);
+    obj.byComponent['Thu hút lao động'] += doGet_safeParseMoney(r[idx1.ThuHut]);
+    obj.byComponent['Hỗ trợ khác'] += doGet_safeParseMoney(r[idx1.HoTroKhac]);
+    obj.byComponent['Tạm ứng nghiên cứu sinh'] += doGet_safeParseMoney(r[idx1.NCS]);
+    obj.byComponent['Tạm trừ thuế'] += doGet_safeParseMoney(r[idx1.TamTruThue]);
+    obj.byComponent['Quyết toán thuế'] += doGet_safeParseMoney(r[idx1.QTT]);
   });
 
   Logger.log('File1: tổng dòng duyệt: %s, sau lọc 2 kỳ: %s, số key trong mapLuong2: %s',
@@ -148,7 +148,7 @@ function doGet_getDataToCompare(kyTStr) {
     if (!ma) return;
     const key = ky + '||' + ma;
 
-    const conNhan = Number(r[idx2.ConNhan]) || 0;
+    const conNhan = doGet_safeParseMoney(r[idx2.ConNhan]);
     if (!mapTruyThu[key]) {
       mapTruyThu[key] = {
         totalConNhan: 0,
@@ -167,12 +167,12 @@ function doGet_getDataToCompare(kyTStr) {
     }
     const obj = mapTruyThu[key];
     obj.totalConNhan += conNhan;
-    obj.byComponent['Ổn định thu nhập thành tiền'] += Number(r[idx2.OnDinhTT]) || 0;
-    obj.byComponent['Quản lý thành tiền'] += Number(r[idx2.QuanLyTT]) || 0;
-    obj.byComponent['Hỗ trợ hành chính thành tiền'] += Number(r[idx2.HanhChinhTT]) || 0;
-    obj.byComponent['Thu hút lao động thành tiền'] += Number(r[idx2.ThuHutTT]) || 0;
-    obj.byComponent['Hỗ trợ khác thành tiền'] += Number(r[idx2.HoTroKhacTT]) || 0;
-    obj.byComponent['nghiên cứu sinh - Thành tiền'] += Number(r[idx2.NCSTT]) || 0;
+    obj.byComponent['Ổn định thu nhập thành tiền'] += doGet_safeParseMoney(r[idx2.OnDinhTT]);
+    obj.byComponent['Quản lý thành tiền'] += doGet_safeParseMoney(r[idx2.QuanLyTT]);
+    obj.byComponent['Hỗ trợ hành chính thành tiền'] += doGet_safeParseMoney(r[idx2.HanhChinhTT]);
+    obj.byComponent['Thu hút lao động thành tiền'] += doGet_safeParseMoney(r[idx2.ThuHutTT]);
+    obj.byComponent['Hỗ trợ khác thành tiền'] += doGet_safeParseMoney(r[idx2.HoTroKhacTT]);
+    obj.byComponent['nghiên cứu sinh - Thành tiền'] += doGet_safeParseMoney(r[idx2.NCSTT]);
   });
 
   Logger.log('File2: tổng dòng duyệt: %s, sau lọc 2 kỳ: %s, số key trong mapTruyThu: %s',
@@ -662,7 +662,118 @@ function doGet_getDataChotNSThang_WithBankInfo(bankMap) {
 }
 
 // Xóa hàm trung gian không cần thiết
-function doGet_getDataMasterNhanSu_BankInfo() { return {}; }
+/**
+ * Chuyển đổi an toàn chuỗi tiền tệ (kể cả dạng kế toán đóng ngoặc như (1.500.000) hoặc có ký tự dấu trừ đặc biệt) sang dạng số Float
+ * @param {any} val - Giá trị đầu vào cần parse
+ * @returns {number} - Giá trị số thực
+ */
+function doGet_safeParseMoney(val) {
+  if (val == null || val === '') return 0;
+  if (typeof val === 'number') return val;
+  
+  let str = String(val).trim();
+  if (str === '') return 0;
+  
+  let isNegative = false;
+  // Hỗ trợ định dạng kế toán ngoặc đơn: (1.500.000) -> -1.500.000
+  if (str.startsWith('(') && str.endsWith(')')) {
+    isNegative = true;
+    str = str.substring(1, str.length - 1).trim();
+  }
+  
+  // Hỗ trợ các ký tự dấu gạch ngang âm đặc biệt (en-dash, em-dash)
+  if (str.startsWith('-') || str.startsWith('–') || str.startsWith('—')) {
+    isNegative = true;
+    str = str.substring(1).trim();
+  }
+  
+  // Loại bỏ tất cả ký tự phân cách nghìn (chấm hoặc phẩy)
+  let cleanStr = str.replace(/[,.]/g, '').trim();
+  let num = parseFloat(cleanStr) || 0;
+  return isNegative ? -num : num;
+}
+
+/**
+ * Tải dữ liệu từ sheet "DataTruyThuLinh" của file Truy thu truy lĩnh L2
+ * Lọc theo "Kỳ trả lương" === monthStr
+ * Gom nhóm và tính tổng "Còn nhận" theo "Mã nhân sự"
+ * @param {string} monthStr - Kỳ trả lương dạng Tmm.yyyy
+ * @returns {Object} map: { [maNS]: { maNS: string, conNhan: number, hoTen: string, loaiHD: string, tenDonVi: string, khuVuc: string } }
+ */
+function doGet_getDataTruyThuLinhMap(monthStr) {
+  const FILE2_ID = '1rdy605GSv7R_QazPbPA7qXBEkzzqoDB0Kx-lhrAB6ew';
+  const SHEET_NAME = 'DataTruyThuLinh';
+  let values;
+
+  // EFR-01: Ưu tiên dùng Sheets API v4
+  try {
+    const response = Sheets.Spreadsheets.Values.get(FILE2_ID, SHEET_NAME, {
+      valueRenderOption: 'FORMATTED_VALUE'
+    });
+    values = response.values;
+  } catch (e) {
+    Logger.log('Lỗi khi dùng Sheets API cho DataTruyThuLinh: %s. Fallback dùng SpreadsheetApp.', e.message);
+    try {
+      const ss = SpreadsheetApp.openById(FILE2_ID);
+      const sh = ss.getSheetByName(SHEET_NAME);
+      if (sh) {
+        values = sh.getDataRange().getValues();
+      }
+    } catch (err) {
+      Logger.log('Lỗi fallback SpreadsheetApp cho DataTruyThuLinh: %s', err.message);
+    }
+  }
+
+  if (!values || values.length < 2) {
+    Logger.log('Không có dữ liệu từ DataTruyThuLinh.');
+    return {};
+  }
+
+  const header = values[0];
+  const data = values.slice(1);
+
+  const idx = {
+    KyTraLuong: header.indexOf('Kỳ trả lương'),
+    MaNS: header.indexOf('Mã nhân sự'),
+    HoTen: header.indexOf('Họ và tên'),
+    ConNhan: header.indexOf('Còn nhận'),
+    LoaiHopDong: header.indexOf('Loại hợp đồng'),
+    TenDonVi: header.indexOf('Tên đơn vị'),
+    KhuVuc: header.indexOf('Khu vực')
+  };
+
+  if (idx.KyTraLuong === -1 || idx.MaNS === -1 || idx.ConNhan === -1) {
+    Logger.log('Thiếu các cột bắt buộc (Kỳ trả lương, Mã nhân sự, Còn nhận) trong DataTruyThuLinh');
+    return {};
+  }
+
+  const map = {};
+  data.forEach(r => {
+    const ky = String(r[idx.KyTraLuong] || '').trim();
+    if (ky !== monthStr) return;
+
+    const maNS = String(r[idx.MaNS] || '').trim().toUpperCase();
+    if (!maNS) return;
+
+    // EFR-02: Sử dụng hàm parse float thông minh hỗ trợ số âm kế toán
+    let conNhanVal = doGet_safeParseMoney(r[idx.ConNhan]);
+
+    if (!map[maNS]) {
+      map[maNS] = {
+        maNS: maNS,
+        conNhan: 0,
+        hoTen: String(r[idx.HoTen] || '').trim(),
+        loaiHD: idx.LoaiHopDong !== -1 ? String(r[idx.LoaiHopDong] || '').trim() : '',
+        tenDonVi: idx.TenDonVi !== -1 ? String(r[idx.TenDonVi] || '').trim() : '',
+        khuVuc: idx.KhuVuc !== -1 ? String(r[idx.KhuVuc] || '').trim() : ''
+      };
+    }
+    map[maNS].conNhan += conNhanVal;
+  });
+
+  Logger.log('doGet_getDataTruyThuLinhMap: Đã load %s nhân viên từ DataTruyThuLinh cho kỳ %s', Object.keys(map).length, monthStr);
+  return map;
+}
 
 /**LẤY SỐ TÀI KHOẢN - đọc từ Master DataNhanSu (giống L1) */
 function doGet_getDataNhanSu_SoTaiKhoan() {
@@ -885,6 +996,10 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
   const personnelBankMap = doGet_getDataNhanSu_SoTaiKhoan();
   const dataChotNSMap = doGet_getDataChotNSThang_WithBankInfo(personnelBankMap);
 
+  // Load map Truy thu truy lĩnh L2
+  const truyThuMap = doGet_getDataTruyThuLinhMap(monthStr);
+  const processedMaNS = new Set();
+
   // 3. Tính tháng T-1
   function parseKy(kyStr) {
     const body = kyStr.substring(1);
@@ -933,7 +1048,7 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
     const safeSoTK = soTaiKhoan ? "'" + String(soTaiKhoan) : '';
     const safeTenNH = tenNganHang ? String(tenNganHang) : '';
 
-    const soTien = parseFloat(row[COL_SO_TIEN]) || 0;
+    const soTien = doGet_safeParseMoney(row[COL_SO_TIEN]);
     const soTien2 = soTien;
 
     // Nếu cần numeric sort theo Mã CB, tạo maNSNumber:
@@ -1190,7 +1305,7 @@ function doGet_xuatDebugDiNganHangL2(monthStr, regionFilter) {
       return;
     }
 
-    const soTien = parseFloat(row[3]) || 0;
+    const soTien = doGet_safeParseMoney(row[3]);
     rows.push([
       monthStr,
       khuVuc,
@@ -1310,38 +1425,7 @@ function test_getDataToCompare() {
     .setValues(data);
 }
 
-/**
- * Lấy tổng thực tế mục II. THU NHẬP TĂNG THÊM trong Tổng hợp lương
- * cho kỳ T và T-1, theo khu vực Hà Nội/Phú Thọ nếu có chọn.
- * Công thức mục II = Lương 2 + truy lĩnh/truy thu lương 2 (Còn nhận).
- */
 function doGet_getTotalTNTTSums(monthStr, regionFilter) {
-  const FILES = {
-    DATA_LUONG_2: '13JOTPXzwsgFttd6gmKk0mCTgXqKO9R4MJICMWHLvozs',
-    TRUY_THU_LUONG_2: '1rdy605GSv7R_QazPbPA7qXBEkzzqoDB0Kx-lhrAB6ew',
-    MASTER_DATA: '1OH2HsnDShrkFfM-R8EJo3hwGDOsQh-e43Dmb2xaiudw'
-  };
-
-  function parseKy(kyStr) {
-    const parts = String(kyStr || '').substring(1).split('.');
-    return { month: parseInt(parts[0], 10), year: parseInt(parts[1], 10) };
-  }
-
-  function formatKy(month, year) {
-    return 'T' + ('0' + month).slice(-2) + '.' + year;
-  }
-
-  function prevKy(kyStr) {
-    const ky = parseKy(kyStr);
-    let m = ky.month - 1;
-    let y = ky.year;
-    if (m === 0) {
-      m = 12;
-      y--;
-    }
-    return formatKy(m, y);
-  }
-
   function normalizeKey(value) {
     return String(value || '')
       .normalize('NFD')
@@ -1352,21 +1436,9 @@ function doGet_getTotalTNTTSums(monthStr, regionFilter) {
       .trim();
   }
 
-  function normalizeLocation(value) {
-    const key = normalizeKey(value);
-    if (!key) return '';
-    if (key.indexOf('ha noi') !== -1 || key === 'hn') return 'Hà Nội';
-    if (key.indexOf('phu tho') !== -1 || key.indexOf('vinh phuc') !== -1 || key === 'pt' || key === 'vp') return 'Phú Thọ';
-    return String(value || '').trim();
-  }
-
   function isAllRegion(value) {
     const key = normalizeKey(value);
     return !key || key === 'all' || key === 'tat ca';
-  }
-
-  function isWantedLocation(kv, wanted) {
-    return !wanted || normalizeKey(kv) === normalizeKey(wanted);
   }
 
   function getIdx(header, names) {
@@ -1383,115 +1455,74 @@ function doGet_getTotalTNTTSums(monthStr, regionFilter) {
     return idx >= 0 ? row[idx] : '';
   }
 
-  function getData(fileId, sheetName) {
-    try {
-      const sh = SpreadsheetApp.openById(fileId).getSheetByName(sheetName);
-      return sh ? sh.getDataRange().getValues() : [];
-    } catch (e) {
-      Logger.log('Lỗi đọc sheet %s: %s', sheetName, e.message);
-      return [];
-    }
+  function parseMoney(value) {
+    if (typeof value === 'number') return value;
+    const text = String(value || '').trim();
+    if (!text) return 0;
+    const normalized = text.replace(/[.,\s]/g, '');
+    const numberValue = Number(normalized);
+    return isNaN(numberValue) ? 0 : numberValue;
   }
 
-  function buildLocationMap(ky) {
-    const wantedLocation = isAllRegion(regionFilter) ? '' : normalizeLocation(regionFilter);
-    const map = {};
+  const DB_FILE_ID = '1-pKqPF-GpmoTXno1no5NN-JRIMLsHwBqGx1xdLHPgr4';
+  const DB_SHEET_NAME = 'Database';
+  const ss = SpreadsheetApp.openById(DB_FILE_ID);
+  const sh = ss.getSheetByName(DB_SHEET_NAME);
+  const values = sh ? sh.getDataRange().getValues() : [];
 
-    const valuesNS = getData(FILES.MASTER_DATA, 'DataNhanSu');
-    const hNS = valuesNS[0] || [];
-    const idxNS = {
-      MaCB: getIdx(hNS, ['Mã CB', 'Mã nhân sự']),
-      KhuVuc: getIdx(hNS, 'Khu vực')
+  if (values.length < 2) {
+    return {
+      totalLuongT: 0,
+      totalLuongT1: 0
     };
-
-    valuesNS.slice(1).forEach(row => {
-      const maCB = String(getCell(row, idxNS.MaCB) || '').trim();
-      if (!maCB) return;
-      const kv = normalizeLocation(getCell(row, idxNS.KhuVuc));
-      if (!isWantedLocation(kv, wantedLocation)) return;
-      map[maCB] = kv;
-    });
-
-    const valuesChot = getSheetNSThang().getDataRange().getValues();
-    const hChot = valuesChot[0] || [];
-    const idxChot = {
-      KyLuong: getIdx(hChot, 'Kỳ lương'),
-      MaNS: getIdx(hChot, 'Mã nhân sự'),
-      KhuVuc: getIdx(hChot, 'Khu vực') !== -1 ? getIdx(hChot, 'Khu vực') : 38
-    };
-
-    valuesChot.slice(1).forEach(row => {
-      if (String(getCell(row, idxChot.KyLuong) || '').trim() !== ky) return;
-      const maCB = String(getCell(row, idxChot.MaNS) || '').trim();
-      if (!maCB) return;
-      const kv = normalizeLocation(getCell(row, idxChot.KhuVuc));
-      if (!isWantedLocation(kv, wantedLocation)) {
-        if (map[maCB]) delete map[maCB];
-        return;
-      }
-      map[maCB] = kv;
-    });
-
-    return { map, wantedLocation };
   }
 
-  function getTotalTNTTForKy(ky) {
-    const loc = buildLocationMap(ky);
-    const valuesL2 = getData(FILES.DATA_LUONG_2, 'DataLuong2');
-    const valuesTT2 = getData(FILES.TRUY_THU_LUONG_2, 'DataTruyThuLinh');
-    const hL2 = valuesL2[0] || [];
-    const hTT2 = valuesTT2[0] || [];
-    const idxL2 = {
-      KyLuong: getIdx(hL2, 'Kỳ lương'),
-      MaNS: getIdx(hL2, ['Mã nhân sự', 'Mã CB', 'MaNS']),
-      Luong2: getIdx(hL2, ['Lương 2', 'Tổng lương'])
-    };
-    const idxTT2 = {
-      KyTraLuong: getIdx(hTT2, 'Kỳ trả lương'),
-      MaNS: getIdx(hTT2, 'Mã nhân sự'),
-      ConNhan: getIdx(hTT2, 'Còn nhận')
-    };
+  const header = values[0];
+  const data = values.slice(1);
+  const idx = {
+    KyLuong: getIdx(header, 'Kỳ lương'),
+    MaCB: getIdx(header, ['Mã CB', 'Mã nhân sự']),
+    LuongTL: getIdx(header, 'Lương và truy lĩnh'),
+    LuongTLPrev: getIdx(header, 'Lương và truy lĩnh kỳ trước')
+  };
 
-    function allowEmployee(maCB) {
-      if (!maCB) return false;
-      if (!loc.wantedLocation) return true;
-      return isWantedLocation(loc.map[maCB] || '', loc.wantedLocation);
+  if (idx.KyLuong === -1 || idx.MaCB === -1 || idx.LuongTL === -1 || idx.LuongTLPrev === -1) {
+    throw new Error('Database thiếu cột Kỳ lương, Mã CB, Lương và truy lĩnh hoặc Lương và truy lĩnh kỳ trước');
+  }
+
+  const wantedRegion = isAllRegion(regionFilter) ? '' : normalizeKey(regionFilter);
+  const dataChotNSMap = wantedRegion ? doGet_getDataChotNSThang() : {};
+  let totalLuongT = 0;
+  let totalLuongT1 = 0;
+  let rowCount = 0;
+
+  data.forEach(row => {
+    const kyLuong = String(getCell(row, idx.KyLuong) || '').trim();
+    if (kyLuong !== monthStr) return;
+
+    if (wantedRegion) {
+      const maCB = String(getCell(row, idx.MaCB) || '').trim();
+      const rowRegion = normalizeKey((dataChotNSMap[monthStr + '||' + maCB] || {}).khuVuc);
+      if (rowRegion !== wantedRegion) return;
     }
 
-    let total = 0;
-    let rowsL2 = 0;
-    let rowsTT2 = 0;
+    totalLuongT += parseMoney(getCell(row, idx.LuongTL));
+    totalLuongT1 += parseMoney(getCell(row, idx.LuongTLPrev));
+    rowCount++;
+  });
 
-    valuesL2.slice(1).forEach(row => {
-      if (String(getCell(row, idxL2.KyLuong) || '').trim() !== ky) return;
-      const maCB = String(getCell(row, idxL2.MaNS) || '').trim();
-      if (!allowEmployee(maCB)) return;
-      total += Number(getCell(row, idxL2.Luong2)) || 0;
-      rowsL2++;
-    });
-
-    valuesTT2.slice(1).forEach(row => {
-      if (String(getCell(row, idxTT2.KyTraLuong) || '').trim() !== ky) return;
-      const maCB = String(getCell(row, idxTT2.MaNS) || '').trim();
-      if (!allowEmployee(maCB)) return;
-      total += Number(getCell(row, idxTT2.ConNhan)) || 0;
-      rowsTT2++;
-    });
-
-    Logger.log(
-      'Tổng TNTT mục II kỳ %s, khu vực %s: total=%s, rowsL2=%s, rowsTT2=%s',
-      ky,
-      loc.wantedLocation || 'Tất cả',
-      total,
-      rowsL2,
-      rowsTT2
-    );
-    return total;
-  }
+  Logger.log(
+    'Tổng thuyết minh L2 từ Database kỳ %s, khu vực %s: totalLuongT=%s, totalLuongT1=%s, rows=%s',
+    monthStr,
+    regionFilter || 'Tất cả',
+    totalLuongT,
+    totalLuongT1,
+    rowCount
+  );
 
   return {
-    totalLuongT: getTotalTNTTForKy(monthStr),
-    totalLuongT1: getTotalTNTTForKy(prevKy(monthStr))
+    totalLuongT,
+    totalLuongT1
   };
 }
 
@@ -1503,9 +1534,22 @@ function doGet_getTotalTNTTSums(monthStr, regionFilter) {
  * @param {string} monthStr Kỳ lương (VD: "T02.2026")
  * @returns {Array} Mảng 4 phần tử: [{label, value}, {label, value}, ...]
  */
-function doGet_loadConfigThuyetMinhL2(monthStr) {
+function doGet_normalizeConfigRegion(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function doGet_isAllConfigRegion(value) {
+  return doGet_normalizeConfigRegion(value) === 'tat ca';
+}
+
+function doGet_loadConfigThuyetMinhL2(monthStr, regionFilter) {
   const FILE_ID = '1-pKqPF-GpmoTXno1no5NN-JRIMLsHwBqGx1xdLHPgr4';
   const SHEET_NAME = 'ConfigThuyetMinhL2';
+  const wantedRegion = String(regionFilter || 'Tất cả').trim() || 'Tất cả';
 
   const emptyResult = [
     { label: '', value: '' },
@@ -1526,17 +1570,90 @@ function doGet_loadConfigThuyetMinhL2(monthStr) {
     const lastRow = sh.getLastRow();
     if (lastRow < 2) return emptyResult;
 
-    const data = sh.getRange(2, 1, lastRow - 1, 9).getValues();
+    const width = Math.max(sh.getLastColumn(), 9);
+    const hasRegionCol = width >= 10 && String(sh.getRange(1, 2).getValue() || '').trim() === 'KhuVuc';
+    const data = sh.getRange(2, 1, lastRow - 1, width).getValues();
+
+    const parseConfigRow = function (row, rowRegion) {
+      const offset = hasRegionCol ? 1 : 0;
+      return [
+        { region: rowRegion, index: 0, label: String(row[1 + offset] || ''), value: String(row[2 + offset] || '') },
+        { region: rowRegion, index: 1, label: String(row[3 + offset] || ''), value: String(row[4 + offset] || '') },
+        { region: rowRegion, index: 2, label: String(row[5 + offset] || ''), value: String(row[6 + offset] || '') },
+        { region: rowRegion, index: 3, label: String(row[7 + offset] || ''), value: String(row[8 + offset] || '') }
+      ];
+    };
+
+    const findConfigByRegion = function (regionName) {
+      for (const row of data) {
+        const ky = String(row[0]).trim();
+        const rowRegion = hasRegionCol ? (String(row[1] || 'Tất cả').trim() || 'Tất cả') : 'Tất cả';
+        if (ky === monthStr && doGet_normalizeConfigRegion(rowRegion) === doGet_normalizeConfigRegion(regionName)) {
+          return parseConfigRow(row, rowRegion);
+        }
+      }
+      return [
+        { region: regionName, index: 0, label: '', value: '' },
+        { region: regionName, index: 1, label: '', value: '' },
+        { region: regionName, index: 2, label: '', value: '' },
+        { region: regionName, index: 3, label: '', value: '' }
+      ];
+    };
+
+    const findMergedConfigByRegion = function (regionName) {
+      const mergedLines = [];
+      const seenLineKeys = {};
+      for (const row of data) {
+        const ky = String(row[0]).trim();
+        const rowRegion = hasRegionCol ? (String(row[1] || 'Tất cả').trim() || 'Tất cả') : 'Tất cả';
+        if (ky === monthStr && doGet_normalizeConfigRegion(rowRegion) === doGet_normalizeConfigRegion(regionName)) {
+          parseConfigRow(row, rowRegion).forEach(function (line) {
+            if ((line.label || '').trim() || (line.value || '').trim()) {
+              const lineKey = [
+                doGet_normalizeConfigRegion(rowRegion),
+                String(line.label || '').trim(),
+                String(line.value || '').trim()
+              ].join('||');
+              if (seenLineKeys[lineKey]) return;
+              seenLineKeys[lineKey] = true;
+              mergedLines.push({
+                region: rowRegion,
+                label: line.label || '',
+                value: line.value || ''
+              });
+            }
+          });
+        }
+      }
+
+      const result = [
+        { region: regionName, index: 0, label: '', value: '' },
+        { region: regionName, index: 1, label: '', value: '' },
+        { region: regionName, index: 2, label: '', value: '' },
+        { region: regionName, index: 3, label: '', value: '' }
+      ];
+
+      mergedLines.slice(0, 4).forEach(function (line, index) {
+        result[index] = {
+          region: line.region || regionName,
+          index: index,
+          label: line.label,
+          value: line.value
+        };
+      });
+
+      return result;
+    };
+
+    if (doGet_isAllConfigRegion(wantedRegion)) {
+      return findMergedConfigByRegion('Hà Nội').concat(findMergedConfigByRegion('Phú Thọ'));
+    }
 
     for (const row of data) {
       const ky = String(row[0]).trim();
-      if (ky === monthStr) {
-        return [
-          { label: String(row[1] || ''), value: String(row[2] || '') },
-          { label: String(row[3] || ''), value: String(row[4] || '') },
-          { label: String(row[5] || ''), value: String(row[6] || '') },
-          { label: String(row[7] || ''), value: String(row[8] || '') }
-        ];
+      const rowRegion = hasRegionCol ? (String(row[1] || 'Tất cả').trim() || 'Tất cả') : 'Tất cả';
+      if (ky === monthStr && doGet_normalizeConfigRegion(rowRegion) === doGet_normalizeConfigRegion(wantedRegion)) {
+        return findMergedConfigByRegion(wantedRegion);
       }
     }
 
@@ -1554,23 +1671,63 @@ function doGet_loadConfigThuyetMinhL2(monthStr) {
  * @param {Array} configLines Mảng 4 phần tử [{label, value}, ...]
  * @returns {string} 'Success' hoặc lỗi
  */
-function doGet_saveConfigThuyetMinhL2(monthStr, configLines) {
+function doGet_saveConfigThuyetMinhL2(monthStr, regionFilter, configLines) {
   const FILE_ID = '1-pKqPF-GpmoTXno1no5NN-JRIMLsHwBqGx1xdLHPgr4';
   const SHEET_NAME = 'ConfigThuyetMinhL2';
+  const wantedRegion = String(regionFilter || 'Tất cả').trim() || 'Tất cả';
 
   try {
+    if (doGet_isAllConfigRegion(wantedRegion)) {
+      const defaultRegions = ['Hà Nội', 'Phú Thọ'];
+      const linesByRegion = {};
+      defaultRegions.forEach(function (regionName) {
+        linesByRegion[regionName] = [
+          { label: '', value: '' },
+          { label: '', value: '' },
+          { label: '', value: '' },
+          { label: '', value: '' }
+        ];
+      });
+
+      (Array.isArray(configLines) ? configLines : []).forEach(function (line) {
+        const lineRegion = line.region || defaultRegions[0];
+        if (!linesByRegion[lineRegion]) return;
+        const lineIndex = Number.isInteger(line.index) ? line.index : linesByRegion[lineRegion].findIndex(item => !item.label && !item.value);
+        if (lineIndex >= 0 && lineIndex < 4) {
+          linesByRegion[lineRegion][lineIndex] = {
+            label: line.label || '',
+            value: line.value || ''
+          };
+        }
+      });
+
+      for (const regionName of defaultRegions) {
+        const saveResult = doGet_saveConfigThuyetMinhL2(monthStr, regionName, linesByRegion[regionName]);
+        if (saveResult !== 'Success') return saveResult;
+      }
+
+      return 'Success';
+    }
+
     const ss = SpreadsheetApp.openById(FILE_ID);
     let sh = ss.getSheetByName(SHEET_NAME);
 
     if (!sh) {
       sh = ss.insertSheet(SHEET_NAME);
-      sh.getRange(1, 1, 1, 9).setValues([
-        ['Kỳ lương', 'Label1', 'Value1', 'Label2', 'Value2', 'Label3', 'Value3', 'Label4', 'Value4']
+      sh.getRange(1, 1, 1, 10).setValues([
+        ['Kỳ lương', 'KhuVuc', 'Label1', 'Value1', 'Label2', 'Value2', 'Label3', 'Value3', 'Label4', 'Value4']
       ]);
+    } else if (String(sh.getRange(1, 2).getValue() || '').trim() !== 'KhuVuc') {
+      sh.insertColumnAfter(1);
+      sh.getRange(1, 2).setValue('KhuVuc');
+      const lastRowForMigration = sh.getLastRow();
+      if (lastRowForMigration >= 2) {
+        sh.getRange(2, 2, lastRowForMigration - 1, 1).setValue('Tất cả');
+      }
     }
 
     const newRow = [
-      monthStr,
+      monthStr, wantedRegion,
       configLines[0]?.label || '', configLines[0]?.value || '',
       configLines[1]?.label || '', configLines[1]?.value || '',
       configLines[2]?.label || '', configLines[2]?.value || '',
@@ -1579,18 +1736,20 @@ function doGet_saveConfigThuyetMinhL2(monthStr, configLines) {
 
     const lastRow = sh.getLastRow();
     if (lastRow >= 2) {
-      const kyCol = sh.getRange(2, 1, lastRow - 1, 1).getValues();
-      for (let i = 0; i < kyCol.length; i++) {
-        if (String(kyCol[i][0]).trim() === monthStr) {
-          sh.getRange(i + 2, 1, 1, 9).setValues([newRow]);
-          Logger.log('ConfigThuyetMinhL2: Ghi đè kỳ %s tại dòng %s', monthStr, i + 2);
+      const keyCols = sh.getRange(2, 1, lastRow - 1, 2).getValues();
+      for (let i = 0; i < keyCols.length; i++) {
+        const rowMonth = String(keyCols[i][0]).trim();
+        const rowRegion = String(keyCols[i][1] || 'Tất cả').trim() || 'Tất cả';
+        if (rowMonth === monthStr && rowRegion === wantedRegion) {
+          sh.getRange(i + 2, 1, 1, 10).setValues([newRow]);
+          Logger.log('ConfigThuyetMinhL2: Ghi đè kỳ %s, khu vực %s tại dòng %s', monthStr, wantedRegion, i + 2);
           return 'Success';
         }
       }
     }
 
     sh.appendRow(newRow);
-    Logger.log('ConfigThuyetMinhL2: Thêm mới kỳ %s', monthStr);
+    Logger.log('ConfigThuyetMinhL2: Thêm mới kỳ %s, khu vực %s', monthStr, wantedRegion);
     return 'Success';
 
   } catch (e) {

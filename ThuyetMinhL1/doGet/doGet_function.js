@@ -511,6 +511,52 @@ function doGet_getDataFromSheet(monthStr) {
   return out;
 
 }
+
+function doGet_getDatabaseL1SalarySums(monthStr, regionFilter) {
+  const rows = doGet_getDataFromSheet(monthStr);
+  const dataChotNSMap = doGet_getDataChotNSThang();
+  const shouldFilterRegion = regionFilter && regionFilter !== 'Tất cả';
+
+  function parseAmount(value) {
+    if (typeof value === 'number') return value;
+    const text = String(value || '').trim();
+    if (!text) return 0;
+    return Number(text.replace(/[,.]/g, '')) || 0;
+  }
+
+  let totalLuongT = 0;
+  let totalLuongT1 = 0;
+  let totalRows = 0;
+
+  rows.forEach(row => {
+    const maCB = String(row[1] || '').trim();
+
+    if (shouldFilterRegion) {
+      const src = dataChotNSMap[monthStr + '||' + maCB];
+      const rowKhuVuc = String((src && src.khuVuc) || '').trim();
+      if (rowKhuVuc.toLowerCase() !== String(regionFilter).toLowerCase().trim()) return;
+    }
+
+    totalLuongT += parseAmount(row[3]);   // DatabaseL1: cột E - Lương và truy lĩnh
+    totalLuongT1 += parseAmount(row[4]);  // DatabaseL1: cột F - Lương và truy lĩnh kỳ trước
+    totalRows++;
+  });
+
+  Logger.log(
+    'doGet_getDatabaseL1SalarySums(%s, %s): rows=%s, totalLuongT=%s, totalLuongT1=%s',
+    monthStr,
+    regionFilter || 'Tất cả',
+    totalRows,
+    totalLuongT,
+    totalLuongT1
+  );
+
+  return {
+    totalLuongT: totalLuongT,
+    totalLuongT1: totalLuongT1
+  };
+}
+
 function doGet_getDataCoThayDoi_FromSheet(monthStr) {
   /**
   * Lấy dữ liệu trong sheet "Database" theo kỳ lương monthStr (Tmm.yyyy)
@@ -842,15 +888,22 @@ function doGet_getDataNhanSu_SoTaiKhoan() {
  */
 
 function doGet_getDataPrint_CoThayDoi(monthStr, regionFilter) {
-  // Lấy dữ liệu gốc từ Database
   const originalData = doGet_getDataCoThayDoi_FromSheet(monthStr);
+  return doGet_buildDataPrint_ThuyetMinh(originalData, monthStr, regionFilter, 'CoThayDoi');
+}
 
+function doGet_getDataPrint_KhongThayDoi(monthStr, regionFilter) {
+  const originalData = doGet_getDataKhongThayDoi_FromSheet(monthStr);
+  return doGet_buildDataPrint_ThuyetMinh(originalData, monthStr, regionFilter, 'KhongThayDoi');
+}
+
+function doGet_buildDataPrint_ThuyetMinh(originalData, monthStr, regionFilter, logLabel) {
   if (!originalData || originalData.length === 0) {
-    Logger.log('Không có dữ liệu từ doGet_getDataFromSheet cho kỳ: %s', monthStr);
+    Logger.log('Không có dữ liệu thuyết minh cho kỳ: %s', monthStr);
     return [];
   }
 
-  // Lấy dữ liệu DataChotNSThang (map: key -> { maDonVi, ... })
+  // Lấy dữ liệu DataChotNSThang (map: key -> { maDonVi, khuVuc, ... })
   const dataChotNSMap = doGet_getDataChotNSThang();
 
   // --- Tính tháng T-1 ---
@@ -867,17 +920,6 @@ function doGet_getDataPrint_CoThayDoi(monthStr, regionFilter) {
     return 'T' + mm + '.' + year;
   }
 
-  function getPrevKy(kyStr) {
-    const ky = parseKy(kyStr);
-    let m = ky.month - 1;
-    let y = ky.year;
-    if (m === 0) {
-      m = 12;
-      y--;
-    }
-    return formatKy(m, y);
-  }
-
   const T = parseKy(monthStr);
   let prevMonth, prevYear;
   if (T.month > 1) {
@@ -889,14 +931,10 @@ function doGet_getDataPrint_CoThayDoi(monthStr, regionFilter) {
   }
   const monthStrT1 = formatKy(prevMonth, prevYear);
 
-  Logger.log('Tháng T: %s, Tháng T-1: %s', monthStr, monthStrT1);
-
-  // --- Thêm 3 cột phụ: [ ...row, maDonVi, maNSNumber, khuVuc ] ---
+  // --- Thêm các cột phụ để sort và lọc ---
   const enrichedData = originalData.map(row => {
-    // row: [ID, Mã CB, Họ và tên, ...]
-    const maCBRaw = String(row[1] || '').trim(); // Mã nhân sự gốc, ví dụ: "CB00123"
+    const maCBRaw = String(row[1] || '').trim(); // Mã nhân sự gốc
 
-    // Lấy Mã đơn vị & Khu vực từ map
     const keyT = monthStr + '||' + maCBRaw;
     const keyT1 = monthStrT1 + '||' + maCBRaw;
 
@@ -908,7 +946,7 @@ function doGet_getDataPrint_CoThayDoi(monthStr, regionFilter) {
       khuVuc = src.khuVuc || '';
     }
 
-    // Tạo Mã nhân sự dạng number: bỏ tiền tố "CB" (không phân biệt hoa thường), parseInt
+    // Tạo Mã nhân sự dạng number để sort
     let maNSNumber = null;
     let cleaned = maCBRaw;
     if (/^CB/i.test(cleaned)) {
@@ -923,66 +961,45 @@ function doGet_getDataPrint_CoThayDoi(monthStr, regionFilter) {
     return [...row, maDonVi, maNSNumber, khuVuc];
   });
 
+  // Vị trí cột phụ
+  const COL_MA_DON_VI = enrichedData[0].length - 3;
+  const COL_MA_NS_NUM = enrichedData[0].length - 2;
+  const COL_KHU_VUC = enrichedData[0].length - 1;
+
   // --- Lọc theo Khu vực nếu có yêu cầu ---
-  let filteredEnrichedData = enrichedData;
+  let filteredData = enrichedData;
   if (regionFilter && regionFilter !== 'Tất cả') {
-    filteredEnrichedData = enrichedData.filter(row => {
-      const rowKhuVuc = String(row[row.length - 1] || '').trim();
-      return rowKhuVuc.toLowerCase().trim() === regionFilter.toLowerCase().trim();
+    filteredData = enrichedData.filter(row => {
+      const rowKhuVuc = String(row[COL_KHU_VUC] || '').trim();
+      return rowKhuVuc.toLowerCase() === regionFilter.toLowerCase().trim();
     });
   }
 
-  if (filteredEnrichedData.length === 0) {
-    Logger.log('Sau khi lọc theo Khu vực "%s", không có dữ liệu cho kỳ: %s', regionFilter, monthStr);
-    return [];
-  }
-
-  // Vị trí 3 cột phụ
-  const COL_MA_DON_VI = filteredEnrichedData[0].length - 3;
-  const COL_MA_NS_NUM = filteredEnrichedData[0].length - 2;
-
   // --- Sort: theo Mã đơn vị (tăng dần), trong từng đơn vị sort theo Mã NS number (tăng dần) ---
-  filteredEnrichedData.sort((a, b) => {
-    // 1) Sort theo Mã đơn vị (string tăng dần)
+  filteredData.sort((a, b) => {
     const maDonViA = String(a[COL_MA_DON_VI] || '').trim();
     const maDonViB = String(b[COL_MA_DON_VI] || '').trim();
 
     if (maDonViA < maDonViB) return -1;
     if (maDonViA > maDonViB) return 1;
 
-    // 2) Nếu cùng Mã đơn vị -> sort theo Mã nhân sự dạng number tăng dần
     const aNum = a[COL_MA_NS_NUM];
     const bNum = b[COL_MA_NS_NUM];
 
     const aIsValid = (typeof aNum === 'number' && !isNaN(aNum));
     const bIsValid = (typeof bNum === 'number' && !isNaN(bNum));
 
-    if (aIsValid && bIsValid) {
-      if (aNum < bNum) return -1;
-      if (aNum > bNum) return 1;
-      return 0;
-    } else if (aIsValid && !bIsValid) {
-      // Có số sẽ đứng trước không có số
-      return -1;
-    } else if (!aIsValid && bIsValid) {
-      return 1;
-    }
-
+    if (aIsValid && bIsValid) return aNum - bNum;
+    if (aIsValid && !bIsValid) return -1;
+    if (!aIsValid && bIsValid) return 1;
     return 0;
   });
 
+  // --- Trả về đúng cấu trúc cột thuyết minh ban đầu (9 cột) ---
+  const finalData = filteredData.map(row => row.slice(0, 9));
 
-  // --- Xóa 3 cột phụ: Mã đơn vị, Mã NS number và Khu vực ---
-  const finalData = filteredEnrichedData.map(row => row.slice(0, 9)); // DatabaseL1 có 9 cột chính
-
-  Logger.log('doGet_getDataPrint_CoThayDoi: Đã xử lý %s dòng sau lọc %s.', finalData.length, regionFilter);
+  Logger.log('doGet_getDataPrint_%s: Đã xử lý %s dòng sau lọc %s.', logLabel, finalData.length, regionFilter);
   return finalData;
-}
-
-function doGet_getDataPrint_KhongThayDoi(monthStr, regionFilter) {
-  // 1. Lấy dữ liệu gốc
-  const originalData = doGet_getDataKhongThayDoi_FromSheet(monthStr);
-  return doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, 'KhongThayDoi');
 }
 
 function doGet_getDataPrint_DiNganHang(monthStr, regionFilter) {
@@ -1050,6 +1067,7 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
         HSNganh: headerL.indexOf('HS ngành'),
         HSDocHai: headerL.indexOf('HS độc hại'),
         HSTrachNhiem: headerL.indexOf('HS trách nhiệm'),
+        HSTuVe: ['HS tự vệ', 'HSTV'].map(k => headerL.indexOf(k)).find(i => i !== -1) ?? -1,
         KPCD: headerL.indexOf('KPCĐ')
       };
 
@@ -1073,11 +1091,12 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
         const key = ky + '||' + ma;
 
         if (!mapHeSo[key]) {
-          mapHeSo[key] = { pcNganh: 0, pcDocHai: 0, pcTrachNhiem: 0, kpcd: 0 };
+          mapHeSo[key] = { pcNganh: 0, pcDocHai: 0, pcTrachNhiem: 0, pcTuVe: 0, kpcd: 0 };
         }
         mapHeSo[key].pcNganh += parseHS(r[idxL.HSNganh]) * LUONG_CO_SO;
         mapHeSo[key].pcDocHai += parseHS(r[idxL.HSDocHai]) * LUONG_CO_SO;
         mapHeSo[key].pcTrachNhiem += parseHS(r[idxL.HSTrachNhiem]) * LUONG_CO_SO;
+        mapHeSo[key].pcTuVe += (idxL.HSTuVe !== -1 ? parseHS(r[idxL.HSTuVe]) : 0) * LUONG_CO_SO;
         mapHeSo[key].kpcd += parseHS(r[idxL.KPCD]);
       });
 
@@ -1085,6 +1104,50 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
     }
   } catch (e) {
     Logger.log('Lỗi khi đọc DataLuong1 cho hệ số PC: %s', e.message);
+  }
+
+  // Đọc DataTruyThuLinh để lấy tiền phụ cấp ngành truy thu (hsNganhTien)
+  const FILE2_ID_TRUYTHU = '1dHZ9b5SlTn9fqHq0ZR8yrlJYcA44hhbnlHc3OHm6uW0';
+  const SHEET2_TRUYTHU = 'DataTruyThuLinh';
+  try {
+    let valuesTruyThu;
+    try {
+      const response = Sheets.Spreadsheets.Values.get(FILE2_ID_TRUYTHU, SHEET2_TRUYTHU, {
+        valueRenderOption: 'UNFORMATTED_VALUE'
+      });
+      valuesTruyThu = response.values;
+    } catch (apiErr) {
+      Logger.log('Lỗi khi dùng Sheets API cho DataTruyThuLinh: %s. Fallback dùng SpreadsheetApp.', apiErr.message);
+      const ss2 = SpreadsheetApp.openById(FILE2_ID_TRUYTHU);
+      const sh2 = ss2.getSheetByName(SHEET2_TRUYTHU);
+      valuesTruyThu = sh2.getDataRange().getValues();
+    }
+
+    if (valuesTruyThu && valuesTruyThu.length >= 2) {
+      const headerTT = valuesTruyThu[0];
+      const dataTT = valuesTruyThu.slice(1);
+      const idxTT = {
+        KyTraLuong: headerTT.indexOf('Kỳ trả lương'),
+        MaNS: headerTT.indexOf('Mã nhân sự'),
+        HSNganhTT: headerTT.indexOf('HS PC ngành thành tiền')
+      };
+
+      dataTT.forEach(r => {
+        const ky = String(r[idxTT.KyTraLuong]).trim();
+        if (ky !== monthStr && ky !== monthStrT1) return;
+        const ma = String(r[idxTT.MaNS]).trim();
+        if (!ma) return;
+        const key = ky + '||' + ma;
+
+        if (!mapHeSo[key]) {
+          mapHeSo[key] = { pcNganh: 0, pcDocHai: 0, pcTrachNhiem: 0, pcTuVe: 0, kpcd: 0 };
+        }
+        mapHeSo[key].pcNganh += parseFloat(r[idxTT.HSNganhTT]) || 0;
+      });
+      Logger.log('mapHeSo sau khi cộng gộp DataTruyThuLinh: %s records', Object.keys(mapHeSo).length);
+    }
+  } catch (e) {
+    Logger.log('Lỗi khi đọc DataTruyThuLinh cho phụ cấp ngành truy lĩnh: %s', e.message);
   }
 
   // 4. Định nghĩa index cột trong originalData
@@ -1123,12 +1186,13 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
     const soTien = parseFloat(row[COL_SO_TIEN]) || 0;
 
     // === MỚI: Lấy hệ số phụ cấp từ mapHeSo ===
-    const heSo = mapHeSo[keyT] || mapHeSo[keyT1] || { pcNganh: 0, pcDocHai: 0, pcTrachNhiem: 0, kpcd: 0 };
+    const heSo = mapHeSo[keyT] || mapHeSo[keyT1] || { pcNganh: 0, pcDocHai: 0, pcTrachNhiem: 0, pcTuVe: 0, kpcd: 0 };
     const pcNganh = heSo.pcNganh;
     const pcDocHai = heSo.pcDocHai;
     const pcTrachNhiem = heSo.pcTrachNhiem;
+    const pcTuVe = heSo.pcTuVe || 0;
     const dDoan = heSo.kpcd; // Đ.Đoàn = KPCĐ
-    const tongPC = pcNganh + pcDocHai + pcTrachNhiem;
+    const tongPC = pcNganh + pcDocHai + pcTrachNhiem + pcTuVe;
 
     // === MỚI: Phân loại theo loại HĐ (case-insensitive) ===
     const isBienChe = loaiHopDong.toLowerCase().includes('biên chế');
@@ -1157,13 +1221,14 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
       pcDocHai,        // 8: PC Đ.hại
       pcTrachNhiem,    // 9: PC T.Nhiệm
       '',              // 10: Đ.Đoàn (Bỏ trống theo yêu cầu User)
-      '',              // 11: Tiền khoán (trống)
-      '',              // 12: Tiền học bổng (trống)
-      '',              // 13: Ghi chú (trống)
-      maDonVi,         // 14: phụ sort
-      loaiHopDong,     // 15: phụ sort
-      maNSNumber,      // 16: phụ sort
-      khuVuc           // 17: lọc vùng
+      pcTuVe,          // 11: T.vệ (mới!)
+      '',              // 12: Tiền khoán (trống)
+      '',              // 13: Tiền học bổng (trống)
+      '',              // 14: Ghi chú (trống)
+      maDonVi,         // 15: phụ sort
+      loaiHopDong,     // 16: phụ sort
+      maNSNumber,      // 17: phụ sort
+      khuVuc           // 18: lọc vùng
     ];
   });
 
@@ -1171,7 +1236,7 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
   let filteredEnrichedData = enrichedData;
   if (regionFilter && regionFilter !== 'Tất cả') {
     filteredEnrichedData = enrichedData.filter(row => {
-      const rowKhuVuc = String(row[17] || '').trim();
+      const rowKhuVuc = String(row[18] || '').trim();
       return rowKhuVuc.toLowerCase().trim() === regionFilter.toLowerCase().trim();
     });
   }
@@ -1182,9 +1247,9 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
   }
 
   // 6. Cột phụ (index đã cập nhật)
-  const COL_MA_DON_VI = 14;
-  const COL_LOAI_HOP_DONG = 15;
-  const COL_MA_NS_NUM = 16;
+  const COL_MA_DON_VI = 15;
+  const COL_LOAI_HOP_DONG = 16;
+  const COL_MA_NS_NUM = 17;
 
   function getLoaiHopDongOrder(loaiHD) {
     const normalized = String(loaiHD || '').replace(/^'/, '').trim().toLowerCase();
@@ -1236,9 +1301,9 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
   // 9. Tạo mảng kết quả mới — bắt đầu bằng TỔNG CỘNG
   const finalEnriched = [];
 
-  // Hàm helper tính tổng các cột số (4→10) cho một danh sách dòng
+  // Hàm helper tính tổng các cột số (4→11) cho một danh sách dòng
   function sumColumns(rowList) {
-    const sums = { col4: 0, col5: 0, col6: 0, col7: 0, col8: 0, col9: 0, col10: 0 };
+    const sums = { col4: 0, col5: 0, col6: 0, col7: 0, col8: 0, col9: 0, col10: 0, col11: 0 };
     for (const row of rowList) {
       sums.col4 += parseFloat(row[4]) || 0;
       sums.col5 += parseFloat(row[5]) || 0;
@@ -1247,11 +1312,12 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
       sums.col8 += parseFloat(row[8]) || 0;
       sums.col9 += parseFloat(row[9]) || 0;
       sums.col10 += parseFloat(row[10]) || 0;
+      sums.col11 += parseFloat(row[11]) || 0;
     }
     return sums;
   }
 
-  // Hàm tạo dòng tổng (17 cột)
+  // Hàm tạo dòng tổng (19 cột)
   function createTotalRow(label, sums, displayLabel) {
     return [
       '',             // 0: ID
@@ -1265,12 +1331,14 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
       sums.col8,      // 8: PC Đ.hại
       sums.col9,      // 9: PC T.Nhiệm
       sums.col10,     // 10: Đ.Đoàn
-      '',             // 11: Tiền khoán
-      '',             // 12: Tiền học bổng
-      '',             // 13: Ghi chú
-      '',             // 14: maDonVi (aux)
-      displayLabel || '', // 15: Loại HĐ (aux)
-      0               // 16: maNSNumber (aux)
+      sums.col11,     // 11: T.vệ
+      '',             // 12: Tiền khoán
+      '',             // 13: Tiền học bổng
+      '',             // 14: Ghi chú
+      '',             // 15: maDonVi (aux)
+      displayLabel || '', // 16: Loại HĐ (aux)
+      0,              // 17: maNSNumber (aux)
+      ''              // 18: khuVuc (aux)
     ];
   }
 
@@ -1296,10 +1364,10 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
     finalEnriched.push(...rows);
   }
 
-  // 10. Cắt bỏ 3 cột phụ, trả đúng 14 cột
-  const finalData = finalEnriched.map(row => row.slice(0, 14));
+  // 10. Cắt bỏ 4 cột phụ, trả đúng 15 cột
+  const finalData = finalEnriched.map(row => row.slice(0, 15));
 
-  Logger.log('doGet_getDataPrint_%s: %s dòng, output 14 cột [ID,Họ tên,SốTK,TênNH,TổngSố,LươngPC,TiềnCôngLĐ,PCNgành,PCĐHại,PCTNhiệm,ĐĐoàn,Khoán,HọcBổng,GhiChú]', logLabel || '', finalData.length);
+  Logger.log('doGet_getDataPrint_%s: %s dòng, output 15 cột [ID,Họ tên,SốTK,TênNH,TổngSố,LươngPC,TiềnCôngLĐ,PCNgành,PCĐHại,PCTNhiệm,ĐĐoàn,Tvệ,Khoán,HọcBổng,GhiChú]', logLabel || '', finalData.length);
   return finalData;
 }
 
@@ -1362,111 +1430,161 @@ function test_getDataToCompare() {
  * @param {string} monthStr Kỳ lương (VD: "T02.2026")
  * @returns {Array} Mảng 4 phần tử: [{label, value}, {label, value}, ...]
  */
-function doGet_loadConfigThuyetMinhL1(monthStr) {
+function doGet_normalizeConfigRegion(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function doGet_isAllConfigRegion(value) {
+  return doGet_normalizeConfigRegion(value) === 'tat ca';
+}
+
+function doGet_loadConfigThuyetMinhL1(monthStr, regionFilter) {
   const FILE_ID = '1-pKqPF-GpmoTXno1no5NN-JRIMLsHwBqGx1xdLHPgr4';
   const SHEET_NAME = 'ConfigThuyetMinhL1';
+  const wantedRegion = String(regionFilter || 'T\u1ea5t c\u1ea3').trim() || 'T\u1ea5t c\u1ea3';
 
-  const emptyResult = [
-    { label: '', value: '' },
-    { label: '', value: '' },
-    { label: '', value: '' },
-    { label: '', value: '' }
-  ];
+  const emptyForRegion = function (regionName) {
+    return [0, 1, 2, 3].map(function (index) {
+      return { region: regionName, index: index, label: '', value: '' };
+    });
+  };
+  const emptyResult = emptyForRegion(wantedRegion);
 
   try {
     const ss = SpreadsheetApp.openById(FILE_ID);
     const sh = ss.getSheetByName(SHEET_NAME);
-
-    if (!sh) {
-      Logger.log('Sheet ConfigThuyetMinhL1 không tồn tại');
-      return emptyResult;
-    }
+    if (!sh) return emptyResult;
 
     const lastRow = sh.getLastRow();
     if (lastRow < 2) return emptyResult;
 
-    const data = sh.getRange(2, 1, lastRow - 1, 9).getValues();
+    const width = Math.max(sh.getLastColumn(), 9);
+    const hasRegionCol = width >= 10 && String(sh.getRange(1, 2).getValue() || '').trim() === 'KhuVuc';
+    const data = sh.getRange(2, 1, lastRow - 1, width).getValues();
 
-    for (const row of data) {
-      const ky = String(row[0]).trim();
-      if (ky === monthStr) {
-        return [
-          { label: String(row[1] || ''), value: String(row[2] || '') },
-          { label: String(row[3] || ''), value: String(row[4] || '') },
-          { label: String(row[5] || ''), value: String(row[6] || '') },
-          { label: String(row[7] || ''), value: String(row[8] || '') }
-        ];
+    const parseConfigRow = function (row, rowRegion) {
+      const offset = hasRegionCol ? 1 : 0;
+      return [
+        { region: rowRegion, index: 0, label: String(row[1 + offset] || ''), value: String(row[2 + offset] || '') },
+        { region: rowRegion, index: 1, label: String(row[3 + offset] || ''), value: String(row[4 + offset] || '') },
+        { region: rowRegion, index: 2, label: String(row[5 + offset] || ''), value: String(row[6 + offset] || '') },
+        { region: rowRegion, index: 3, label: String(row[7 + offset] || ''), value: String(row[8 + offset] || '') }
+      ];
+    };
+
+    const findMergedConfigByRegion = function (regionName) {
+      const mergedLines = [];
+      const seenLineKeys = {};
+      for (const row of data) {
+        const ky = String(row[0]).trim();
+        const rowRegion = hasRegionCol ? (String(row[1] || 'T\u1ea5t c\u1ea3').trim() || 'T\u1ea5t c\u1ea3') : 'T\u1ea5t c\u1ea3';
+        const isExactRegion = doGet_normalizeConfigRegion(rowRegion) === doGet_normalizeConfigRegion(regionName);
+        const isLegacyAllFallback = doGet_isAllConfigRegion(rowRegion) && !doGet_isAllConfigRegion(regionName);
+        if (ky === monthStr && (isExactRegion || isLegacyAllFallback)) {
+          parseConfigRow(row, isLegacyAllFallback ? regionName : rowRegion).forEach(function (line) {
+            if ((line.label || '').trim() || (line.value || '').trim()) {
+              const lineKey = [doGet_normalizeConfigRegion(line.region), String(line.label || '').trim(), String(line.value || '').trim()].join('||');
+              if (seenLineKeys[lineKey]) return;
+              seenLineKeys[lineKey] = true;
+              mergedLines.push({ region: line.region || regionName, label: line.label || '', value: line.value || '' });
+            }
+          });
+        }
       }
-    }
+      const result = emptyForRegion(regionName);
+      mergedLines.slice(0, 4).forEach(function (line, index) {
+        result[index] = { region: line.region || regionName, index: index, label: line.label, value: line.value };
+      });
+      return result;
+    };
 
-    return emptyResult;
+    if (doGet_isAllConfigRegion(wantedRegion)) {
+      return findMergedConfigByRegion('H\u00e0 N\u1ed9i').concat(findMergedConfigByRegion('Ph\u00fa Th\u1ecd'));
+    }
+    return findMergedConfigByRegion(wantedRegion);
   } catch (e) {
-    Logger.log('Lỗi đọc ConfigThuyetMinhL1: %s', e.message);
+    Logger.log('Loi doc ConfigThuyetMinhL1: %s', e.message);
     return emptyResult;
   }
 }
 
 
 /**
- * Ghi 4 dòng config vào sheet ConfigThuyetMinhL1 theo kỳ lương.
- * Nếu kỳ lương đã tồn tại → ghi đè. Nếu chưa → thêm mới.
- * @param {string} monthStr Kỳ lương
- * @param {Array} configLines Mảng 4 phần tử [{label, value}, ...]
- * @returns {string} 'Success' hoặc lỗi
+ * Ghi 4 dong config vao sheet ConfigThuyetMinhL1 theo ky luong va khu vuc.
  */
-function doGet_saveConfigThuyetMinhL1(monthStr, configLines) {
+function doGet_saveConfigThuyetMinhL1(monthStr, regionFilter, configLines) {
   const FILE_ID = '1-pKqPF-GpmoTXno1no5NN-JRIMLsHwBqGx1xdLHPgr4';
   const SHEET_NAME = 'ConfigThuyetMinhL1';
+  const wantedRegion = String(regionFilter || 'T\u1ea5t c\u1ea3').trim() || 'T\u1ea5t c\u1ea3';
 
   try {
-    const ss = SpreadsheetApp.openById(FILE_ID);
-    let sh = ss.getSheetByName(SHEET_NAME);
-
-    if (!sh) {
-      sh = ss.insertSheet(SHEET_NAME);
-      sh.getRange(1, 1, 1, 9).setValues([
-        ['Kỳ lương', 'Label1', 'Value1', 'Label2', 'Value2', 'Label3', 'Value3', 'Label4', 'Value4']
-      ]);
+    if (doGet_isAllConfigRegion(wantedRegion)) {
+      const defaultRegions = ['H\u00e0 N\u1ed9i', 'Ph\u00fa Th\u1ecd'];
+      const linesByRegion = {};
+      defaultRegions.forEach(function (regionName) {
+        linesByRegion[regionName] = [
+          { label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }
+        ];
+      });
+      (Array.isArray(configLines) ? configLines : []).forEach(function (line) {
+        const lineRegion = line.region || defaultRegions[0];
+        if (!linesByRegion[lineRegion]) return;
+        const lineIndex = Number.isInteger(line.index) ? line.index : linesByRegion[lineRegion].findIndex(item => !item.label && !item.value);
+        if (lineIndex >= 0 && lineIndex < 4) linesByRegion[lineRegion][lineIndex] = { label: line.label || '', value: line.value || '' };
+      });
+      for (const regionName of defaultRegions) {
+        const saveResult = doGet_saveConfigThuyetMinhL1(monthStr, regionName, linesByRegion[regionName]);
+        if (saveResult !== 'Success') return saveResult;
+      }
+      return 'Success';
     }
 
+    const ss = SpreadsheetApp.openById(FILE_ID);
+    let sh = ss.getSheetByName(SHEET_NAME);
+    if (!sh) {
+      sh = ss.insertSheet(SHEET_NAME);
+      sh.getRange(1, 1, 1, 10).setValues([
+        ['K\u1ef3 l\u01b0\u01a1ng', 'KhuVuc', 'Label1', 'Value1', 'Label2', 'Value2', 'Label3', 'Value3', 'Label4', 'Value4']
+      ]);
+    } else if (String(sh.getRange(1, 2).getValue() || '').trim() !== 'KhuVuc') {
+      sh.insertColumnAfter(1);
+      sh.getRange(1, 2).setValue('KhuVuc');
+      const lastRowForMigration = sh.getLastRow();
+      if (lastRowForMigration >= 2) sh.getRange(2, 2, lastRowForMigration - 1, 1).setValue('T\u1ea5t c\u1ea3');
+    }
+
+    const safeLines = Array.isArray(configLines) ? configLines : [];
     const newRow = [
-      monthStr,
-      configLines[0]?.label || '', configLines[0]?.value || '',
-      configLines[1]?.label || '', configLines[1]?.value || '',
-      configLines[2]?.label || '', configLines[2]?.value || '',
-      configLines[3]?.label || '', configLines[3]?.value || ''
+      monthStr, wantedRegion,
+      safeLines[0]?.label || '', safeLines[0]?.value || '',
+      safeLines[1]?.label || '', safeLines[1]?.value || '',
+      safeLines[2]?.label || '', safeLines[2]?.value || '',
+      safeLines[3]?.label || '', safeLines[3]?.value || ''
     ];
 
     const lastRow = sh.getLastRow();
     if (lastRow >= 2) {
-      const kyCol = sh.getRange(2, 1, lastRow - 1, 1).getValues();
-      for (let i = 0; i < kyCol.length; i++) {
-        if (String(kyCol[i][0]).trim() === monthStr) {
-          sh.getRange(i + 2, 1, 1, 9).setValues([newRow]);
-          Logger.log('ConfigThuyetMinhL1: Ghi đè kỳ %s tại dòng %s', monthStr, i + 2);
+      const keyCols = sh.getRange(2, 1, lastRow - 1, 2).getValues();
+      for (let i = 0; i < keyCols.length; i++) {
+        const rowMonth = String(keyCols[i][0]).trim();
+        const rowRegion = String(keyCols[i][1] || 'T\u1ea5t c\u1ea3').trim() || 'T\u1ea5t c\u1ea3';
+        if (rowMonth === monthStr && rowRegion === wantedRegion) {
+          sh.getRange(i + 2, 1, 1, 10).setValues([newRow]);
           return 'Success';
         }
       }
     }
-
     sh.appendRow(newRow);
-    Logger.log('ConfigThuyetMinhL1: Thêm mới kỳ %s', monthStr);
     return 'Success';
-
   } catch (e) {
-    Logger.log('Lỗi ghi ConfigThuyetMinhL1: %s', e.message);
+    Logger.log('Loi ghi ConfigThuyetMinhL1: %s', e.message);
     return 'Error: ' + e.message;
   }
 }
-
-/**
- * Lấy tổng tiền lương thực tế (1+2+3+4) cho kỳ T và T-1.
- * Công thức giữ cùng logic với dòng Tổng của phần "TIỀN LƯƠNG: (1+2+3+4)"
- * trong báo cáo Tổng hợp lương, tính trực tiếp từ các sheet nguồn.
- * @param {string} monthStr Kỳ lương dạng Tmm.yyyy (VD: T02.2025)
- * @param {string} regionFilter Khu vực lọc (VD: Hà Nội, Phú Thọ...)
- * @returns {Object} { totalLuongT: number, totalLuongT1: number }
- */
 function doGet_getTotalSalarySums(monthStr, regionFilter) {
   const FILES = {
     DATA_LUONG_1: '1j6q9n5TlbW9cPa-ixfn5H_YtUNP_DHLqNLbY4iI9yWQ',

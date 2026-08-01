@@ -6,6 +6,35 @@
   let pg_general_3_cacheDataStatusTinhLuong = null;
 
   let pg_general_3_cacheDataLuongAnCa = null;
+  let pg_general_3_spinnerHideTimer = null;
+
+  function pg_general_3_showSpinner() {
+    if (pg_general_3_spinnerHideTimer) {
+      clearTimeout(pg_general_3_spinnerHideTimer);
+      pg_general_3_spinnerHideTimer = null;
+    }
+    $('#spinnerModal').modal('show');
+  }
+
+  function pg_general_3_hideSpinnerAfterNetIdle(delayMs) {
+    if (pg_general_3_spinnerHideTimer) {
+      clearTimeout(pg_general_3_spinnerHideTimer);
+    }
+    const delay = typeof delayMs === 'number' ? delayMs : 800;
+    pg_general_3_spinnerHideTimer = setTimeout(function () {
+      const hideNow = function () {
+        $('#spinnerModal').modal('hide');
+        pg_general_3_spinnerHideTimer = null;
+      };
+      if (window.requestAnimationFrame) {
+        window.requestAnimationFrame(function () {
+          setTimeout(hideNow, 0);
+        });
+      } else {
+        hideNow();
+      }
+    }, delay);
+  }
 
   window.addEventListener("load", functionInit, true);
 
@@ -24,7 +53,7 @@
     preventFormSubmit();
 
     if (openSpinner) {
-      $('#spinnerModal').modal('show');
+      pg_general_3_showSpinner();
     }
 
     google.script.run
@@ -53,27 +82,27 @@
                   // Gọi hàm tạo thuyết minh -> KHÔNG tắt spinner ở đây, để hàm kia lo
                   modal_dataluong_3_tinhLuong();
                 } else {
-                  $('#spinnerModal').modal('hide');
+                  pg_general_3_hideSpinnerAfterNetIdle();
                 }
               } else {
-                $('#spinnerModal').modal('hide');
+                pg_general_3_hideSpinnerAfterNetIdle();
               }
             } else {
-              $('#spinnerModal').modal('hide');
+              pg_general_3_hideSpinnerAfterNetIdle();
             }
           });
 
         } else if (result.status === "no permission") {
-          $('#spinnerModal').modal('hide');
+          pg_general_3_hideSpinnerAfterNetIdle();
           digicoreToast('Bạn không có quyền xem', 'error');
         } else {
           console.error("Lỗi từ server: ", result.message);
-          $('#spinnerModal').modal('hide');
+          pg_general_3_hideSpinnerAfterNetIdle();
         }
       })
       .withFailureHandler(function (error) {
         console.error("Lỗi API:", error);
-        $('#spinnerModal').modal('hide');
+        pg_general_3_hideSpinnerAfterNetIdle();
       })
       .pg1_ed1_getAllData();
 

@@ -203,3 +203,41 @@ function modal_dataluong_1_getTotalDataPrint(month, type, region) {
     };
   }
 }
+
+// ===== CONFIG THUYET MINH L1 - LOAD / SAVE =====
+function modal_dataluong_1_loadConfigThuyetMinh(month, region) {
+  const regionParam = region ? `&region=${encodeURIComponent(region)}` : '';
+  const urlGetType = url_api_doGet + `?month=${month}&type=configThuyetMinhL1_load${regionParam}`;
+  try {
+    const response = UrlFetchApp.fetch(urlGetType, { method: 'get' });
+    const result = JSON.parse(response.getContentText());
+    if (result.status === 'success') return { status: 'success', configData: result.configData || [] };
+    throw new Error(result?.message || 'Loi khong xac dinh');
+  } catch (error) {
+    return { status: 'error', message: error.message, configData: [] };
+  }
+}
+
+function modal_dataluong_1_saveConfigThuyetMinh(month, region, configLines) {
+  const strUserRole = userRole();
+  const quyenSua = 'Tính lương-Sửa;';
+  if (!strUserRole.includes(quyenSua)) return { status: 'no permission' };
+  try {
+    const requestData = {
+      action: 'saveConfigThuyetMinh',
+      currentMonth: month,
+      region: region || 'Tat ca',
+      configLines: configLines || [],
+      strEmail: userEmail
+    };
+    const response = UrlFetchApp.fetch(url_api_doPost, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(requestData)
+    });
+    const result = JSON.parse(response.getContentText());
+    return { status: result.status || 'success', message: result.message || '' };
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}

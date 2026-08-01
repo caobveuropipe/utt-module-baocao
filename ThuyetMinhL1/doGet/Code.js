@@ -51,7 +51,7 @@ function doGet(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     } else if (type === 'coThayDoi_DataPrint') {
       const dataPrint = doGet_getDataPrint_CoThayDoi(month, region);
-      const totalSums = doGet_getTotalSalarySums(month, region);
+      const totalSums = doGet_getDatabaseL1SalarySums(month, region);
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
         dataPrint,
@@ -70,10 +70,17 @@ function doGet(e) {
         dataPrint
       })).setMimeType(ContentService.MimeType.JSON);
     } else if (type === 'configThuyetMinhL1_load') {
-      const configData = doGet_loadConfigThuyetMinhL1(month);
+      const configData = doGet_loadConfigThuyetMinhL1(month, region);
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
         configData
+      })).setMimeType(ContentService.MimeType.JSON);
+    } else if (type === 'configThuyetMinhL1_save') {
+      const configLines = JSON.parse(e.parameter.data || '[]');
+      const saveResult = doGet_saveConfigThuyetMinhL1(month, region, configLines);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: saveResult === 'Success' ? "success" : "error",
+        message: saveResult
       })).setMimeType(ContentService.MimeType.JSON);
     }
 

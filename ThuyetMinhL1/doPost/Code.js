@@ -85,61 +85,90 @@ function doPost(e) {
       }
 
     } else if (action === 'saveConfigThuyetMinh') {
-      // ===== LƯU 4 DÒNG CONFIG THUYẾT MINH =====
       const month = requestData.currentMonth;
+      const region = String(requestData.region || 'T\u1ea5t c\u1ea3').trim() || 'T\u1ea5t c\u1ea3';
       const configLines = requestData.configLines || [];
       const SHEET_NAME = 'ConfigThuyetMinhL1';
 
+      const normalizeConfigRegion = function (value) {
+        return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+      };
+      const isAllConfigRegion = function (value) { return normalizeConfigRegion(value) === 'tat ca'; };
+
       try {
         const ssAnCa = SpreadsheetApp.openById(idFileDataAnCa);
-        if (!ssAnCa) throw new Error("Không thể mở file Data An Ca bằng ID: " + idFileDataAnCa);
-        
-        let sh = ssAnCa.getSheetByName(SHEET_NAME);
-        if (!sh) {
-          sh = ssAnCa.insertSheet(SHEET_NAME);
-          sh.getRange(1, 1, 1, 9).setValues([
-            ['Kỳ lương', 'Label1', 'Value1', 'Label2', 'Value2', 'Label3', 'Value3', 'Label4', 'Value4']
-          ]);
-        }
+        if (!ssAnCa) throw new Error('Khong the mo file Data An Ca bang ID: ' + idFileDataAnCa);
 
-        const newRow = [
-          month,
-          configLines[0]?.label || '', configLines[0]?.value || '',
-          configLines[1]?.label || '', configLines[1]?.value || '',
-          configLines[2]?.label || '', configLines[2]?.value || '',
-          configLines[3]?.label || '', configLines[3]?.value || ''
-        ];
+        const saveOneRegion = function (regionName, linesForRegion) {
+          let sh = ssAnCa.getSheetByName(SHEET_NAME);
+          if (!sh) {
+            sh = ssAnCa.insertSheet(SHEET_NAME);
+            sh.getRange(1, 1, 1, 10).setValues([
+              ['K\u1ef3 l\u01b0\u01a1ng', 'KhuVuc', 'Label1', 'Value1', 'Label2', 'Value2', 'Label3', 'Value3', 'Label4', 'Value4']
+            ]);
+          } else if (String(sh.getRange(1, 2).getValue() || '').trim() !== 'KhuVuc') {
+            sh.insertColumnAfter(1);
+            sh.getRange(1, 2).setValue('KhuVuc');
+            const lastRowForMigration = sh.getLastRow();
+            if (lastRowForMigration >= 2) sh.getRange(2, 2, lastRowForMigration - 1, 1).setValue('T\u1ea5t c\u1ea3');
+          }
 
-        const lastRow = sh.getLastRow();
-        let updated = false;
+          const safeLines = Array.isArray(linesForRegion) ? linesForRegion : [];
+          const newRow = [
+            month, regionName,
+            safeLines[0]?.label || '', safeLines[0]?.value || '',
+            safeLines[1]?.label || '', safeLines[1]?.value || '',
+            safeLines[2]?.label || '', safeLines[2]?.value || '',
+            safeLines[3]?.label || '', safeLines[3]?.value || ''
+          ];
 
-        if (lastRow >= 2) {
-          const kyCol = sh.getRange(2, 1, lastRow - 1, 1).getValues();
-          for (let i = 0; i < kyCol.length; i++) {
-            if (String(kyCol[i][0]).trim() === month) {
-              sh.getRange(i + 2, 1, 1, 9).setValues([newRow]);
-              updated = true;
-              break;
+          const lastRow = sh.getLastRow();
+          let updated = false;
+          if (lastRow >= 2) {
+            const keyCols = sh.getRange(2, 1, lastRow - 1, 2).getValues();
+            for (let i = 0; i < keyCols.length; i++) {
+              const rowMonth = String(keyCols[i][0]).trim();
+              const rowRegion = String(keyCols[i][1] || 'T\u1ea5t c\u1ea3').trim() || 'T\u1ea5t c\u1ea3';
+              if (rowMonth === month && rowRegion === regionName) {
+                sh.getRange(i + 2, 1, 1, 10).setValues([newRow]);
+                updated = true;
+                break;
+              }
             }
           }
-        }
+          if (!updated) sh.appendRow(newRow);
+        };
 
-        if (!updated) {
-          sh.appendRow(newRow);
+        if (isAllConfigRegion(region)) {
+          const defaultRegions = ['H\u00e0 N\u1ed9i', 'Ph\u00fa Th\u1ecd'];
+          const linesByRegion = {};
+          defaultRegions.forEach(function (regionName) {
+            linesByRegion[regionName] = [
+              { label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }, { label: '', value: '' }
+            ];
+          });
+          (Array.isArray(configLines) ? configLines : []).forEach(function (line) {
+            const lineRegion = line.region || defaultRegions[0];
+            if (!linesByRegion[lineRegion]) return;
+            const lineIndex = Number.isInteger(line.index) ? line.index : linesByRegion[lineRegion].findIndex(item => !item.label && !item.value);
+            if (lineIndex >= 0 && lineIndex < 4) linesByRegion[lineRegion][lineIndex] = { label: line.label || '', value: line.value || '' };
+          });
+          defaultRegions.forEach(function (regionName) { saveOneRegion(regionName, linesByRegion[regionName]); });
+        } else {
+          saveOneRegion(region, configLines);
         }
 
         return ContentService.createTextOutput(JSON.stringify({
-          status: "success",
-          message: "Đã lưu thành công dữ liệu thuyết minh kỳ " + month
+          status: 'success',
+          message: 'Da luu thanh cong du lieu thuyet minh ky ' + month + ', khu vuc ' + region
         })).setMimeType(ContentService.MimeType.JSON);
 
       } catch (err) {
         return ContentService.createTextOutput(JSON.stringify({
-          status: "error",
-          message: "Lỗi tại doPost (saveConfigThuyetMinh): " + err.message
+          status: 'error',
+          message: 'Loi tai doPost (saveConfigThuyetMinh): ' + err.message
         })).setMimeType(ContentService.MimeType.JSON);
       }
-
     } else if (action === 'write') {
       //1. Ghi dữ liệu xuống sheets
       const formData = requestData.data;
