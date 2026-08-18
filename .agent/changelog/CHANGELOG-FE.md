@@ -41,6 +41,14 @@
 - Bổ sung thêm từ khóa viết liền `"SỐTT"` vào bộ quét tự động căn lề giữa cột STT của bảng dữ liệu xem trước.
 - Files: `client/pg_general_3.html`
 
+## 2026-08-18
+
+### fix(print-ui): tối ưu hiển thị màn hình HTML bảng phân bổ lương và BHXH chống vỡ chữ
+- **Cấu trúc Header 3 hàng:** Chuẩn hóa ô "Tổng lương" thành `rowspan="2"` ở hàng 1, giúp 17 ô ở hàng 2 map chính xác vào các nhóm cột tương ứng.
+- **Kích thước tối thiểu & Chống vỡ chữ dọc:** Cấu hình `colgroup` kích thước tối thiểu cho 23 cột, đặt `min-width: 1410px` và `table-layout: fixed` cho `.phanbo-table` trên màn hình HTML; thiết lập `word-break: normal; white-space: normal;` cho các tiêu đề và cột nội dung để ngăn chặn triệt để lỗi rớt chữ thành từng ký tự dọc.
+- **Bảo toàn nguyên vẹn bản in:** Thiết lập reset `min-width: unset !important; width: 100% !important;` trong `@media print` để bảo đảm bản in giấy/PDF giữ nguyên tỷ lệ khổ ngang A4 Landscape.
+- Files: `client/pg_general_3.html`
+
 ---
 
 *Cập nhật tự động bởi update-docs*
