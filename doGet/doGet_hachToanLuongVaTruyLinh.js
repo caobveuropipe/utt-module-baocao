@@ -25,7 +25,7 @@ function test_chiTietThanhPhanHachToanLuong(monthStr = 'T06.2026', location = 'H
         const dataAnCa = getData(GLOBAL_CONFIG.FILES.DATA_AN_CA, GLOBAL_CONFIG.SHEETS.DATA_AN_CA);
         const dataNS = getData(GLOBAL_CONFIG.FILES.DB_DATA_CHOT_NS, GLOBAL_CONFIG.SHEETS.DATA_CHOT_NS);
 
-        const LCB = 2340000;
+        const LCB = GLOBAL_CONFIG.VALUES.getLuongCoBan(monthStr);
         const targetMonth = String(monthStr).trim().replace(/^T/, '');
         const locationNormalized = location && location !== 'All' ? normalizeLocation(location) : null;
 
@@ -957,7 +957,7 @@ function getPrintDataHachToanLuongVaTruyLinh(monthStr, location) {
 
 function doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, dataLuong2, truyThu1, truyThu2, dataAnCa, dataNS, targetLocation) {
     const locationNormalized = targetLocation && targetLocation !== 'All' ? normalizeLocation(targetLocation) : null;
-    const LCB = 2340000;
+    const LCB = GLOBAL_CONFIG.VALUES.getLuongCoBan(monthStr);
     const targetMonth = String(monthStr).trim().replace(/^T/, '');
 
     // 1. Setup Data: Unit -> Group (Direct/Indirect)
@@ -1774,7 +1774,7 @@ function test_auditTruyLinhBienChe(monthStr = 'T06.2026', location = 'Hà Nội'
             KhuVuc: getIdx(tt1Header, ['Khu vực', 'KhuVuc', 'Địa phương', 'Khu vuc'])
         };
 
-        const LCB = 2340000;
+        const LCB = GLOBAL_CONFIG.VALUES.getLuongCoBan(monthStr);
         truyThu1.forEach((row, i) => {
             if (i < tt1StartRow) return;
             const rKy = String(row[tt1Idx.Ky] || '').trim().replace(/^T/, '');

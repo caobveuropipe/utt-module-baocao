@@ -53,7 +53,8 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
         LoaiHD: getIdx(headerChot, ['Loại hợp đồng', 'LoaiHD']),
         MaDonVi: getIdx(headerChot, ['Mã đơn vị', 'MaDonVi', 'MaBP']),
         DonVi: getIdx(headerChot, ['Đơn vị', 'DonVi']),
-        TrangThai: getIdx(headerChot, ['Trạng thái', 'TrangThai', 'Trạng thái công tác'])
+        TrangThai: getIdx(headerChot, ['Trạng thái', 'TrangThai', 'Trạng thái công tác']),
+        LuongCD: getIdx(headerChot, ['Lương CĐ', 'Lương cố định', 'LuongCD', 'LuongCoDinh'])
     };
 
     const mapNhanSu = {};
@@ -72,13 +73,18 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
         const loaiHD = String(row[idxChot.LoaiHD] || '').trim();
         const trangThai = idxChot.TrangThai !== -1 ? String(row[idxChot.TrangThai] || '').trim() : '';
 
+        const luongCDIdx = idxChot.LuongCD !== -1 ? idxChot.LuongCD : 36; // Cột AK (index 36)
+        const luongCD = parseNumber(row[luongCDIdx]);
+        const isLuongCD = luongCD > 0;
+
         const tenNhom = mapDonViToNhom[maDV] || 'Gián tiếp';
         const isTrucTiep = (tenNhom === 'Trực tiếp');
 
         mapNhanSu[ma] = {
             LoaiHD: loaiHD,
             IsTrucTiep: isTrucTiep,
-            TrangThai: trangThai
+            TrangThai: trangThai,
+            IsLuongCD: isLuongCD
         };
     });
 
@@ -117,6 +123,7 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
         Object.values(AGG_KEYS).forEach(k => {
             store[k] = {
                 Luong: { BHXH: 0, BHYT: 0, BHTN: 0 },
+                LuongCoDinh: { BHXH: 0, BHYT: 0, BHTN: 0 },
                 TruyLinh: { BHXH: 0, BHYT: 0, BHTN: 0 },
                 TruyThu: { BHXH: 0, BHYT: 0, BHTN: 0 }
             };
@@ -128,6 +135,7 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
     const aggGianTiep = createGroupStorage();
     const aggNuocNgoaiSingle = {
         Luong: { BHXH: 0, BHYT: 0, BHTN: 0 },
+        LuongCoDinh: { BHXH: 0, BHYT: 0, BHTN: 0 },
         TruyLinh: { BHXH: 0, BHYT: 0, BHTN: 0 },
         TruyThu: { BHXH: 0, BHYT: 0, BHTN: 0 }
     };
@@ -143,7 +151,7 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
         let catKey = null;
         const loaiHD = info.LoaiHD;
         if (loaiHD === 'Biên chế') catKey = AGG_KEYS.BIEN_CHE;
-        else if (loaiHD === 'HĐ dài hạn') catKey = AGG_KEYS.THUONG_XUYEN;
+        else if (loaiHD === 'HĐ dài hạn' || info.IsLuongCD) catKey = AGG_KEYS.THUONG_XUYEN;
         else if (loaiHD === 'HĐ 68') catKey = AGG_KEYS.HD_68;
         else if (loaiHD === 'HĐ vụ việc') catKey = AGG_KEYS.VU_VIEC;
 
@@ -155,12 +163,22 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
     // Process Luong
     dataLuong1Raw.slice(1).forEach(row => {
         if (String(row[idxL1.KyLuong]).trim() !== monthStr) return;
-        const store = getStorage(String(row[idxL1.MaCB]).trim());
+        const maNS = String(row[idxL1.MaCB]).trim();
+        const store = getStorage(maNS);
         if (!store) return;
 
-        store.Luong.BHXH += parseNumber(row[idxL1.BHXH]);
-        store.Luong.BHYT += parseNumber(row[idxL1.BHYT]);
-        store.Luong.BHTN += parseNumber(row[idxL1.BHTN]);
+        const info = mapNhanSu[maNS];
+        const isNN = info.TrangThai && info.TrangThai.toUpperCase().includes('ĐI CÔNG TÁC NN');
+        
+        if (!isNN && info.IsLuongCD) {
+            store.LuongCoDinh.BHXH += parseNumber(row[idxL1.BHXH]);
+            store.LuongCoDinh.BHYT += parseNumber(row[idxL1.BHYT]);
+            store.LuongCoDinh.BHTN += parseNumber(row[idxL1.BHTN]);
+        } else {
+            store.Luong.BHXH += parseNumber(row[idxL1.BHXH]);
+            store.Luong.BHYT += parseNumber(row[idxL1.BHYT]);
+            store.Luong.BHTN += parseNumber(row[idxL1.BHTN]);
+        }
     });
 
     // Process Truy Thu / Truy Linh
@@ -233,12 +251,21 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
         const rowLinh = createRow('', `Truy lĩnh gián tiếp ${vtGianTiep[key]}`, store.TruyLinh);
         const rowThu = createRow('', `Truy thu gián tiếp ${vtGianTiep[key]}`, store.TruyThu);
 
-        let rowCong = sumRows(rowLuong, rowLinh, 1);
-        rowCong = sumRows(rowCong, rowThu, -1);
+        let rowCong;
+        if (key === AGG_KEYS.THUONG_XUYEN) {
+            const rowLuongCoDinh = createRow('', 'Hợp đồng lương cố định', store.LuongCoDinh);
+            rowsGianTiep.push(rowLuong, rowLuongCoDinh, rowLinh, rowThu);
+            rowCong = sumRows(rowLuong, rowLuongCoDinh, 1);
+            rowCong = sumRows(rowCong, rowLinh, 1);
+            rowCong = sumRows(rowCong, rowThu, -1);
+        } else {
+            rowsGianTiep.push(rowLuong, rowLinh, rowThu);
+            rowCong = sumRows(rowLuong, rowLinh, 1);
+            rowCong = sumRows(rowCong, rowThu, -1);
+        }
         rowCong[0] = '';
         rowCong[1] = `Cộng gián tiếp ${vtGianTiep[key]}`;
-
-        rowsGianTiep.push(rowLuong, rowLinh, rowThu, rowCong);
+        rowsGianTiep.push(rowCong);
         totalGianTiepRow = sumRows(totalGianTiepRow, rowCong);
     });
     totalGianTiepRow[0] = 'I';
@@ -247,67 +274,53 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
     rowsGianTiep.forEach(r => result.push(r));
 
     // --- Section II: Trực tiếp ---
-    // 1: Trực tiếp biên chế
-    // 2: Trực tiếp hợp đồng (gồm HĐ dài hạn, HĐ 68, HĐ vụ việc)
-    let totalTrucTiepRow = ['II', 'Tổng trực tiếp: 1+2', 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const orderTrucTiep = [AGG_KEYS.BIEN_CHE, AGG_KEYS.THUONG_XUYEN, AGG_KEYS.HD_68, AGG_KEYS.VU_VIEC];
+    const vtTrucTiep = { [AGG_KEYS.BIEN_CHE]: 'BC', [AGG_KEYS.THUONG_XUYEN]: 'HĐ', [AGG_KEYS.HD_68]: 'HĐ 68', [AGG_KEYS.VU_VIEC]: 'HĐ vụ việc' };
+    const nameTrucTiep = { [AGG_KEYS.BIEN_CHE]: 'biên chế', [AGG_KEYS.THUONG_XUYEN]: 'hợp đồng', [AGG_KEYS.HD_68]: 'hợp đồng 68', [AGG_KEYS.VU_VIEC]: 'hợp đồng vụ việc' };
+
+    let totalTrucTiepRow = ['II', 'Tổng trực tiếp: 1+2+3+4', 0, 0, 0, 0, 0, 0, 0, 0, 0];
     const rowsTrucTiep = [];
+    orderTrucTiep.forEach((key, i) => {
+        const store = aggTrucTiep[key];
+        const stt = (i + 1).toString();
+        const rowLuong = createRow(stt, `Trực tiếp ${nameTrucTiep[key]}`, store.Luong);
+        const rowLinh = createRow('', `Truy lĩnh trực tiếp ${vtTrucTiep[key]}`, store.TruyLinh);
+        const rowThu = createRow('', `Truy thu trực tiếp ${vtTrucTiep[key]}`, store.TruyThu);
 
-    // Nhóm 1: Trực tiếp biên chế
-    const storeBC = aggTrucTiep[AGG_KEYS.BIEN_CHE];
-    const rowBCLuong = createRow('1', 'Trực tiếp biên chế', storeBC.Luong);
-    const rowBCLinh = createRow('', 'Truy lĩnh trực tiếp BC', storeBC.TruyLinh);
-    const rowBCThu = createRow('', 'Truy thu trực tiếp BC', storeBC.TruyThu);
-    let rowBCCong = sumRows(rowBCLuong, rowBCLinh, 1);
-    rowBCCong = sumRows(rowBCCong, rowBCThu, -1);
-    rowBCCong[0] = '';
-    rowBCCong[1] = 'Cộng trực tiếp BC';
-    rowsTrucTiep.push(rowBCLuong, rowBCLinh, rowBCThu, rowBCCong);
-    totalTrucTiepRow = sumRows(totalTrucTiepRow, rowBCCong);
+        let rowCong;
+        if (key === AGG_KEYS.THUONG_XUYEN) {
+            const rowLuongCoDinh = createRow('', 'Hợp đồng lương cố định', store.LuongCoDinh);
+            rowsTrucTiep.push(rowLuong, rowLuongCoDinh);
+            let rowCongTemp = sumRows(rowLuong, rowLuongCoDinh, 1);
+            if (addContent && addAmount > 0) {
+                const addAmountRound = Math.round(addAmount);
+                const rowAdd = [
+                    '', addContent,
+                    0, 0, 0, 0,
+                    addAmountRound, 0, 0, addAmountRound,
+                    addAmountRound
+                ];
+                rowsTrucTiep.push(rowAdd);
+                rowCongTemp = sumRows(rowCongTemp, rowAdd, 1);
+            }
+            rowCong = sumRows(rowCongTemp, rowLinh, 1);
+            rowCong = sumRows(rowCong, rowThu, -1);
+            rowCong[0] = '';
+            rowCong[1] = `Cộng trực tiếp ${vtTrucTiep[key]}`;
+            rowsTrucTiep.push(rowLinh, rowThu, rowCong);
+        } else {
+            rowsTrucTiep.push(rowLuong, rowLinh, rowThu);
+            rowCong = sumRows(rowLuong, rowLinh, 1);
+            rowCong = sumRows(rowCong, rowThu, -1);
+            rowCong[0] = '';
+            rowCong[1] = `Cộng trực tiếp ${vtTrucTiep[key]}`;
+            rowsTrucTiep.push(rowCong);
+        }
 
-    // Nhóm 2: Trực tiếp hợp đồng (Tổng hợp từ HĐ dài hạn, HĐ 68, HĐ vụ việc)
-    const storeHDTotal = {
-        Luong: { BHXH: 0, BHYT: 0, BHTN: 0 },
-        TruyLinh: { BHXH: 0, BHYT: 0, BHTN: 0 },
-        TruyThu: { BHXH: 0, BHYT: 0, BHTN: 0 }
-    };
-    [AGG_KEYS.THUONG_XUYEN, AGG_KEYS.HD_68, AGG_KEYS.VU_VIEC].forEach(k => {
-        ['BHXH', 'BHYT', 'BHTN'].forEach(f => {
-            storeHDTotal.Luong[f] += aggTrucTiep[k].Luong[f];
-            storeHDTotal.TruyLinh[f] += aggTrucTiep[k].TruyLinh[f];
-            storeHDTotal.TruyThu[f] += aggTrucTiep[k].TruyThu[f];
-        });
+        totalTrucTiepRow = sumRows(totalTrucTiepRow, rowCong);
     });
-
-    const rowHDLuong = createRow('2', 'Trực tiếp hợp đồng', storeHDTotal.Luong);
-    const rowHDLinh = createRow('', 'Truy lĩnh trực tiếp HĐ', storeHDTotal.TruyLinh);
-    const rowHDThu = createRow('', 'Truy thu trực tiếp HĐ', storeHDTotal.TruyThu);
-    let rowHDCong = sumRows(rowHDLuong, rowHDLinh, 1);
-    rowHDCong = sumRows(rowHDCong, rowHDThu, -1);
-    rowHDCong[0] = '';
-    rowHDCong[1] = 'Cộng trực tiếp HĐ';
-
-    rowsTrucTiep.push(rowHDLuong);
-
-    // Bổ sung dòng nhập tay nếu có
-    if (addContent && addAmount > 0) {
-        // Tạo hàng nhập tay: chỉ chứa số tiền ở cột BHXH 17.5% (index 6), Thành tiền nhà trường trả (index 9), Tổng tiền (index 10)
-        // 0: STT, 1: Nội dung, 2: BHXH 8%, 3: BHYT 1.5%, 4: BHTN 1%, 5: Thành tiền emp, 6: BHXH 17.5%, 7: BHYT 3%, 8: BHTN 1%, 9: Thành tiền school, 10: Tổng tiền
-        const addAmountRound = Math.round(addAmount);
-        const rowAdd = [
-            '', addContent,
-            0, 0, 0, 0,
-            addAmountRound, 0, 0, addAmountRound,
-            addAmountRound
-        ];
-        rowsTrucTiep.push(rowAdd);
-        rowHDCong = sumRows(rowHDCong, rowAdd, 1);
-    }
-
-    rowsTrucTiep.push(rowHDLinh, rowHDThu, rowHDCong);
-    totalTrucTiepRow = sumRows(totalTrucTiepRow, rowHDCong);
-
     totalTrucTiepRow[0] = 'II';
-    totalTrucTiepRow[1] = 'Tổng trực tiếp: 1+2';
+    totalTrucTiepRow[1] = 'Tổng trực tiếp: 1+2+3+4';
     result.push(totalTrucTiepRow);
     rowsTrucTiep.forEach(r => result.push(r));
 
@@ -323,9 +336,14 @@ function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addCont
     totalNuocNgoaiRow[1] = 'Mã nước ngoài';
     result.push(totalNuocNgoaiRow);
 
+    // --- Cộng: I + II ---
+    let congI_IIRow = sumRows(totalGianTiepRow, totalTrucTiepRow, 1);
+    congI_IIRow[0] = '';
+    congI_IIRow[1] = 'Cộng: I + II';
+    result.push(congI_IIRow);
+
     // --- Grand Total ---
-    let grandTotalRow = sumRows(totalGianTiepRow, totalTrucTiepRow, 1);
-    grandTotalRow = sumRows(grandTotalRow, totalNuocNgoaiRow, 1);
+    let grandTotalRow = sumRows(congI_IIRow, totalNuocNgoaiRow, 1);
     grandTotalRow[0] = '';
     grandTotalRow[1] = 'Tổng cộng: I+II+III';
     result.push(grandTotalRow);

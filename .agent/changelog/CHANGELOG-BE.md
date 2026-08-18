@@ -1,5 +1,14 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-08-18] Sửa bóc tách phụ cấp Bảng tổng hợp lương & Đồng bộ Lương cơ sở động
+
+### Fixed
+- **Bóc tách phụ cấp (`doGet_tongHopLuong.js`)**: Đưa các lệnh cộng dồn hệ số phụ cấp (`hsNganh`, `hsDDocHai`, `hsTrachNhiem`, `hsTuVe`) vào bên trong khối điều kiện `isCurrentMonth`. Ngăn chặn việc nhân sự fallback từ tháng trước bị tính nhầm hệ số phụ cấp vào tháng hiện tại, giúp chỉ tiêu *1.1 Lương + Truy lĩnh, truy thu* và *1.2 Phụ cấp giáo viên* khớp hoàn toàn với Bảng thanh toán đi Ngân hàng / Kho bạc ([ThuyetMinhL1](file:///d:/Project/UoTT/Dikhobac/ThuyetMinhL1)).
+- **Khấu trừ Phụ cấp tự vệ Biên chế (`doGet_tongHopLuong.js`)**: Bổ sung `pcTuVe` vào danh sách các khoản phụ cấp cần trừ khỏi tổng lương để ra đúng số tiền Lương ngạch bậc `row1_1_data`.
+
+### Added
+- **Đồng bộ Lương cơ sở động (`Code.js`, `ThuyetMinhL1/doGet/Code.js`)**: Bổ sung hàm `getSalaryHistoryFromSheet` và `getLuongCoSoByMonth(monthStr)` tra cứu từ sheet `SetupLuong`, thay thế các giá trị hardcode `2.340.000` cũ bằng hàm tính động theo từng kỳ lương.
+
 ## [2026-07-31] Hạch toán HĐ ngắn hạn trực tiếp & Sửa dấu KPCĐ
 
 ### Added

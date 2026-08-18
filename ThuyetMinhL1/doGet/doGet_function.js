@@ -1041,7 +1041,7 @@ function doGet_buildDataPrint_DiNganHang(originalData, monthStr, regionFilter, l
   // === MỚI: Đọc DataLuong1 để lấy hệ số phụ cấp ===
   const FILE1_ID_LUONG = '1j6q9n5TlbW9cPa-ixfn5H_YtUNP_DHLqNLbY4iI9yWQ';
   const SHEET1_LUONG = 'DataLuong1';
-  const LUONG_CO_SO = 2340000; // Lương cơ sở (hardcode)
+  const LUONG_CO_SO = getLuongCoSoByMonth(monthStr);
 
   const mapHeSo = {};
   try {

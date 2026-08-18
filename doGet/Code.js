@@ -64,7 +64,9 @@ const GLOBAL_CONFIG = {
     MASTER: 'Master'
   },
   VALUES: {
-    LUONG_CO_BAN: 2340000
+    getLuongCoBan: function(monthStr) {
+      return getLuongCoSoByMonth(monthStr);
+    }
   }
 };
 
@@ -698,4 +700,67 @@ function doGet_doiChieuLechLuong(monthStr) {
   } catch (e) {
     return { status: "error", message: e.message };
   }
+}
+
+function getSalaryHistoryFromSheet() {
+  const defaultHistory = [
+    { year: 2026, month: 7, value: 2530000 },
+    { year: 2000, month: 1, value: 2340000 }
+  ];
+  
+  try {
+    const ss = SpreadsheetApp.openById(idFileData);
+    let sheet = ss.getSheetByName("SetupLuong");
+    
+    if (!sheet) {
+      sheet = ss.insertSheet("SetupLuong");
+      sheet.appendRow(["Kỳ lương áp dụng", "Lương cơ sở"]);
+      sheet.appendRow(["T07.2026", 2530000]);
+      sheet.appendRow(["T01.2000", 2340000]);
+      SpreadsheetApp.flush();
+    }
+    
+    const rows = sheet.getDataRange().getValues();
+    if (rows.length <= 1) return defaultHistory;
+    
+    const history = [];
+    for (let i = 1; i < rows.length; i++) {
+      const kyLuong = String(rows[i][0]).trim();
+      const value = parseFloat(rows[i][1]);
+      if (kyLuong.startsWith('T') && !isNaN(value)) {
+        const parts = kyLuong.substring(1).split('.');
+        if (parts.length === 2) {
+          history.push({
+            year: parseInt(parts[1], 10),
+            month: parseInt(parts[0], 10),
+            value: value
+          });
+        }
+      }
+    }
+    
+    history.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+    return history.length > 0 ? history : defaultHistory;
+  } catch (e) {
+    Logger.log("Lỗi đọc cấu hình lương từ Sheet: " + e.message);
+    return defaultHistory;
+  }
+}
+
+function getLuongCoSoByMonth(monthStr) {
+  const historyList = getSalaryHistoryFromSheet();
+  if (!monthStr) return historyList[historyList.length - 1].value;
+  
+  const parts = monthStr.replace('T', '').split('.');
+  if (parts.length !== 2) return historyList[historyList.length - 1].value;
+  
+  const month = parseInt(parts[0], 10);
+  const year = parseInt(parts[1], 10);
+  
+  for (const milestone of historyList) {
+    if (year > milestone.year || (year === milestone.year && month >= milestone.month)) {
+      return milestone.value;
+    }
+  }
+  return historyList[historyList.length - 1].value;
 }

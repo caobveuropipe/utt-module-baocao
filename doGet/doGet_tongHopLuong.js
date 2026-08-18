@@ -18,7 +18,7 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
     // ====== CONFIG ======
     // (Using GLOBAL_CONFIG from Code.js)
 
-    var LUONG_CO_BAN = GLOBAL_CONFIG.VALUES.LUONG_CO_BAN;
+    var LUONG_CO_BAN = GLOBAL_CONFIG.VALUES.getLuongCoBan(monthStr);
 
     Logger.log('Bắt đầu tổng hợp lương cho kỳ: %s', monthStr);
 
@@ -267,11 +267,11 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
         const isCurrentMonth = String(row[idx1.KyLuong]).trim() === monthStr;
         if (isCurrentMonth) {
             emp.amounts.tongLuong1 = (emp.amounts.tongLuong1 || 0) + (Number(row[idx1.TongLuong1]) || 0);
+            emp.amounts.hsNganh = (emp.amounts.hsNganh || 0) + (Number(row[idx1.HSNganh]) || 0);
+            emp.amounts.hsDDocHai = (emp.amounts.hsDDocHai || 0) + (Number(row[idx1.HSDDocHai]) || 0);
+            emp.amounts.hsTrachNhiem = (emp.amounts.hsTrachNhiem || 0) + (Number(row[idx1.HSTrachNhiem]) || 0);
+            emp.amounts.hsTuVe = (emp.amounts.hsTuVe || 0) + (Number(row[idx1.HSTuVe]) || 0);
         }
-        emp.amounts.hsNganh = (emp.amounts.hsNganh || 0) + (Number(row[idx1.HSNganh]) || 0);
-        emp.amounts.hsDDocHai = (emp.amounts.hsDDocHai || 0) + (Number(row[idx1.HSDDocHai]) || 0);
-        emp.amounts.hsTrachNhiem = (emp.amounts.hsTrachNhiem || 0) + (Number(row[idx1.HSTrachNhiem]) || 0);
-        emp.amounts.hsTuVe = (emp.amounts.hsTuVe || 0) + (Number(row[idx1.HSTuVe]) || 0);
     });
     Logger.log('Dataluong1: %s employees matched monthStr', countL1);
 
@@ -549,7 +549,7 @@ function doGet_tongHopLuong(monthStr, resources, targetLocation) {
     };
 
     // First, calculate the data for 1.1, 2.1, 3.1 using unmodified totals
-    const row1_1_data = getComplexRowData('Biên chế', ['tong'], ['pcGiaoVien', 'pcDocHai', 'pcTrachNhiem']);
+    const row1_1_data = getComplexRowData('Biên chế', ['tong'], ['pcGiaoVien', 'pcDocHai', 'pcTrachNhiem', 'pcTuVe']);
     const row2_1_data = getComplexRowData('HĐ 68', ['tong'], ['pcTrachNhiem']);
     const row3_1_data = getComplexRowData('HĐ dài hạn', ['tong'], ['pcGiaoVien', 'pcTrachNhiem']);
 
@@ -1041,9 +1041,10 @@ function doGet_doiChieuLuongVaThuyetMinh(monthStr) {
         }
         const emp = rawEmpMap[maCB];
         emp.tongLuong1 += Number(row[idx1.TongLuong1]) || 0;
-        emp.pcNganh += (Number(row[idx1.HSNganh]) || 0) * 2340000;
-        emp.pcDocHai += (Number(row[idx1.HSDDocHai]) || 0) * 2340000;
-        emp.pcTrachNhiem += (Number(row[idx1.HSTrachNhiem]) || 0) * 2340000;
+        const LCB_dynamic = GLOBAL_CONFIG.VALUES.getLuongCoBan(monthStr);
+        emp.pcNganh += (Number(row[idx1.HSNganh]) || 0) * LCB_dynamic;
+        emp.pcDocHai += (Number(row[idx1.HSDDocHai]) || 0) * LCB_dynamic;
+        emp.pcTrachNhiem += (Number(row[idx1.HSTrachNhiem]) || 0) * LCB_dynamic;
     });
 
     data3.forEach(row => {
