@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-08-20
+
+### feat(ck-ui): bổ sung tùy chọn in và xuất Excel danh sách treo lương cơ sở Phú Thọ
+- **Popup lựa chọn loại bảng:** Khi chọn cơ sở **Phú Thọ**, hệ thống hiển thị hộp thoại SweetAlert2 cho phép chọn:
+  - *In bảng chuyển khoản* hoặc *In bảng treo lương*.
+  - *Xuất Excel chuyển khoản* hoặc *Xuất Excel treo lương*.
+- **Render template in HTML (`client/pg_general_3.html`):**
+  - Đổi tiêu đề động thành **`DANH SÁCH TREO CHƯA CHI TRẢ TIỀN LƯƠNG`** khi xem bảng treo lương.
+  - Đổi chức danh chữ ký từ **`Kế toán trưởng`** sang **`Phụ trách kế toán`**.
+  - Tự động ẩn toàn bộ **`Phần dành cho ngân hàng`** đối với bảng treo lương.
+- **Files:** `client/pg_general_1.js`, `client/pg_general_3.html`, `client/pg_general_4.html`
+
 ## 2026-04-16
 
 ### fix: loại bỏ tiền tố numbering cho các loại báo cáo
@@ -47,6 +59,17 @@
 - **Cấu trúc Header 3 hàng:** Chuẩn hóa ô "Tổng lương" thành `rowspan="2"` ở hàng 1, giúp 17 ô ở hàng 2 map chính xác vào các nhóm cột tương ứng.
 - **Kích thước tối thiểu & Chống vỡ chữ dọc:** Cấu hình `colgroup` kích thước tối thiểu cho 23 cột, đặt `min-width: 1410px` và `table-layout: fixed` cho `.phanbo-table` trên màn hình HTML; thiết lập `word-break: normal; white-space: normal;` cho các tiêu đề và cột nội dung để ngăn chặn triệt để lỗi rớt chữ thành từng ký tự dọc.
 - **Bảo toàn nguyên vẹn bản in:** Thiết lập reset `min-width: unset !important; width: 100% !important;` trong `@media print` để bảo đảm bản in giấy/PDF giữ nguyên tỷ lệ khổ ngang A4 Landscape.
+## 2026-08-19
+
+### fix(print): tối ưu độ rộng cột tự động và đồng bộ cỡ chữ bản in báo cáo lương bhxh
+- **Thuật toán Dynamic Auto-Fit Colgroup:** Xây dựng cơ chế quét dữ liệu tự động đo độ dài ký tự tối đa của từng cột (bao gồm các dòng tổng/cộng) để phân bổ độ rộng cột tối ưu:
+  - Các cột số tiền lớn hàng chục tỷ (14 chữ số như Tổng lương, LC 100%, LC hạch toán, Thực lĩnh): cấp độ rộng `92px`.
+  - Cột 13 chữ số (PCĐH): cấp `78px`.
+  - Cột có tổng cộng = 0 (hưởng 40% đi NN, Tạm ứng, treo lương, Thuế TNCN): khóa độ rộng tối thiểu an toàn `minWidth = 46px` (bằng đúng cột PC TV), ngăn chặn hoàn toàn việc tiêu đề bị rớt từng ký tự thành 1 dòng.
+- **Đồng bộ hóa cỡ chữ (Uniform Font Size):**
+  - Áp dụng một cỡ chữ chuẩn duy nhất `6.6pt !important; letter-spacing: -0.2px;` cho toàn bộ các ô số trong Bảng Phân Bổ (23 cột) và Bảng Hạch Toán (22 cột), loại bỏ tình trạng ô to ô nhỏ nhấp nhô.
+  - Thiết lập cỡ chữ `8.8pt !important` và `padding: 4px 2px` cho Bảng Tổng hợp nộp BHXH.
+- **Chuẩn hóa khổ in mặc định A4 Ngang:** Cấu hình `@page { size: A4 landscape; margin: 8mm 10mm 10mm 15mm; }` cho Bảng Tổng hợp nộp BHXH, tối ưu lề in và nới rộng cột Nội dung lên `210px`.
 - Files: `client/pg_general_3.html`
 
 ---

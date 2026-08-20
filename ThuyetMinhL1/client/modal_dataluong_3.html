@@ -994,7 +994,7 @@
         margin-top: 14mm;
         margin-bottom: 14mm;
         margin-left: 12mm;
-        margin-right: 12mm;
+        margin-right: 10mm;
         @bottom-center {
           content: "Trang " counter(page);
           font-size: 10pt;
@@ -1814,7 +1814,7 @@
         const pageStyle = doc.createElement('style');
         pageStyle.id = 'thuyet-minh-print-page-style';
         pageStyle.textContent = `
-          @page { size: A4 landscape; margin-top: 14mm; margin-bottom: 14mm; margin-left: 12mm; margin-right: 12mm; }
+          @page { size: A4 landscape; margin-top: 14mm; margin-bottom: 14mm; margin-left: 12mm; margin-right: 10mm; }
           @media print { .no-print { display: none !important; } }
         `;
         doc.head.appendChild(pageStyle);

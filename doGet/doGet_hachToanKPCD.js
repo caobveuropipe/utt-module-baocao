@@ -137,7 +137,7 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
         return info.IsTrucTiep ? aggTrucTiep[catKey] : aggGianTiep[catKey];
     }
 
-    // Process Luong: (BHXH / 8) * 2, làm tròn hàng đơn vị
+    // Process Luong: (BHXH / 8) * 2 (cộng dồn số thực, làm tròn ở mức hiển thị từng dòng)
     dataLuong1Raw.slice(1).forEach(row => {
         if (String(row[idxL1.KyLuong]).trim() !== monthStr) return;
         const maNS = String(row[idxL1.MaCB]).trim();
@@ -145,7 +145,7 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
         if (!store) return;
         
         const info = mapNhanSu[maNS];
-        const val = Math.round((parseNumber(row[idxL1.BHXH]) / 8) * 2);
+        const val = (parseNumber(row[idxL1.BHXH]) / 8) * 2;
         if (info && info.IsLuongCD) {
             store.LuongCoDinh += val;
         } else {
@@ -153,7 +153,7 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
         }
     });
 
-    // Process Truy Thu / Truy Linh: KPCD * 2, làm tròn hàng đơn vị
+    // Process Truy Thu / Truy Linh: (BHXH / 8) * 2 hoặc (KPCĐ / 0.5) * 2 (cộng dồn số thực)
     dataTruyThuRaw.slice(1).forEach(row => {
         if (String(row[idxTT.KyTraLuong]).trim() !== monthStr) return;
         const store = getStorage(String(row[idxTT.MaNS]).trim());
@@ -166,9 +166,8 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
         const bhxhVal = idxTT.BHXH !== -1 ? parseNumber(row[idxTT.BHXH]) : 0;
         const kpcdVal = idxTT.KPCD !== -1 ? parseNumber(row[idxTT.KPCD]) : 0;
         const rawVal = bhxhVal > 0 ? (bhxhVal / 8) * 2 : (kpcdVal / 0.5) * 2;
-        const val = Math.round(rawVal);
-        if (val === 0) return;
-        const absVal = Math.abs(val);
+        if (rawVal === 0) return;
+        const absVal = Math.abs(rawVal);
 
         if (conNhanVal > 0) store.TruyLinh += absVal;
         else store.TruyThu += absVal;
@@ -176,7 +175,7 @@ function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
 
     // 5. Build Result Table
     function createRow(stt, content, val) {
-        return [stt, content, val, ''];
+        return [stt, content, Math.round(val || 0), ''];
     }
 
     function sumRows(row1, row2, sign = 1) {

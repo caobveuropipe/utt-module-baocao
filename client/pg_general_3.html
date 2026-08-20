@@ -71,23 +71,53 @@
   // =================================================================================================
   // --- 1. IN BẢNG CHUYỂN KHOẢN NGÂN HÀNG (LANDSCAPE) ---
   // =================================================================================================
-  function printBangTongHopCk(location = 'All') {
+  function printBangTongHopCk(location = 'All', isTreoLuong = false) {
     const monthStr = $('#modal_dataluong_2_ChonThang').val();
     if (!monthStr) { digicoreToast('Vui lòng chọn tháng', 'warning'); return; }
 
+    const locNorm = String(location || '').trim();
+    if (locNorm === 'Phú Thọ' && arguments.length === 1) {
+      // Khi chọn Phú Thọ và chưa xác định loại bảng, hiển thị Modal chọn
+      Swal.fire({
+        title: 'Tùy chọn in - Cơ sở Phú Thọ',
+        text: 'Vui lòng chọn loại bảng in muốn xem:',
+        icon: 'question',
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonColor: '#6366f1',
+        denyButtonColor: '#0ea5e9',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: '<i class="fas fa-university"></i> In bảng chuyển khoản',
+        denyButtonText: '<i class="fas fa-pause-circle"></i> In bảng treo lương',
+        cancelButtonText: 'Hủy bỏ'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          executePrintCk(monthStr, location, false);
+        } else if (result.isDenied) {
+          executePrintCk(monthStr, location, true);
+        }
+      });
+      return;
+    }
+
+    executePrintCk(monthStr, location, isTreoLuong);
+  }
+
+  function executePrintCk(monthStr, location, isTreoLuong) {
     const win = window.open('', '_blank');
     if (!win) {
       digicoreToast('Trình duyệt đã chặn popup. Vui lòng cho phép popup và thử lại.', 'warning');
       return;
     }
-    win.document.write('<html><body style="font-family:Arial;text-align:center;padding:50px"><p>Đang tải dữ liệu báo cáo...</p></body></html>');
+    const reportName = isTreoLuong ? 'danh sách treo lương' : 'dữ liệu chuyển khoản';
+    win.document.write('<html><body style="font-family:Arial;text-align:center;padding:50px"><p>Đang tải ' + reportName + '...</p></body></html>');
 
-    digicoreSpinner.show("Đang truy vấn dữ liệu chuyển khoản...");
+    digicoreSpinner.show("Đang truy vấn " + reportName + "...");
     google.script.run
       .withSuccessHandler(function (res) {
         digicoreSpinner.hide();
         if (res.status === "success") {
-          const content = generateCkHtml(res, location);
+          const content = generateCkHtml(res, location, isTreoLuong);
           win.document.open();
           win.document.write(content);
           win.document.close();
@@ -101,10 +131,11 @@
         win.close();
         digicoreToast('Lỗi kết nối: ' + err.message, 'error');
       })
-      .pg1_ed1_getPrintDataCk(monthStr, location);
+      .pg1_ed1_getPrintDataCk(monthStr, location, isTreoLuong);
   }
 
-  function generateCkHtml(res, location = 'All') {
+  function generateCkHtml(res, location = 'All', isTreoLuong = false) {
+    const isTreo = (isTreoLuong === true || res.isTreoLuong === true);
     const fmt = (v) => {
       if (v === null || v === undefined || v === "") return "0";
       let n = Number(v);
@@ -157,12 +188,12 @@
       "th{background:#f8fafc; font-weight:bold; text-align:center; vertical-align:middle; color:#000;}" +
       "thead{display:table-header-group;}" +
       "tr{page-break-inside:avoid; break-inside:avoid;}" +
-      ".report-header{width:100%; position:relative; min-height:55px; margin-bottom:8px;}" +
+      ".report-header{width:100%; position:relative; min-height:80px; margin-bottom:8px;}" +
       ".school-header-block{position:absolute; left:0; top:0; display:flex; flex-direction:column; align-items:center; text-align:center;}" +
       ".school-name{font-weight:bold; font-size:9.5pt; text-transform:uppercase; line-height:1.2;}" +
       ".school-underline-no-branch{width:120px; border-bottom:1.5px solid #000; margin:4px auto 0 auto; -webkit-print-color-adjust:exact; print-color-adjust:exact;}" +
       ".school-branch-with-underline{font-weight:bold; font-size:9.5pt; margin-top:3px; display:inline-block; border-bottom:1.5px solid #000; padding-bottom:1px; line-height:1.2; -webkit-print-color-adjust:exact; print-color-adjust:exact;}" +
-      ".report-title-section{text-align:center; padding-top:5px;}" +
+      ".report-title-section{text-align:center; padding-top:25px;}" +
       ".report-title-main{text-transform:uppercase; font-weight:bold; font-size:11pt; margin-bottom:2px;}" +
       ".report-title-sub{font-weight:bold; font-size:10pt;}" +
       ".org-info-section{font-weight:bold; font-size:9pt; text-align:left; margin-top:5px;}" +
@@ -218,7 +249,7 @@
       _L + "th rowspan='3'>THU THUẾ<br>TNCN<br>T" + prevMonthStr + "/" + prevYear + _S + "th" + _G +
       _S + "tr" + _G +
       _L + "tr" + _G +
-      _L + "th colspan='3'>LƯƠNG NGÂN SÁCH" + _S + "th" + _G +
+      _L + "th colspan='3'>LƯƠNG NGẠCH BẬC" + _S + "th" + _G +
       _L + "th colspan='3'>THU NHẬP TĂNG THÊM" + _S + "th" + _G +
       _L + "th colspan='3'>TIỀN ĂN CA" + _S + "th" + _G +
       _S + "tr" + _G +
@@ -242,12 +273,14 @@
       _S + "thead" + _G +
       _L + "tfoot" + _G + _S + "tfoot" + _G;
 
+    const reportTitleMain = isTreo ? "DANH SÁCH TREO CHƯA CHI TRẢ TIỀN LƯƠNG" : "DANH SÁCH CHUYỂN KHOẢN TIỀN LƯƠNG, THU NHẬP TĂNG THÊM, TRUY LĨNH VÀ TRUY THU";
+
     const rowsHtml = dataRowsHtml.join("");
     const reportHeaderHtml =
       _L + "div class='report-header'" + _G +
       generatePrintHeaderHtml(location) +
       _L + "div class='report-title-section'" + _G +
-      _L + "div class='report-title-main'" + _G + "DANH SÁCH CHUYỂN KHOẢN TIỀN LƯƠNG, THU NHẬP TĂNG THÊM, TRUY LĨNH VÀ TRUY THU" + _S + "div" + _G +
+      _L + "div class='report-title-main'" + _G + reportTitleMain + _S + "div" + _G +
       _L + "div class='report-title-sub'" + _G + "THÁNG " + res.month + " NĂM " + res.year + _S + "div" + _G +
       _S + "div" + _G +
       _L + "div class='org-info-section'" + _G + "Tên tổ chức: TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT" + _S + "div" + _G +
@@ -256,6 +289,34 @@
 
     const totalRowHtml =
       _L + "tr class='total-row' style='background:#f9f9f9;'" + _G + _L + "td colspan='5' style='text-align:center;'>TỔNG CỘNG" + _S + "td" + _G + _L + "td style='text-align:right;font-size:7.5pt;white-space:nowrap;'>" + fmt(res.totalAll) + _S + "td" + _G + extraTotalsHtml + _S + "tr" + _G;
+
+    const ktTitle = isTreo ? "Phụ trách kế toán" : "Kế toán trưởng";
+
+    let bankSectionHtml = "";
+    if (!isTreo) {
+      bankSectionHtml =
+        _L + "tr" + _G +
+        _L + "td style='text-align:left;'" + _G + "<strong>Phần dành cho ngân hàng</strong>" + _L + "br" + _G + "<strong>I/ Xác nhận dành cho bộ phận tiếp nhận yêu cầu</strong>" + _S + "td" + _G +
+        _L + "td" + _G + _S + "td" + _G +
+        _L + "td style='vertical-align:bottom;'" + _G + "Hà Nội, ngày &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; năm 20..." + _S + "td" + _G +
+        _S + "tr" + _G +
+        _L + "tr" + _G +
+        _L + "td" + _G + "<strong>Cán bộ tiếp nhận</strong>" + _S + "td" + _G +
+        _L + "td" + _G + _S + "td" + _G +
+        _L + "td" + _G + "<strong>Trưởng bộ phận tiếp nhận</strong>" + _S + "td" + _G +
+        _S + "tr" + _G +
+        _L + "tr" + _G + _L + "td colspan='3' style='height:60px'>" + _S + "td" + _G + _S + "tr" + _G +
+        _L + "tr" + _G +
+        _L + "td style='text-align:left;'" + _G + "<strong>II/ Phần xác nhận dành cho bộ phận xử lý yêu cầu</strong>" + _S + "td" + _G +
+        _L + "td" + _G + _S + "td" + _G +
+        _L + "td style='vertical-align:bottom;'" + _G + "Hà Nội, ngày &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; năm 20..." + _S + "td" + _G +
+        _S + "tr" + _G +
+        _L + "tr" + _G +
+        _L + "td" + _G + "<strong>Giao dịch viên</strong>" + _S + "td" + _G +
+        _L + "td" + _G + _S + "td" + _G +
+        _L + "td" + _G + "<strong>Kiểm soát viên</strong>" + _S + "td" + _G +
+        _S + "tr" + _G;
+    }
 
     const signatureHtml =
       _L + "div class='summary-signature-block' style='page-break-inside:avoid; break-inside:avoid; margin-top:10px;'" + _G +
@@ -268,31 +329,11 @@
       _S + "tr" + _G +
       _L + "tr" + _G +
       _L + "td style='width:33%; text-align:center; font-weight:bold;'" + _G + "Người lập" + _S + "td" + _G +
-      _L + "td style='width:34%; text-align:center; font-weight:bold;'" + _G + "Kế toán trưởng" + _S + "td" + _G +
+      _L + "td style='width:34%; text-align:center; font-weight:bold;'" + _G + ktTitle + _S + "td" + _G +
       _L + "td style='width:33%; text-align:center; font-weight:bold;'" + _G + "Ban Giám hiệu" + _S + "td" + _G +
       _S + "tr" + _G +
       _L + "tr" + _G + _L + "td colspan='3' style='height:60px'>" + _S + "td" + _G + _S + "tr" + _G +
-      _L + "tr" + _G +
-      _L + "td style='text-align:left;'" + _G + "<strong>Phần dành cho ngân hàng</strong>" + _L + "br" + _G + "<strong>I/ Xác nhận dành cho bộ phận tiếp nhận yêu cầu</strong>" + _S + "td" + _G +
-      _L + "td" + _G + _S + "td" + _G +
-      _L + "td style='vertical-align:bottom;'" + _G + "Hà Nội, ngày &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; năm 20..." + _S + "td" + _G +
-      _S + "tr" + _G +
-      _L + "tr" + _G +
-      _L + "td" + _G + "<strong>Cán bộ tiếp nhận</strong>" + _S + "td" + _G +
-      _L + "td" + _G + _S + "td" + _G +
-      _L + "td" + _G + "<strong>Trưởng bộ phận tiếp nhận</strong>" + _S + "td" + _G +
-      _S + "tr" + _G +
-      _L + "tr" + _G + _L + "td colspan='3' style='height:60px'>" + _S + "td" + _G + _S + "tr" + _G +
-      _L + "tr" + _G +
-      _L + "td style='text-align:left;'" + _G + "<strong>II/ Phần xác nhận dành cho bộ phận xử lý yêu cầu</strong>" + _S + "td" + _G +
-      _L + "td" + _G + _S + "td" + _G +
-      _L + "td style='vertical-align:bottom;'" + _G + "Hà Nội, ngày &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; năm 20..." + _S + "td" + _G +
-      _S + "tr" + _G +
-      _L + "tr" + _G +
-      _L + "td" + _G + "<strong>Giao dịch viên</strong>" + _S + "td" + _G +
-      _L + "td" + _G + _S + "td" + _G +
-      _L + "td" + _G + "<strong>Kiểm soát viên</strong>" + _S + "td" + _G +
-      _S + "tr" + _G +
+      bankSectionHtml +
       _S + "table" + _G +
       _S + "div" + _G;
 

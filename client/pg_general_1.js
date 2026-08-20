@@ -126,9 +126,9 @@ function userRole() {
 }
 
 
-function pg1_ed1_getPrintDataCk(monthStr, location = 'All') {
+function pg1_ed1_getPrintDataCk(monthStr, location = 'All', isTreoLuong = false) {
   try {
-    const url = `${url_api_doGet}?type=getPrintDataCk&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}`;
+    const url = `${url_api_doGet}?type=getPrintDataCk&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}&isTreoLuong=${encodeURIComponent(isTreoLuong)}`;
     const response = UrlFetchApp.fetch(url, { method: 'get' });
     return JSON.parse(response.getContentText());
   } catch (error) {

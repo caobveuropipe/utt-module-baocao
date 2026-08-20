@@ -13,6 +13,17 @@ function test_doGet_taoBangTHBaoHiem() {
 }
 
 /**
+ * Hàm Test kiểm tra và audit chi tiết từng nhân sự được xếp vào diện nào trong Hạch Toán Bảo Hiểm
+ * Mặc định kiểm tra khu vực Hà Nội, tháng T06.2026
+ */
+function test_auditChiTietHachToanBaoHiem() {
+    var monthStr = 'T06.2026';
+    var location = 'Hà Nội';
+    var res = auditChiTietHachToanBaoHiem(monthStr, location);
+    Logger.log(`Kết quả audit: ${JSON.stringify(res)}`);
+}
+
+/**
  * Hàm xử lý dữ liệu hạch toán bảo hiểm (Nội bộ cho file này)
  */
 function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addContent = '', addAmount = 0) {
@@ -564,5 +575,417 @@ function getPrintDataHachToanBaoHiem(monthStr, location, addContent = '', addAmo
         };
     } catch (e) {
         return { status: "error", message: e.message };
+    }
+}
+
+/**
+ * HÀM THỰC THI AUDIT: Bóc tách chi tiết từng nhân sự và phân loại vào mục hạch toán bảo hiểm
+ * Xuất kết quả trực tiếp ra Sheet "Audit_HachToanBaoHiem" trong file EXPORT_HT_TH_BH
+ * 
+ * @param {string} monthStr Kỳ lương cần audit (VD: 'T06.2026')
+ * @param {string} location Khu vực cần audit (VD: 'Hà Nội', 'Phú Thọ', 'All')
+ */
+function auditChiTietHachToanBaoHiem(monthStr = 'T06.2026', location = 'Hà Nội') {
+    Logger.log(`=================== BẮT ĐẦU AUDIT CHI TIẾT HẠCH TOÁN BẢO HIỂM [${monthStr} - ${location}] ===================`);
+    
+    const EXPORT_FILE_ID = GLOBAL_CONFIG.FILES.EXPORT_HT_TH_BH;
+    const AUDIT_SHEET_NAME = 'Audit_HachToanBaoHiem';
+    const RATES = {
+        BHXH: { EMP: 8, SCHOOL: 17.5 },
+        BHYT: { EMP: 1.5, SCHOOL: 3 },
+        BHTN: { EMP: 1, SCHOOL: 1 }
+    };
+
+    try {
+        const locationNormalized = location && location !== 'All' ? normalizeLocation(location) : null;
+
+        // 1. Đọc Setup: Mã đơn vị -> Nhóm Trực tiếp / Gián tiếp
+        const ssFileData = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
+        const shSetup = ssFileData.getSheetByName('Setup');
+        if (!shSetup) throw new Error("Không tìm thấy sheet 'Setup' trong file Master Data");
+        const lastRow = shSetup.getLastRow();
+        const dataSetupRaw = shSetup.getRange("K2:M" + Math.max(2, lastRow)).getValues();
+
+        const mapDonViToNhom = {};
+        dataSetupRaw.forEach(row => {
+            const maDV = String(row[0] || '').trim();
+            const nhom = String(row[2] || '').trim();
+            if (maDV) mapDonViToNhom[maDV] = nhom;
+        });
+
+        // 2. Đọc Master Data Chốt Nhân Sự Tháng
+        const dataChotRaw = getSheetNSThang().getDataRange().getValues();
+        if (dataChotRaw.length < 2) throw new Error("Dữ liệu DataChotNSThang trống!");
+        const headerChot = dataChotRaw[0] || [];
+        const idxChot = {
+            KyLuong: getIdx(headerChot, ['Kỳ lương', 'KyLuong', 'Ky']),
+            MaNS: getIdx(headerChot, ['Mã nhân sự', 'Mã NS', 'MaNS', 'Ma']),
+            HoTen: getIdx(headerChot, ['Họ và tên', 'Họ tên', 'HoTen', 'Tên']),
+            LoaiHD: getIdx(headerChot, ['Loại hợp đồng', 'LoaiHD']),
+            MaDonVi: getIdx(headerChot, ['Mã đơn vị', 'MaDonVi', 'MaBP']),
+            DonVi: getIdx(headerChot, ['Đơn vị', 'DonVi']),
+            TrangThai: getIdx(headerChot, ['Trạng thái', 'TrangThai', 'Trạng thái công tác']),
+            LuongCD: getIdx(headerChot, ['Lương CĐ', 'Lương cố định', 'LuongCD', 'LuongCoDinh'])
+        };
+
+        const mapNhanSu = {};
+        dataChotRaw.slice(1).forEach(row => {
+            const ky = String(row[idxChot.KyLuong]).trim();
+            if (ky !== monthStr) return;
+
+            const kv = normalizeLocation(row[38]); // Cột AM
+            const ma = String(row[idxChot.MaNS]).trim();
+            if (!ma) return;
+
+            const hoTen = idxChot.HoTen !== -1 ? String(row[idxChot.HoTen] || '').trim() : '';
+            const maDV = String(row[idxChot.MaDonVi] || '').trim();
+            const donVi = idxChot.DonVi !== -1 ? String(row[idxChot.DonVi] || '').trim() : '';
+            const loaiHD = String(row[idxChot.LoaiHD] || '').trim();
+            const trangThai = idxChot.TrangThai !== -1 ? String(row[idxChot.TrangThai] || '').trim() : '';
+
+            const luongCDIdx = idxChot.LuongCD !== -1 ? idxChot.LuongCD : 36;
+            const luongCD = parseNumber(row[luongCDIdx]);
+            const isLuongCD = luongCD > 0;
+
+            const tenNhom = mapDonViToNhom[maDV] || 'Gián tiếp';
+            const isTrucTiep = (tenNhom === 'Trực tiếp');
+
+            mapNhanSu[ma] = {
+                ma: ma,
+                hoTen: hoTen,
+                maDV: maDV,
+                donVi: donVi,
+                loaiHD: loaiHD,
+                trangThai: trangThai,
+                isLuongCD: isLuongCD,
+                luongCDVal: luongCD,
+                isTrucTiep: isTrucTiep,
+                tenNhom: tenNhom,
+                khuVuc: kv
+            };
+        });
+
+        // 3. Hàm phân loại mục hạch toán bảo hiểm
+        function classifyHachToan(maNS) {
+            const info = mapNhanSu[maNS];
+            if (!info) {
+                return {
+                    nhomCP: 'Không xác định',
+                    mucHachToan: 'Chưa có thông tin nhân sự trong DataChotNS'
+                };
+            }
+
+            if (info.trangThai && info.trangThai.toUpperCase().includes('ĐI CÔNG TÁC NN')) {
+                return {
+                    nhomCP: 'Nước ngoài',
+                    mucHachToan: 'III. Cá nhân đi công tác nước ngoài tự đóng BH'
+                };
+            }
+
+            const prefixNhom = info.isTrucTiep ? 'II. Trực tiếp' : 'I. Gián tiếp';
+            const nhomCP = info.isTrucTiep ? 'Trực tiếp' : 'Gián tiếp';
+            let dienHD = 'Khác';
+
+            if (info.loaiHD === 'Biên chế') {
+                dienHD = '1. Diện biên chế';
+            } else if (info.loaiHD === 'HĐ dài hạn' || info.isLuongCD) {
+                dienHD = '2. Diện HĐLĐ thường xuyên';
+            } else if (info.loaiHD === 'HĐ 68') {
+                dienHD = '3. Diện hợp đồng 68';
+            } else if (info.loaiHD === 'HĐ vụ việc') {
+                dienHD = '4. Diện hợp đồng vụ việc';
+            } else {
+                dienHD = `Khác (${info.loaiHD})`;
+            }
+
+            return {
+                nhomCP: nhomCP,
+                mucHachToan: `${prefixNhom} - ${dienHD}`
+            };
+        }
+
+        // 4. Bóc tách dữ liệu từ DataLuong1
+        const auditRows = [];
+        const dataLuong1Raw = getData(GLOBAL_CONFIG.FILES.DATA_LUONG_1, GLOBAL_CONFIG.SHEETS.DATA_LUONG_1);
+        const headerL1 = dataLuong1Raw[0] || [];
+        const idxL1 = {
+            KyLuong: getIdx(headerL1, ['Kỳ lương', 'Ky']),
+            MaCB: getIdx(headerL1, ['Mã CB', 'MaNS', 'Ma']),
+            HoTen: getIdx(headerL1, ['Họ và tên', 'Họ tên', 'HoTen']),
+            BHXH: getIdx(headerL1, ['BHXH']),
+            BHYT: getIdx(headerL1, ['BHYT']),
+            BHTN: getIdx(headerL1, ['BHTN'])
+        };
+
+        dataLuong1Raw.slice(1).forEach(row => {
+            if (String(row[idxL1.KyLuong]).trim() !== monthStr) return;
+            const maNS = String(row[idxL1.MaCB]).trim();
+            if (!maNS) return;
+
+            const ns = mapNhanSu[maNS];
+            if (locationNormalized && ns && ns.khuVuc && ns.khuVuc !== locationNormalized) return;
+
+            const bhxh = Math.round(parseNumber(row[idxL1.BHXH]));
+            const bhyt = Math.round(parseNumber(row[idxL1.BHYT]));
+            const bhtn = Math.round(parseNumber(row[idxL1.BHTN]));
+            if (bhxh === 0 && bhyt === 0 && bhtn === 0) return;
+
+            const isNN = ns && ns.trangThai && ns.trangThai.toUpperCase().includes('ĐI CÔNG TÁC NN');
+            const nguon = (!isNN && ns && ns.isLuongCD) ? 'Lương (Cố định)' : 'Lương';
+            const classification = classifyHachToan(maNS);
+
+            const empTotal = bhxh + bhyt + bhtn;
+            const schoolBHXH = Math.round((bhxh / RATES.BHXH.EMP) * RATES.BHXH.SCHOOL);
+            const schoolBHYT = Math.round((bhyt / RATES.BHYT.EMP) * RATES.BHYT.SCHOOL);
+            const schoolBHTN = Math.round((bhtn / RATES.BHTN.EMP) * RATES.BHTN.SCHOOL);
+            const schoolTotal = schoolBHXH + schoolBHYT + schoolBHTN;
+            const grandTotal = empTotal + schoolTotal;
+
+            const hoTen = (ns && ns.hoTen) ? ns.hoTen : (idxL1.HoTen !== -1 ? String(row[idxL1.HoTen] || '').trim() : '');
+
+            auditRows.push({
+                maNS: maNS,
+                hoTen: hoTen,
+                maDV: ns ? ns.maDV : '',
+                donVi: ns ? ns.donVi : '',
+                nhomCP: classification.nhomCP,
+                loaiHD: ns ? ns.loaiHD : '',
+                trangThai: ns ? ns.trangThai : '',
+                isLuongCD: (ns && ns.isLuongCD) ? 'Có' : 'Không',
+                mucHachToan: classification.mucHachToan,
+                nguon: nguon,
+                empBHXH: bhxh,
+                empBHYT: bhyt,
+                empBHTN: bhtn,
+                empTotal: empTotal,
+                schoolBHXH: schoolBHXH,
+                schoolBHYT: schoolBHYT,
+                schoolBHTN: schoolBHTN,
+                schoolTotal: schoolTotal,
+                grandTotal: grandTotal
+            });
+        });
+
+        // 5. Bóc tách dữ liệu từ DataTruyThu
+        const dataTruyThuRaw = getData(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU);
+        const headerTT = dataTruyThuRaw[0] || [];
+        const idxTT = {
+            KyTraLuong: getIdx(headerTT, ['Kỳ trả lương', 'Kỳ lương', 'Ky']),
+            MaNS: getIdx(headerTT, ['Mã nhân sự', 'MaNS', 'Ma']),
+            HoTen: getIdx(headerTT, ['Họ và tên', 'Họ tên', 'HoTen']),
+            BHXH: getIdx(headerTT, ['BHXH']),
+            BHYT: getIdx(headerTT, ['BHYT']),
+            BHTN: getIdx(headerTT, ['BHTN']),
+            ConNhan: getIdx(headerTT, ['Còn nhận', 'ConNhan', 'Con nhan'])
+        };
+
+        dataTruyThuRaw.slice(1).forEach(row => {
+            if (String(row[idxTT.KyTraLuong]).trim() !== monthStr) return;
+            const maNS = String(row[idxTT.MaNS]).trim();
+            if (!maNS) return;
+
+            const ns = mapNhanSu[maNS];
+            if (locationNormalized && ns && ns.khuVuc && ns.khuVuc !== locationNormalized) return;
+
+            const conNhanIdx = idxTT.ConNhan !== -1 ? idxTT.ConNhan : 33;
+            const conNhanVal = parseNumber(row[conNhanIdx]);
+            if (conNhanVal === 0) return;
+
+            const bhxh = Math.round(Math.abs(parseNumber(row[idxTT.BHXH])));
+            const bhyt = Math.round(Math.abs(parseNumber(row[idxTT.BHYT])));
+            const bhtn = Math.round(Math.abs(parseNumber(row[idxTT.BHTN])));
+            if (bhxh === 0 && bhyt === 0 && bhtn === 0) return;
+
+            const nguon = conNhanVal > 0 ? 'Truy lĩnh' : 'Truy thu';
+            const classification = classifyHachToan(maNS);
+
+            const empTotal = bhxh + bhyt + bhtn;
+            const schoolBHXH = Math.round((bhxh / RATES.BHXH.EMP) * RATES.BHXH.SCHOOL);
+            const schoolBHYT = Math.round((bhyt / RATES.BHYT.EMP) * RATES.BHYT.SCHOOL);
+            const schoolBHTN = Math.round((bhtn / RATES.BHTN.EMP) * RATES.BHTN.SCHOOL);
+            const schoolTotal = schoolBHXH + schoolBHYT + schoolBHTN;
+            const grandTotal = empTotal + schoolTotal;
+
+            const hoTen = (ns && ns.hoTen) ? ns.hoTen : (idxTT.HoTen !== -1 ? String(row[idxTT.HoTen] || '').trim() : '');
+
+            auditRows.push({
+                maNS: maNS,
+                hoTen: hoTen,
+                maDV: ns ? ns.maDV : '',
+                donVi: ns ? ns.donVi : '',
+                nhomCP: classification.nhomCP,
+                loaiHD: ns ? ns.loaiHD : '',
+                trangThai: ns ? ns.trangThai : '',
+                isLuongCD: (ns && ns.isLuongCD) ? 'Có' : 'Không',
+                mucHachToan: classification.mucHachToan,
+                nguon: nguon,
+                empBHXH: bhxh,
+                empBHYT: bhyt,
+                empBHTN: bhtn,
+                empTotal: empTotal,
+                schoolBHXH: schoolBHXH,
+                schoolBHYT: schoolBHYT,
+                schoolBHTN: schoolBHTN,
+                schoolTotal: schoolTotal,
+                grandTotal: grandTotal
+            });
+        });
+
+        // Sắp xếp dữ liệu theo Mục hạch toán, sau đó theo Mã NS
+        auditRows.sort((a, b) => {
+            if (a.mucHachToan !== b.mucHachToan) return a.mucHachToan.localeCompare(b.mucHachToan);
+            return a.maNS.localeCompare(b.maNS);
+        });
+
+        // 6. Ghi kết quả ra Google Sheets
+        const ss = SpreadsheetApp.openById(EXPORT_FILE_ID);
+        let auditSheet = ss.getSheetByName(AUDIT_SHEET_NAME);
+        if (!auditSheet) {
+            auditSheet = ss.insertSheet(AUDIT_SHEET_NAME);
+        }
+        auditSheet.clear();
+        auditSheet.getRange("A:T").clearFormat();
+
+        // Banner Tiêu đề
+        auditSheet.getRange("A1:T1").merge()
+            .setValue(`BẢNG AUDIT CHI TIẾT PHÂN LOẠI NHÂN SỰ HẠCH TOÁN BẢO HIỂM - THÁNG ${monthStr} - ĐỊA PHƯƠNG: ${location}`)
+            .setFontSize(12).setFontWeight("bold").setBackground("#D1E7DD").setHorizontalAlignment("center");
+        auditSheet.getRange("A2:T2").merge()
+            .setValue(`Thời gian export audit: ${new Date().toLocaleString("vi-VN")}`)
+            .setFontSize(9).setFontStyle("italic").setHorizontalAlignment("center");
+
+        // Headers 2 tầng
+        const header1 = [
+            "STT", "Mã NS", "Họ và tên", "Mã ĐV", "Tên đơn vị", "Nhóm CP", "Loại hợp đồng", "Trạng thái", "Lương CĐ", "Mục hạch toán được xếp vào", "Nguồn phát sinh",
+            "Người lao động trả (NLĐ)", "", "", "",
+            "Nhà trường trả", "", "", "",
+            "Tổng cộng BH"
+        ];
+        const header2 = [
+            "", "", "", "", "", "", "", "", "", "", "",
+            "BHXH (8%)", "BHYT (1.5%)", "BHTN (1%)", "Tổng NLĐ",
+            "BHXH (17.5%)", "BHYT (3%)", "BHTN (1%)", "Tổng Trường",
+            ""
+        ];
+
+        auditSheet.getRange(4, 1, 1, header1.length).setValues([header1]);
+        auditSheet.getRange(5, 1, 1, header2.length).setValues([header2]);
+
+        const merges = ["A4:A5", "B4:B5", "C4:C5", "D4:D5", "E4:E5", "F4:F5", "G4:G5", "H4:H5", "I4:I5", "J4:J5", "K4:K5", "L4:O4", "P4:S4", "T4:T5"];
+        merges.forEach(m => auditSheet.getRange(m).merge().setVerticalAlignment("middle").setHorizontalAlignment("center"));
+
+        auditSheet.getRange(4, 1, 2, header1.length)
+            .setFontWeight("bold").setBackground("#E2E3E5").setBorder(true, true, true, true, true, true);
+
+        // Chuyển đổi dữ liệu sang mảng 2 chiều
+        const tableData = auditRows.map((r, i) => [
+            i + 1,
+            r.maNS,
+            r.hoTen,
+            r.maDV,
+            r.donVi,
+            r.nhomCP,
+            r.loaiHD,
+            r.trangThai,
+            r.isLuongCD,
+            r.mucHachToan,
+            r.nguon,
+            r.empBHXH,
+            r.empBHYT,
+            r.empBHTN,
+            r.empTotal,
+            r.schoolBHXH,
+            r.schoolBHYT,
+            r.schoolBHTN,
+            r.schoolTotal,
+            r.grandTotal
+        ]);
+
+        if (tableData.length > 0) {
+            auditSheet.getRange(6, 1, tableData.length, header1.length).setValues(tableData);
+            // Định dạng số tiền
+            auditSheet.getRange(6, 12, tableData.length, 9).setNumberFormat("#,##0");
+            // Kẻ viền bảng
+            auditSheet.getRange(6, 1, tableData.length, header1.length)
+                .setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+
+            // Căn lề
+            auditSheet.getRange(6, 1, tableData.length, 1).setHorizontalAlignment("center"); // STT
+            auditSheet.getRange(6, 2, tableData.length, 1).setHorizontalAlignment("center"); // Mã NS
+            auditSheet.getRange(6, 4, tableData.length, 1).setHorizontalAlignment("center"); // Mã ĐV
+            auditSheet.getRange(6, 6, tableData.length, 1).setHorizontalAlignment("center"); // Nhóm CP
+            auditSheet.getRange(6, 7, tableData.length, 1).setHorizontalAlignment("center"); // Loại HĐ
+            auditSheet.getRange(6, 9, tableData.length, 1).setHorizontalAlignment("center"); // Lương CĐ
+            auditSheet.getRange(6, 11, tableData.length, 1).setHorizontalAlignment("center"); // Nguồn
+        }
+
+        // Dòng Tổng Cộng
+        const totalRowIdx = 6 + tableData.length;
+        const totalEmpBHXH = auditRows.reduce((s, r) => s + r.empBHXH, 0);
+        const totalEmpBHYT = auditRows.reduce((s, r) => s + r.empBHYT, 0);
+        const totalEmpBHTN = auditRows.reduce((s, r) => s + r.empBHTN, 0);
+        const totalEmp = auditRows.reduce((s, r) => s + r.empTotal, 0);
+        const totalSchoolBHXH = auditRows.reduce((s, r) => s + r.schoolBHXH, 0);
+        const totalSchoolBHYT = auditRows.reduce((s, r) => s + r.schoolBHYT, 0);
+        const totalSchoolBHTN = auditRows.reduce((s, r) => s + r.schoolBHTN, 0);
+        const totalSchool = auditRows.reduce((s, r) => s + r.schoolTotal, 0);
+        const totalGrand = auditRows.reduce((s, r) => s + r.grandTotal, 0);
+
+        const summaryRow = [
+            `TỔNG CỘNG (${tableData.length} bản ghi phát sinh)`,
+            "", "", "", "", "", "", "", "", "", "",
+            totalEmpBHXH, totalEmpBHYT, totalEmpBHTN, totalEmp,
+            totalSchoolBHXH, totalSchoolBHYT, totalSchoolBHTN, totalSchool,
+            totalGrand
+        ];
+
+        auditSheet.getRange(totalRowIdx, 1, 1, 11).merge().setValue(summaryRow[0]).setHorizontalAlignment("right");
+        auditSheet.getRange(totalRowIdx, 12, 1, 9).setValues([[
+            totalEmpBHXH, totalEmpBHYT, totalEmpBHTN, totalEmp,
+            totalSchoolBHXH, totalSchoolBHYT, totalSchoolBHTN, totalSchool,
+            totalGrand
+        ]]).setNumberFormat("#,##0");
+
+        auditSheet.getRange(totalRowIdx, 1, 1, header1.length)
+            .setFontWeight("bold").setBackground("#FFF3CD").setBorder(true, true, true, true, true, true);
+
+        // Chỉnh độ rộng các cột
+        auditSheet.setColumnWidth(1, 45);   // STT
+        auditSheet.setColumnWidth(2, 90);   // Mã NS
+        auditSheet.setColumnWidth(3, 170);  // Họ và tên
+        auditSheet.setColumnWidth(4, 75);   // Mã ĐV
+        auditSheet.setColumnWidth(5, 170);  // Tên đơn vị
+        auditSheet.setColumnWidth(6, 90);   // Nhóm CP
+        auditSheet.setColumnWidth(7, 120);  // Loại HĐ
+        auditSheet.setColumnWidth(8, 120);  // Trạng thái
+        auditSheet.setColumnWidth(9, 75);   // Lương CĐ
+        auditSheet.setColumnWidth(10, 230); // Mục hạch toán
+        auditSheet.setColumnWidth(11, 110); // Nguồn
+        for (let c = 12; c <= 20; c++) auditSheet.setColumnWidth(c, 105); // Các cột tiền
+
+        auditSheet.setFrozenRows(5);
+
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${EXPORT_FILE_ID}/edit#gid=${auditSheet.getSheetId()}`;
+        Logger.log(`✅ AUDIT HẠCH TOÁN BẢO HIỂM HOÀN TẤT!`);
+        Logger.log(`- Tổng số bản ghi: ${tableData.length}`);
+        Logger.log(`- Tổng tiền BHXH NLĐ: ${totalEmpBHXH.toLocaleString('vi-VN')} VNĐ`);
+        Logger.log(`- Tổng tiền BHXH Nhà trường: ${totalSchoolBHXH.toLocaleString('vi-VN')} VNĐ`);
+        Logger.log(`- Tổng cộng BH: ${totalGrand.toLocaleString('vi-VN')} VNĐ`);
+        Logger.log(`- Link Sheet: ${sheetUrl}`);
+
+        return {
+            status: "success",
+            month: monthStr,
+            location: location,
+            totalRecords: tableData.length,
+            totalGrand: totalGrand,
+            sheetUrl: sheetUrl
+        };
+    } catch (e) {
+        Logger.log(`❌ LỖI TRONG QUÁ TRÌNH AUDIT HẠCH TOÁN BẢO HIỂM: ${e.message} \n ${e.stack}`);
+        return {
+            status: "error",
+            message: e.message
+        };
     }
 }

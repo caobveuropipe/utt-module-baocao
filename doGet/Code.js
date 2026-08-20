@@ -156,6 +156,9 @@ function doGet(e) {
             const addContent = e.parameter.addContent || '';
             const addAmount = Number(e.parameter.addAmount || 0);
             result = handlerInfo.fn(month, location, addContent, addAmount);
+          } else if (type === 'getPrintDataCk' || type === 'tongHopCk') {
+            const isTreoLuong = e.parameter.isTreoLuong === 'true' || e.parameter.isTreoLuong === true || e.parameter.isTreoLuong === '1';
+            result = handlerInfo.fn(month, location, isTreoLuong);
           } else {
             result = handlerInfo.fn(month, location);
           }
@@ -311,9 +314,9 @@ function pg1_ed1_getAllData() {
 /**
  * Alias cho getPrintDataCk() để tương thích với lời gọi từ Client
  */
-function pg1_ed1_getPrintDataCk(monthStr, location = 'All') {
+function pg1_ed1_getPrintDataCk(monthStr, location = 'All', isTreoLuong = false) {
   try {
-    return getPrintDataCk(monthStr, location);
+    return getPrintDataCk(monthStr, location, isTreoLuong);
   } catch (e) {
     return {
       status: "error",

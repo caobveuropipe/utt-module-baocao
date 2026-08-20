@@ -86,7 +86,8 @@ function doGet_tongHopKPCD(monthStr, resources, location = 'All') {
         });
     }
 
-    function addValue(maNS, val) {
+    function addValue(maNS, rawVal) {
+        const val = parseNumber(rawVal);
         if (!val || val === 0) return;
         const rawHD = mapLoaiHD[maNS];
         if (!rawHD) return;
@@ -123,7 +124,8 @@ function doGet_tongHopKPCD(monthStr, resources, location = 'All') {
                     if (empKV !== locationNormalized) return;
                 }
 
-                addValue(ma, (parseNumber(row[idxBHXH]) / 8) * 2);
+                const bhxh = parseNumber(row[idxBHXH]);
+                addValue(ma, (bhxh / 8) * 2);
             }
         });
     }
@@ -133,6 +135,7 @@ function doGet_tongHopKPCD(monthStr, resources, location = 'All') {
         const idxKy = getIdx(h, 'Kỳ trả lương');
         const idxMa = getIdx(h, 'Mã nhân sự');
         const idxBHXH = getIdx(h, 'BHXH');
+        const idxKPCD = getIdx(h, 'KPCĐ');
         dataTruyThuRaw.slice(1).forEach(row => {
             if (String(row[idxKy]).trim() === monthStr) {
                 const ma = String(row[idxMa]).trim();
@@ -143,7 +146,10 @@ function doGet_tongHopKPCD(monthStr, resources, location = 'All') {
                     if (empKV !== locationNormalized) return;
                 }
 
-                addValue(ma, (parseNumber(row[idxBHXH]) / 8) * 2);
+                const bhxh = idxBHXH >= 0 ? parseNumber(row[idxBHXH]) : 0;
+                const kpcd = idxKPCD >= 0 ? parseNumber(row[idxKPCD]) : 0;
+                const rawVal = bhxh > 0 ? (bhxh / 8) * 2 : (kpcd > 0 ? (kpcd / 0.5) * 2 : 0);
+                addValue(ma, rawVal);
             }
         });
     }
@@ -161,15 +167,17 @@ function doGet_tongHopKPCD(monthStr, resources, location = 'All') {
 
     ORDER.forEach((k, i) => {
         const g = groups[k] || { total: 0, locs: {} };
-        const row = [i + 1, k, g.total];
+        let rowTotal = 0;
+        const locValues = [];
         sortedLocs.forEach(loc => {
-            const v = g.locs[loc] || 0;
-            row.push(v);
+            const v = Math.round(g.locs[loc] || 0);
+            locValues.push(v);
+            rowTotal += v;
             grandTotal.locs[loc] = (grandTotal.locs[loc] || 0) + v;
         });
-        row.push(''); // Ghi chú
+        const row = [i + 1, k, rowTotal, ...locValues, ''];
         result.push(row);
-        grandTotal.total += g.total;
+        grandTotal.total += rowTotal;
     });
 
     const totalRow = ['', 'Tổng cộng', grandTotal.total];
@@ -330,3 +338,275 @@ function getPrintDataTongHopKPCD(monthStr, location) {
         return { status: "error", message: e.message };
     }
 }
+
+/**
+ * Hàm test kiểm tra dữ liệu BẢNG TỔNG HỢP TIỀN ĐOÀN PHÍ CĐ (Chưa làm tròn)
+ * @param {string} monthStr - Ví dụ: "T01.2025"
+ * @param {string} location - "All" hoặc tên cơ sở cụ thể
+ */
+function test_tongHopKPCD_chuaLamTron(monthStr = "T01.2025", location = "All") {
+    const locationNormalized = (location && location !== 'All') ? normalizeLocation(location) : null;
+    const GROUP_KEYS = {
+        BIEN_CHE: 'Diện biên chế',
+        HD_DAI_HAN: 'Diện HĐLĐ thường xuyên',
+        HD_68: 'Diện HĐLĐ 68',
+        HD_VU_VIEC: 'Diện HD vụ việc'
+    };
+
+    const ALL_LOCATIONS = new Set();
+    const groups = {}; // { groupKey: { total: 0, locs: { loc: val } } }
+
+    function getData(ss, sheetName) {
+        if (!ss) return [];
+        const sh = ss.getSheetByName(sheetName);
+        return sh ? sh.getDataRange().getValues() : [];
+    }
+    function getIdx(header, name) {
+        return header.indexOf(name);
+    }
+    function parseNumber(val) {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        const num = Number(String(val).replace(/,/g, ''));
+        return isNaN(num) ? 0 : num;
+    }
+
+    // 1. MỞ NGUỒN DỮ LIỆU
+    const ssMaster = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
+    const ssLuong1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_1);
+    const ssTruyThu1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1);
+
+    const dataChotRaw = getSheetNSThang().getDataRange().getValues();
+    const dataNhanSuRaw = getData(ssMaster, GLOBAL_CONFIG.SHEETS.DATA_NHAN_SU);
+    const dataLuong1Raw = getData(ssLuong1, GLOBAL_CONFIG.SHEETS.DATA_LUONG_1);
+    const dataTruyThuRaw = getData(ssTruyThu1, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU);
+
+    // 2. MAP NHÂN SỰ VÀ KHU VỰC
+    const mapLoaiHD = {};
+    const mapKhuVuc = {};
+
+    if (dataChotRaw.length > 1) {
+        const h = dataChotRaw[0];
+        const idxKy = getIdx(h, 'Kỳ lương');
+        const idxMa = getIdx(h, 'Mã nhân sự');
+        const idxHD = getIdx(h, 'Loại hợp đồng');
+        let idxKV = getIdx(h, 'Khu vực');
+        if (idxKV < 0) idxKV = 38;
+
+        dataChotRaw.slice(1).forEach(row => {
+            if (String(row[idxKy]).trim() === monthStr) {
+                const ma = String(row[idxMa]).trim();
+                if (ma) {
+                    mapLoaiHD[ma] = String(row[idxHD] || '').trim();
+                    mapKhuVuc[ma] = normalizeLocation(row[idxKV]);
+                }
+            }
+        });
+    }
+
+    if (dataNhanSuRaw.length > 1) {
+        const h = dataNhanSuRaw[0];
+        const idxMa = getIdx(h, 'Mã CB') >= 0 ? getIdx(h, 'Mã CB') : 0;
+        const idxKV = getIdx(h, 'Khu vực');
+
+        dataNhanSuRaw.slice(1).forEach(row => {
+            const ma = String(row[idxMa]).trim();
+            if (ma && !mapKhuVuc[ma] && idxKV >= 0) {
+                mapKhuVuc[ma] = normalizeLocation(row[idxKV]);
+            }
+        });
+    }
+
+    function addValue(maNS, rawVal) {
+        const val = parseNumber(rawVal);
+        if (!val || val === 0) return;
+        const rawHD = mapLoaiHD[maNS];
+        if (!rawHD) return;
+
+        let groupKey = null;
+        if (rawHD === 'Biên chế') groupKey = GROUP_KEYS.BIEN_CHE;
+        else if (rawHD === 'HĐ dài hạn') groupKey = GROUP_KEYS.HD_DAI_HAN;
+        else if (rawHD === 'HĐ 68') groupKey = GROUP_KEYS.HD_68;
+        else if (rawHD === 'HĐ vụ việc') groupKey = GROUP_KEYS.HD_VU_VIEC;
+
+        if (!groupKey) return;
+
+        let kv = mapKhuVuc[maNS] || 'Khác';
+        ALL_LOCATIONS.add(kv);
+
+        if (!groups[groupKey]) groups[groupKey] = { total: 0, locs: {} };
+        groups[groupKey].total += val;
+        groups[groupKey].locs[kv] = (groups[groupKey].locs[kv] || 0) + val;
+    }
+
+    // 3. TÍNH TOÁN DỮ LIỆU GỐC (SỐ THỰC)
+    if (dataLuong1Raw.length > 1) {
+        const h = dataLuong1Raw[0];
+        const idxKy = getIdx(h, 'Kỳ lương');
+        const idxMa = getIdx(h, 'Mã CB');
+        const idxBHXH = getIdx(h, 'BHXH');
+        dataLuong1Raw.slice(1).forEach(row => {
+            if (String(row[idxKy]).trim() === monthStr) {
+                const ma = String(row[idxMa]).trim();
+                if (locationNormalized && (mapKhuVuc[ma] || '') !== locationNormalized) return;
+                const bhxh = parseNumber(row[idxBHXH]);
+                addValue(ma, (bhxh / 8) * 2);
+            }
+        });
+    }
+
+    if (dataTruyThuRaw.length > 1) {
+        const h = dataTruyThuRaw[0];
+        const idxKy = getIdx(h, 'Kỳ trả lương');
+        const idxMa = getIdx(h, 'Mã nhân sự');
+        const idxBHXH = getIdx(h, 'BHXH');
+        const idxKPCD = getIdx(h, 'KPCĐ');
+        dataTruyThuRaw.slice(1).forEach(row => {
+            if (String(row[idxKy]).trim() === monthStr) {
+                const ma = String(row[idxMa]).trim();
+                if (locationNormalized && (mapKhuVuc[ma] || '') !== locationNormalized) return;
+                const bhxh = idxBHXH >= 0 ? parseNumber(row[idxBHXH]) : 0;
+                const kpcd = idxKPCD >= 0 ? parseNumber(row[idxKPCD]) : 0;
+                const rawVal = bhxh > 0 ? (bhxh / 8) * 2 : (kpcd > 0 ? (kpcd / 0.5) * 2 : 0);
+                addValue(ma, rawVal);
+            }
+        });
+    }
+
+    // 4. SORT KHU VỰC
+    const sortedLocs = Array.from(ALL_LOCATIONS).sort((a, b) => {
+        if (a === 'Hà Nội') return -1; if (b === 'Hà Nội') return 1;
+        if (a === 'Phú Thọ') return -1; if (b === 'Phú Thọ') return 1;
+        return a.localeCompare(b);
+    });
+
+    // 5. XUẤT KẾT QUẢ (LÀM TRÒN 3 CHỮ SỐ THẬP PHÂN)
+    const ORDER = [GROUP_KEYS.BIEN_CHE, GROUP_KEYS.HD_DAI_HAN, GROUP_KEYS.HD_68, GROUP_KEYS.HD_VU_VIEC];
+    let grandTotalRaw = 0;
+    let grandTotalLocsRaw = {};
+
+    Logger.log("================ KẾT QUẢ TEST (3 CHỮ SỐ THẬP PHÂN) (" + monthStr + ") ================");
+    Logger.log("Khu vực tìm thấy: " + JSON.stringify(sortedLocs));
+
+    const tableRows = [];
+    const debugTable = [];
+
+    ORDER.forEach((k, i) => {
+        const g = groups[k] || { total: 0, locs: {} };
+        let rowTotalRaw = 0;
+        const locValues = [];
+        const locDetails = {};
+
+        sortedLocs.forEach(loc => {
+            const rawVal = g.locs[loc] || 0;
+            // Làm tròn đến 3 chữ số thập phân
+            const val3Dec = Math.round(rawVal * 1000) / 1000;
+            locValues.push(val3Dec);
+            locDetails[loc] = val3Dec;
+            rowTotalRaw += val3Dec;
+            grandTotalLocsRaw[loc] = (grandTotalLocsRaw[loc] || 0) + val3Dec;
+        });
+
+        rowTotalRaw = Math.round(rowTotalRaw * 1000) / 1000;
+        grandTotalRaw += rowTotalRaw;
+
+        // Dòng data cho sheet
+        tableRows.push([i + 1, k, rowTotalRaw, ...locValues, '']);
+
+        debugTable.push({
+            STT: i + 1,
+            "Nội dung": k,
+            "Tổng tiền (3 số thập phân)": rowTotalRaw,
+            "Tổng tiền (Nếu Round nguyên)": Math.round(rowTotalRaw),
+            "Chi tiết cơ sở": locDetails
+        });
+    });
+
+    grandTotalRaw = Math.round(grandTotalRaw * 1000) / 1000;
+
+    // Dòng tổng cộng
+    const totalRow = ['', 'Tổng cộng', grandTotalRaw];
+    sortedLocs.forEach(loc => {
+        const locTotal = Math.round((grandTotalLocsRaw[loc] || 0) * 1000) / 1000;
+        totalRow.push(locTotal);
+    });
+    totalRow.push('');
+    tableRows.push(totalRow);
+
+    Logger.log("Chi tiết từng nhóm:\n" + JSON.stringify(debugTable, null, 2));
+    Logger.log("--------------------------------------------------");
+    Logger.log("TỔNG CỘNG TOÀN BẢNG (3 số thập phân): " + grandTotalRaw);
+    Logger.log("TỔNG CỘNG THEO CƠ SỞ (3 số thập phân): " + JSON.stringify(grandTotalLocsRaw, null, 2));
+
+    // 6. GHI VÀO GOOGLE SHEET (Sheet: TEST_KPCD_CHUA_LAM_TRON)
+    try {
+        const TARGET_FILE_ID = GLOBAL_CONFIG.FILES.EXPORT_DKB_TH_KPCD;
+        const TEST_SHEET_NAME = "TEST_KPCD_CHUA_LAM_TRON";
+        const ss = SpreadsheetApp.openById(TARGET_FILE_ID);
+        let sheet = ss.getSheetByName(TEST_SHEET_NAME);
+        if (!sheet) sheet = ss.insertSheet(TEST_SHEET_NAME);
+        else {
+            sheet.clear();
+            if (sheet.getFilter()) sheet.getFilter().remove();
+            const maxRows = sheet.getMaxRows();
+            const maxCols = sheet.getMaxColumns();
+            if (maxRows > 1 && maxCols > 1) {
+                sheet.getRange(1, 1, maxRows, maxCols).breakApart();
+            }
+        }
+
+        const numLocs = sortedLocs.length;
+        const totalCols = 3 + numLocs + 1;
+
+        const monthParts = monthStr.substring(1).split('.');
+        const month = parseInt(monthParts[0]);
+        const year = monthParts[1];
+
+        // Header
+        sheet.getRange(1, 1, 1, 3).merge().setValue("TRƯỜNG ĐẠI HỌC CÔNG NGHỆ GTVT").setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center');
+        const title = `BẢNG TỔNG HỢP TIỀN ĐOÀN PHÍ CĐ (3 CHỮ SỐ THẬP PHÂN - TEST)\nTHÁNG ${month} NĂM ${year}`;
+        sheet.getRange(3, 1, 2, totalCols).merge().setValue(title)
+            .setHorizontalAlignment("center").setVerticalAlignment("middle")
+            .setFontWeight('bold').setFontSize(13).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+
+        const h1 = ['STT', 'NỘI DUNG', 'TỔNG TIỀN', 'Trong đó', ...new Array(numLocs - 1).fill(''), 'GHI CHÚ'];
+        const h2 = ['', '', '', ...sortedLocs.map(l => l.toUpperCase()), ''];
+        sheet.getRange(6, 1, 2, totalCols).setValues([h1, h2]).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle').setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+
+        sheet.getRange(6, 1, 2, 1).merge();
+        sheet.getRange(6, 2, 2, 1).merge();
+        sheet.getRange(6, 3, 2, 1).merge();
+        sheet.getRange(6, 4, 1, numLocs).merge();
+        sheet.getRange(6, totalCols, 2, 1).merge();
+
+        // Ghi dữ liệu
+        const dataRange = sheet.getRange(8, 1, tableRows.length, totalCols);
+        dataRange.setValues(tableRows);
+        dataRange.setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+        dataRange.setFontFamily("Times New Roman").setFontSize(11);
+
+        // Format số có 3 chữ số thập phân
+        sheet.getRange(8, 3, tableRows.length, totalCols - 3).setNumberFormat("#,##0.000");
+
+        // Format dòng tổng cộng
+        const lastRowIdx = 8 + tableRows.length - 1;
+        sheet.getRange(lastRowIdx, 1, 1, totalCols).setFontWeight('bold');
+
+        sheet.autoResizeColumns(1, totalCols);
+        const sheetUrl = `${ss.getUrl()}#gid=${sheet.getSheetId()}`;
+        Logger.log(`==================================================`);
+        Logger.log(`ĐÃ XUẤT THÀNH CÔNG DỮ LIỆU 3 CHỮ SỐ THẬP PHÂN VÀO SHEET [${TEST_SHEET_NAME}]`);
+        Logger.log(`URL FILE GOOGLE SHEET: ${sheetUrl}`);
+        Logger.log(`==================================================`);
+    } catch (err) {
+        Logger.log("Lỗi khi ghi ra sheet: " + err.message);
+    }
+
+    return {
+        groupsRaw: groups,
+        grandTotalRaw: grandTotalRaw,
+        grandTotalLocsRaw: grandTotalLocsRaw,
+        debugTable: debugTable
+    };
+}
+

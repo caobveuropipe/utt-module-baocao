@@ -4,7 +4,7 @@
      * @param {string} type - Loại báo cáo (định nghĩa trong ROUTE_MAP của Code.js)
      * @param {string} label - Tên hiển thị của báo cáo để thông báo cho người dùng
      */
-    async function pg_general_4_exportReportGeneric(type, label, locationParam = null, formatParam = null, addContent = '', addAmount = 0) {
+    async function pg_general_4_exportReportGeneric(type, label, locationParam = null, formatParam = null, addContent = '', addAmount = 0, isTreoLuong = false) {
         try {
             // Lấy tháng đã chọn
             const monthStr = $('#modal_dataluong_2_ChonThang').val();
@@ -53,6 +53,9 @@
 
             // Tạo URL API với parameters
             let apiUrl = `${url_api_doGet}?type=${type}&month=${encodeURIComponent(monthStr)}&location=${encodeURIComponent(location)}&exportFormat=${format}`;
+            if (isTreoLuong) {
+                apiUrl += `&isTreoLuong=${encodeURIComponent(isTreoLuong)}`;
+            }
             if (addContent && addAmount > 0) {
                 apiUrl += `&addContent=${encodeURIComponent(addContent)}&addAmount=${encodeURIComponent(addAmount)}`;
             }
@@ -377,12 +380,36 @@
             }
         }).then((result) => {
             if (result.isConfirmed || result.isDenied) {
-                const format = result.isConfirmed ? 'pdf' : 'xlsx';
                 const location = document.getElementById('swal-location-select-ck').value;
+                const locNorm = String(location || '').trim();
+
                 if (result.isConfirmed) {
                     printBangTongHopCk(location);
-                } else {
-                    pg_general_4_exportReportGeneric('tongHopCk', 'bảng đi kho bạc', location, 'xlsx');
+                } else if (result.isDenied) {
+                    if (locNorm === 'Phú Thọ') {
+                        // Nếu chọn Phú Thọ, hỏi muốn xuất Excel loại bảng nào
+                        Swal.fire({
+                            title: 'Tùy chọn xuất Excel - Phú Thọ',
+                            text: 'Vui lòng chọn loại bảng Excel muốn xuất:',
+                            icon: 'question',
+                            showCancelButton: true,
+                            showDenyButton: true,
+                            confirmButtonColor: '#22c55e',
+                            denyButtonColor: '#0ea5e9',
+                            cancelButtonColor: '#94a3b8',
+                            confirmButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel chuyển khoản',
+                            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel treo lương',
+                            cancelButtonText: 'Hủy bỏ'
+                        }).then((choice) => {
+                            if (choice.isConfirmed) {
+                                pg_general_4_exportReportGeneric('tongHopCk', 'bảng đi kho bạc', location, 'xlsx', '', 0, false);
+                            } else if (choice.isDenied) {
+                                pg_general_4_exportReportGeneric('tongHopCk', 'danh sách treo lương', location, 'xlsx', '', 0, true);
+                            }
+                        });
+                    } else {
+                        pg_general_4_exportReportGeneric('tongHopCk', 'bảng đi kho bạc', location, 'xlsx', '', 0, false);
+                    }
                 }
             }
         });

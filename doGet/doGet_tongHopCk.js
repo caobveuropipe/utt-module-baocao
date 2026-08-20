@@ -12,9 +12,10 @@ function test_taobangck() {
  * @param {string} location - Địa phương (Hà Nội, Phú Thọ, All)
  * @returns {string} - URL download file Google Sheet
  */
-function doGet_taoBangTongHopCk(monthStr, location = 'All') {
+function doGet_taoBangTongHopCk(monthStr, location = 'All', isTreoLuong = false) {
   try {
-    Logger.log('Bắt đầu tạo bảng tổng hợp CK cho kỳ: %s', monthStr);
+    const isTreo = (isTreoLuong === true || isTreoLuong === 'true' || isTreoLuong === '1');
+    Logger.log('Bắt đầu tạo bảng tổng hợp CK cho kỳ: %s (isTreoLuong: %s)', monthStr, isTreo);
 
     // ID file và sheet cố định
     const FILE_ID = GLOBAL_CONFIG.FILES.EXPORT_DKB_TH_CK;
@@ -32,7 +33,7 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
     };
 
     // Lấy dữ liệu từ hàm chính
-    var data = doGet_tongHopDiNganHang(monthStr, resources, location);
+    var data = doGet_tongHopDiNganHang(monthStr, resources, location, isTreo);
 
     if (!data || data.length === 0) {
       Logger.log('CẢNH BÁO: Không có dữ liệu trả về!');
@@ -121,13 +122,14 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
     // Ẩn gridline mặc định
     sheet.setHiddenGridlines(true);
 
-    // Xóa dữ liệu cũ từ dòng START_ROW trở đi
-    var lastRow = sheet.getLastRow();
-    if (lastRow >= START_ROW) {
-      var lastCol = Math.max(sheet.getLastColumn(), cols); // Lấy số cột lớn nhất
-      var clearRange = sheet.getRange(START_ROW, 1, lastRow - START_ROW + 1, lastCol);
+    // Xóa triệt để toàn bộ dữ liệu và định dạng cũ từ dòng START_ROW đến hết sheet
+    var maxRows = sheet.getMaxRows();
+    var maxCols = Math.max(sheet.getMaxColumns(), cols, 16);
+    if (maxRows >= START_ROW) {
+      var clearRange = sheet.getRange(START_ROW, 1, maxRows - START_ROW + 1, maxCols);
+      try { clearRange.breakApart(); } catch (e) { } // Hủy các ô merge cũ nếu có
       clearRange.clearContent();   // Xóa nội dung
-      clearRange.clearFormat();    // Xóa định dạng
+      clearRange.clearFormat();    // Xóa định dạng (font, border, màu nền)
     }
 
     // ====== THIẾT LẬP HEADER CỘT E "TÊN NGÂN HÀNG" ======
@@ -197,6 +199,10 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
       sheet.setColumnWidth(i, 75); // Các cột chi tiết (bao gồm cột 16)
     }
 
+    // ====== GHI TIÊU ĐỀ BẢNG (A3) ======
+    const reportTitleMain = isTreo ? 'DANH SÁCH TREO CHƯA CHI TRẢ TIỀN LƯƠNG' : 'DANH SÁCH CHUYỂN KHOẢN TIỀN LƯƠNG, THU NHẬP TĂNG THÊM, TRUY LĨNH VÀ TRUY THU';
+    sheet.getRange('A3').setValue(reportTitleMain);
+
     // ====== GHI THÔNG TIN ĐỊA PHƯƠNG VÀ THÁNG ======
     // Nếu chọn cơ sở thì ghi thêm thông tin
     if (location && location !== 'All') {
@@ -226,7 +232,7 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
       sheet.getRange('A4').setFontWeight('bold').setHorizontalAlignment('center');
 
       // ====== CẬP NHẬT "THÁNG X" TRONG SUB-HEADER DÒNG 11 ======
-      // G11: Lương ngân sách, J11: Thu nhập tăng thêm, M11: Tiền ăn ca
+      // G11: Lương ngạch bậc, J11: Thu nhập tăng thêm, M11: Tiền ăn ca
       var thangLabel = 'Tháng ' + month;
       [7, 10, 13].forEach(function (col) {
         sheet.getRange(11, col).setValue(thangLabel)
@@ -337,9 +343,29 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
               if (val.toLowerCase().includes('ký') && (val.includes('(') || val.includes('ghi rõ họ tên') || val.includes('ký tên'))) {
                   targetRange.getCell(r + 1, c + 1).setValue('');
               }
+              // Nếu là bảng treo lương: đổi "Kế toán trưởng" thành "Phụ trách kế toán"
+              if (isTreo && val.trim() === 'Kế toán trưởng') {
+                  targetRange.getCell(r + 1, c + 1).setValue('Phụ trách kế toán');
+              }
           }
       }
-      Logger.log('Đã copy template từ Master A1:O23 vào dòng %s và làm sạch nhãn ký', nextRow);
+
+      // Nếu là bảng treo lương: XÓA Phần dành cho ngân hàng (dòng từ mục "Phần dành cho ngân hàng" trở xuống)
+      if (isTreo) {
+        for (let r = 0; r < targetValues.length; r++) {
+          for (let c = 0; c < targetValues[r].length; c++) {
+            const val = String(targetValues[r][c] || '');
+            if (val.toLowerCase().includes('phần dành cho ngân hàng')) {
+              // Xóa toàn bộ vùng từ dòng này đến hết targetRange
+              const deleteStartRow = nextRow + r;
+              const deleteRowCount = targetValues.length - r;
+              sheet.getRange(deleteStartRow, 1, deleteRowCount, 15).clearContent().clearFormat();
+              break;
+            }
+          }
+        }
+      }
+      Logger.log('Đã copy template từ Master A1:O23 vào dòng %s và thiết lập nhãn ký (isTreo: %s)', nextRow, isTreo);
     } else {
       Logger.log('CẢNH BÁO: Không tìm thấy sheet Master');
     }
@@ -356,6 +382,18 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
     // 3. Toàn bộ Header (10-12) & Tổng cộng: Nét liền toàn bộ
     sheet.getRange(HEADER_START_ROW, 1, (START_ROW - HEADER_START_ROW), cols).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
     sheet.getRange(totalRow, 1, 1, cols).setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+
+    // ====== XÓA TOÀN BỘ CÁC DÒNG THỪA SAU PHẦN CHỮ KÝ ĐỂ TRÁNH TRANG TRẮNG KHI IN ======
+    try {
+      const finalLastRow = sheet.getLastRow();
+      const currentMaxRows = sheet.getMaxRows();
+      if (currentMaxRows > finalLastRow) {
+        sheet.deleteRows(finalLastRow + 1, currentMaxRows - finalLastRow);
+        Logger.log('Đã xóa %s dòng trống thừa từ dòng %s đến %s', currentMaxRows - finalLastRow, finalLastRow + 1, currentMaxRows);
+      }
+    } catch (e) {
+      Logger.log('Lỗi xóa dòng thừa: ' + e.message);
+    }
 
     // Đồng bộ thay đổi gridline xuống database trước khi lấy URL xuất
     SpreadsheetApp.flush();
@@ -399,11 +437,12 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All') {
  * @param {string} monthStr - Kỳ lương (Tmm.yyyy)
  * @param {Object} resources - Các đối tượng SpreadsheetApp
  * @param {string} location - Địa phương lọc (All, Hà Nội, Phú Thọ...)
+ * @param {boolean} isTreoLuong - Cờ lấy danh sách treo lương (chỉ áp dụng Phú Thọ)
  * @returns {Array} - Mảng 2D với 14 cột theo yêu cầu
  */
-function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
+function doGet_tongHopDiNganHang(monthStr, resources, location = 'All', isTreoLuong = false) {
 
-  Logger.log('Bắt đầu tổng hợp dữ liệu đi ngân hàng cho kỳ: %s', monthStr);
+  Logger.log('Bắt đầu tổng hợp dữ liệu đi ngân hàng cho kỳ: %s (isTreoLuong: %s)', monthStr, isTreoLuong);
 
   // ====== LOAD DATA ======
 
@@ -764,14 +803,27 @@ function doGet_tongHopDiNganHang(monthStr, resources, location = 'All') {
     const emp = employeeMap[maCB];
     if (!emp) return; // Nhân viên không có dữ liệu lương
 
-    // --- LỌC NHÂN SỰ CÓ TRẠNG THÁI "Đi công tác NN" HOẶC "Đi NN" RA KHỎI BẢNG CHUYỂN KHOẢN ---
-    // Quy tắc này chỉ áp dụng khi chọn cơ sở Phú Thọ (lương được chi trả theo hình thức khác)
+    // --- LỌC NHÂN SỰ CHO BẢNG CHUYỂN KHOẢN HOẶC BẢNG TREO LƯƠNG TẠI PHÚ THỌ ---
+    // Quy tắc này áp dụng khi chọn cơ sở Phú Thọ
     if (locationNormalized === 'Phú Thọ') {
       const statusNorm = String(emp.trangThai || '').normalize('NFC').trim().toLowerCase();
-      if (statusNorm === 'đi công tác nn' || statusNorm === 'đi nn') {
-        Logger.log('Lọc bỏ nhân sự đi nước ngoài (Phú Thọ): %s - %s - Trạng thái: %s', emp.maCB, emp.hoTen, emp.trangThai);
-        return; // Bỏ qua nhân sự này
+      const isDiCongTacNN = (statusNorm === 'đi công tác nn' || statusNorm === 'đi nn');
+
+      if (isTreoLuong) {
+        // Nếu là bảng treo lương: CHỈ LẤY người có trạng thái đi nước ngoài
+        if (!isDiCongTacNN) {
+          return; // Bỏ qua nếu không phải đi công tác NN
+        }
+      } else {
+        // Nếu là bảng chuyển khoản thông thường: LOẠI BỎ người đi nước ngoài
+        if (isDiCongTacNN) {
+          Logger.log('Lọc bỏ nhân sự đi nước ngoài (Phú Thọ): %s - %s - Trạng thái: %s', emp.maCB, emp.hoTen, emp.trangThai);
+          return; // Bỏ qua nhân sự này
+        }
       }
+    } else if (isTreoLuong) {
+      // Nếu không phải Phú Thọ mà yêu cầu lấy bảng treo lương thì không có dữ liệu
+      return;
     }
 
     // Tính tổng theo công thức: 5 = 6+7-8 + 9+10-11 + 12+13-14 - 15 (Thuế TNCN)
@@ -941,9 +993,13 @@ function numberToVietnameseWords(num) {
 
 /**
  * Cung cấp dữ liệu JSON cho việc in ấn trên Client
+ * @param {string} monthStr - Kỳ lương (Tmm.yyyy)
+ * @param {string} location - Cơ sở (Phú Thọ, Hà Nội, All...)
+ * @param {boolean|string} isTreoLuong - Cờ lấy danh sách treo lương
  */
-function getPrintDataCk(monthStr, location = 'All') {
+function getPrintDataCk(monthStr, location = 'All', isTreoLuong = false) {
   try {
+    const isTreo = (isTreoLuong === true || isTreoLuong === 'true' || isTreoLuong === '1');
     const ssLuong1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_1);
     const ssLuong2 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_2);
     const ssTruyThu1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1);
@@ -952,7 +1008,7 @@ function getPrintDataCk(monthStr, location = 'All') {
     const ssMaster = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
 
     const resources = { ssLuong1, ssLuong2, ssTruyThu1, ssTruyThu2, ssAnCa, ssMaster };
-    const data = doGet_tongHopDiNganHang(monthStr, resources, location);
+    const data = doGet_tongHopDiNganHang(monthStr, resources, location, isTreo);
 
     if (!data || data.length === 0) throw new Error("Không có dữ liệu cho kỳ này");
 
@@ -978,6 +1034,7 @@ function getPrintDataCk(monthStr, location = 'All') {
       totalAll: totalAll,
       totals: totals,
       moneyInWords: moneyInWords,
+      isTreoLuong: isTreo,
       dateExport: `Ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`
     };
   } catch (e) {

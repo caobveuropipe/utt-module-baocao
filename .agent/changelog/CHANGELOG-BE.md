@@ -1,5 +1,18 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-08-20] Hỗ trợ Bảng treo lương Phú Thọ (In & Xuất Excel) và xóa dòng trắng thừa
+
+### Added
+- **Cờ `isTreoLuong` cho Bảng chuyển khoản (`doGet_tongHopCk.js`, `Code.js`)**:
+  - `doGet_tongHopDiNganHang`: Hỗ trợ tham số `isTreoLuong`. Khi bật tại cơ sở Phú Thọ, hàm chỉ giữ lại các nhân sự có trạng thái `Đi công tác NN` hoặc `Đi NN`.
+  - `getPrintDataCk` & `pg1_ed1_getPrintDataCk`: Hỗ trợ truyền cờ `isTreoLuong` để phục vụ render dữ liệu in ấn.
+  - `doGet_taoBangTongHopCk`: Xuất file Excel Bảng treo lương với tiêu đề ô A3 đổi thành `DANH SÁCH TREO CHƯA CHI TRẢ TIỀN LƯƠNG`, chữ ký đổi thành `Phụ trách kế toán` và xóa `Phần dành cho ngân hàng`.
+
+### Fixed
+- **Triệt tiêu trang trắng thừa khi xuất Excel (`doGet_tongHopCk.js`)**:
+  - `clearRange` triệt để toàn bộ nội dung và định dạng cũ từ dòng `START_ROW` đến hết `maxRows`.
+  - Tự động xóa các hàng trống phía sau phần chữ ký (`deleteRows(finalLastRow + 1, currentMaxRows - finalLastRow)`) giúp file Excel/PDF ôm khít dữ liệu.
+
 ## [2026-08-20] Chuẩn hóa cấu trúc 4 nhóm Bảng phân bổ tiền lương & BHXH
 
 ### Added
