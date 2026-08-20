@@ -343,10 +343,6 @@ function doGet_taoBangTongHopCk(monthStr, location = 'All', isTreoLuong = false)
               if (val.toLowerCase().includes('ký') && (val.includes('(') || val.includes('ghi rõ họ tên') || val.includes('ký tên'))) {
                   targetRange.getCell(r + 1, c + 1).setValue('');
               }
-              // Nếu là bảng treo lương: đổi "Kế toán trưởng" thành "Phụ trách kế toán"
-              if (isTreo && val.trim() === 'Kế toán trưởng') {
-                  targetRange.getCell(r + 1, c + 1).setValue('Phụ trách kế toán');
-              }
           }
       }
 
