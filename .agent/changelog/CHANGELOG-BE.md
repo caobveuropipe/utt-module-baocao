@@ -1,5 +1,20 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-08-20] Chuẩn hóa cấu trúc 4 nhóm Bảng phân bổ tiền lương & BHXH
+
+### Added
+- **Cấu trúc 4 nhóm La Mã (`doGet_phanBoLuongBHXH.js`)**: 
+  - `I. BIÊN CHẾ`: Gồm `1. Bộ phận quản lý` (chi tiết *Trong đó:*, *Cộng bộ phận quản lý*), `2. Bộ phận trực tiếp`, chốt bằng `CỘNG BIÊN CHẾ`.
+  - `II. HỢP ĐỒNG DÀI HẠN`: Phân chia theo `1. Bộ phận quản lý`, `2. Bộ phận trực tiếp`.
+  - `III. HỢP ĐỒNG 68`: Nhánh độc lập gồm `Gián tiếp` và `Trực tiếp`, kèm dòng tổng gộp `CỘNG HĐDH + HĐ 68` (display-only).
+  - `IV. HỢP ĐỒNG VỤ VIỆC`: Phân chia `Gián tiếp` và `Trực tiếp`, hiển thị chi tiết các tổ dưới mục *Trong đó:* và chốt bằng `CỘNG HĐ VỤ VIỆC`.
+- **Hàm Audit bóc tách cán bộ**: Nâng cấp `auditChiTietPhanBoLuongBHXH()` đồng bộ 4 nhóm mới, xuất chi tiết từng Mã CB và dòng phân bổ tương ứng ra Sheet `Audit_PhanBoLuongBHXH`.
+
+### Changed
+- **Chuẩn hóa Mã Đơn Vị**: Tự động chuẩn hóa tiền tố `DV` cho mã đơn vị từ `DataChotNSThang` để tra cứu chính xác trong `Setup!K:O`.
+- **Thuật toán làm tròn cấp nhóm**: Cộng dồn số liệu thô trước, làm tròn từng khoản tiền đến hàng đơn vị (`Math.round`) tại cấp nhóm/tổ, sau đó cộng dồn lên các cấp tổng con và `Tổng cộng` để triệt tiêu hoàn toàn sai số 1 đồng.
+- **Format Sheets**: Áp dụng bôi đậm (Bold) và kẻ viền nét liền (Solid bottom border) case-insensitive cho tất cả các dòng `CỘNG...`.
+
 ## [2026-08-18] Sửa bóc tách phụ cấp Bảng tổng hợp lương & Đồng bộ Lương cơ sở động
 
 ### Fixed

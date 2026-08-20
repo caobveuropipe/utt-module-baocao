@@ -12,8 +12,17 @@ function test_doGet_taoBangPhanBoLuongBHXH() {
     var location = 'Hà Nội';
     Logger.log("=== CHẠY BẢNG PHÂN BỔ ===");
     Logger.log(doGet_taoBangPhanBoLuongBHXH(monthStr, location));
-    Logger.log("=== CHẠY AUDIT HẠCH TOÁN CHI TIẾT ===");
-    test_chiTietThanhPhanHachToanLuong(monthStr, location);
+}
+
+/**
+ * Hàm Test kiểm tra và audit chi tiết từng nhân sự được xếp vào nhóm/dòng nào trong Bảng Phân Bổ Tiền Lương & BHXH
+ * Mặc định kiểm tra khu vực Hà Nội, tháng T06.2026
+ */
+function test_auditChiTietPhanBoLuongBHXH() {
+    var monthStr = 'T06.2026';
+    var location = 'Hà Nội';
+    var res = auditChiTietPhanBoLuongBHXH(monthStr, location);
+    Logger.log(`Kết quả audit phân bổ: ${JSON.stringify(res)}`);
 }
 
 function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
@@ -152,9 +161,10 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     });
 
     const groups = {
-        'BIEN_CHE': { label: 'BẢNG PHÂN BỔ TIỀN LƯƠNG VÀ BẢO HIỂM XÃ HỘI ( BIÊN CHẾ )', data: {} },
-        'HD_DAI_HAN': { label: 'LƯƠNG HỢP ĐỒNG DÀI HẠN', data: {} },
-        'HD_VU_VIEC': { label: 'LƯƠNG HỢP ĐỒNG VỤ VIỆC', data: {} }
+        'BIEN_CHE': { label: 'BIÊN CHẾ', data: {} },
+        'HD_DAI_HAN': { label: 'HỢP ĐỒNG DÀI HẠN', data: {} },
+        'HD_68': { label: 'HỢP ĐỒNG 68', data: {} },
+        'HD_VU_VIEC': { label: 'HỢP ĐỒNG VỤ VIỆC', data: {} }
     };
 
     let matchedRows = 0;
@@ -192,7 +202,13 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
 
         let maDV = '';
         if (ma && mapChotNS[ma]) {
-            maDV = mapChotNS[ma].MaDonVi || mapChotNS[ma].TenDonVi;
+            let rawCode = String(mapChotNS[ma].MaDonVi || mapChotNS[ma].TenDonVi || '').trim();
+            if (rawCode && !/^DV/i.test(rawCode)) {
+                const codeMatch = rawCode.match(/^(\d+)(.*)$/);
+                maDV = 'DV' + (codeMatch ? (codeMatch[1].length < 3 ? codeMatch[1].padStart(3, '0') : codeMatch[1]) + (codeMatch[2] || '') : rawCode);
+            } else {
+                maDV = rawCode;
+            }
             
             // Chuẩn hóa loại hợp đồng từ DataChotNSThang để đồng bộ 100%
             const rawLhd = String(mapChotNS[ma].LoaiHD).toUpperCase().trim();
@@ -215,7 +231,8 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
 
         let mainKey = '';
         if (loaiHD === 'Biên chế') mainKey = 'BIEN_CHE';
-        else if (loaiHD === 'HĐ dài hạn' || loaiHD === 'HĐ 68') mainKey = 'HD_DAI_HAN';
+        else if (loaiHD === 'HĐ dài hạn') mainKey = 'HD_DAI_HAN';
+        else if (loaiHD === 'HĐ 68') mainKey = 'HD_68';
         else if (loaiHD === 'HĐ vụ việc') mainKey = 'HD_VU_VIEC';
 
         if (!mainKey) {
@@ -238,17 +255,19 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
 
         let subKey = '';
         let deptKey = '';
-        if (mainKey === 'HD_VU_VIEC') {
-            subKey = 'Tất cả';
+        if (mainKey === 'HD_68') {
+            // HĐ 68: Phân loại theo Gián tiếp / Trực tiếp dựa trên LoaiDV của đơn vị
+            subKey = (master && master.LoaiDV === 'Bộ phận quản lý') ? 'Gián tiếp' : 'Trực tiếp';
+        } else if (mainKey === 'HD_VU_VIEC') {
+            // HĐ vụ việc: Phân loại Gián tiếp / Trực tiếp, kèm chi tiết đơn vị
+            // FR-03: Fallback nếu master undefined -> mặc định 'Trực tiếp'
+            subKey = (master && master.LoaiDV === 'Bộ phận quản lý') ? 'Gián tiếp' : 'Trực tiếp';
             const chotNS = ma && mapChotNS[ma];
             const maDonVi = String((chotNS && chotNS.MaDonVi) || maDV || '').trim().replace(/^DV/i, '');
             const tenDonVi = String((chotNS && chotNS.TenDonVi) || '').trim();
             deptKey = maDonVi && tenDonVi ? `${maDonVi}-${tenDonVi}` : (maDonVi || tenDonVi);
         } else {
             subKey = master.LoaiDV;
-            if (mainKey === 'HD_DAI_HAN' && loaiHD === 'HĐ 68') {
-                subKey = 'Hợp đồng 68';
-            }
             deptKey = master.NhomDV;
         }
 
@@ -312,8 +331,7 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
                 if (rawLhd.includes('BIÊN CHẾ') || rawLhd === 'BC') {
                     mainKey = 'BIEN_CHE';
                 } else if (rawLhd.includes('68') || rawLhd.includes('LƯƠNG CỐ ĐỊNH')) {
-                    mainKey = 'HD_DAI_HAN';
-                    subKey = 'Hợp đồng 68';
+                    mainKey = 'HD_68';
                 } else if (rawLhd.includes('DÀI HẠN') || rawLhd.includes('THƯỜNG XUYÊN')) {
                     mainKey = 'HD_DAI_HAN';
                 } else if (rawLhd.includes('VỤ VIỆC') || rawLhd.includes('NGẮN HẠN')) {
@@ -328,10 +346,16 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
                 }
                 const master = mapMaster[maDV];
                 
-                if (mainKey === 'HD_VU_VIEC') {
-                    subKey = 'Tất cả';
+                if (mainKey === 'HD_68') {
+                    subKey = (master && master.LoaiDV === 'Bộ phận quản lý') ? 'Gián tiếp' : 'Trực tiếp';
+                    allocation = { mainKey, subKey, deptKey: subKey };
+                } else if (mainKey === 'HD_VU_VIEC') {
+                    // FR-03: fallback nếu master undefined -> mặc định 'Trực tiếp'
+                    subKey = (master && master.LoaiDV === 'Bộ phận quản lý') ? 'Gián tiếp' : 'Trực tiếp';
                     const codePart = maDV.replace(/^DV/i, '');
-                    allocation = { mainKey, subKey, deptKey: codePart };
+                    const tenDV = String(fallback.TenDonVi || '').trim();
+                    const deptKey = codePart && tenDV ? `${codePart}-${tenDV}` : (codePart || tenDV);
+                    allocation = { mainKey, subKey, deptKey };
                 } else {
                     if (!master) return;
                     if (!subKey) {
@@ -363,6 +387,17 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     const result = [];
 
     function finalizeMetrics(m) {
+        // Làm tròn các cột tiền của nhóm đến hàng đơn vị trước khi tính tổng giảm trừ và thực lĩnh
+        m.TongLuong = Math.round(m.TongLuong || 0);
+        m.BHXH = Math.round(m.BHXH || 0);
+        m.BHYT = Math.round(m.BHYT || 0);
+        m.BHTN = Math.round(m.BHTN || 0);
+        m.KPCD = Math.round(m.KPCD || 0);
+        m.NuocNgoai = Math.round(m.NuocNgoai || 0);
+        m.NghiBHXH = Math.round(m.NghiBHXH || 0);
+        m.TamUngTamGiu = Math.round(m.TamUngTamGiu || 0);
+        m.QuyXH = Math.round(m.QuyXH || 0);
+
         m.GiamTru = m.BHXH + m.BHYT + m.BHTN + m.KPCD + m.NuocNgoai + m.NghiBHXH + m.TamUngTamGiu + m.QuyXH;
         m.BHTra = m.NghiBHXH;
         m.SoTienLinh = m.TongLuong - m.GiamTru;
@@ -383,30 +418,25 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
         ]);
     }
 
-    const MAIN_ORDER = ['BIEN_CHE', 'HD_DAI_HAN', 'HD_VU_VIEC'];
+    const MAIN_ORDER = ['BIEN_CHE', 'HD_DAI_HAN', 'HD_68', 'HD_VU_VIEC'];
+    const ROMAN = { 'BIEN_CHE': 'I', 'HD_DAI_HAN': 'II', 'HD_68': 'III', 'HD_VU_VIEC': 'IV' };
     const grandTotal = createMetrics();
+    // FR-02: Lưu riêng subtotal cho HĐDH và HĐ68 để render dòng tổng hợp trung gian
+    let subTotalHDDH = null;
+    let subTotalHD68 = null;
 
     MAIN_ORDER.forEach(mainKey => {
         const groupData = groups[mainKey].data;
         if (Object.keys(groupData).length === 0) return;
 
-        if (mainKey !== 'BIEN_CHE') {
-            addRowToTable('', groups[mainKey].label, null);
-        }
+        // Dòng tiêu đề La Mã (In hoa, Bold)
+        addRowToTable(ROMAN[mainKey], groups[mainKey].label, null);
 
         const subTotal = createMetrics();
-        if (mainKey === 'HD_VU_VIEC') {
-            const depts = groupData['Tất cả'];
-            if (depts) {
-                addRowToTable('', 'Trong đó:', null);
-                Object.keys(depts).forEach(deptName => {
-                    addRowToTable('', deptName, depts[deptName]);
-                    Object.keys(subTotal).forEach(k => subTotal[k] += depts[deptName][k]);
-                });
-            }
-        } else {
-            let subOrder = ['Bộ phận quản lý', 'Bộ phận trực tiếp'];
-            if (mainKey === 'HD_DAI_HAN') subOrder.push('Hợp đồng 68');
+
+        if (mainKey === 'BIEN_CHE' || mainKey === 'HD_DAI_HAN') {
+            // Nhóm I, II: phân theo Bộ phận quản lý / Bộ phận trực tiếp
+            const subOrder = ['Bộ phận quản lý', 'Bộ phận trực tiếp'];
 
             subOrder.forEach((subKey, idx) => {
                 const depts = groupData[subKey];
@@ -414,13 +444,14 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
 
                 const subMetrics = createMetrics();
                 Object.values(depts).forEach(dm => {
+                    // dm là dữ liệu thô tổng hợp của từng tổ, finalizeMetrics(dm) sẽ làm tròn đến hàng đơn vị
+                    finalizeMetrics(dm);
                     Object.keys(subMetrics).forEach(k => subMetrics[k] += dm[k]);
                 });
 
                 if (subKey === 'Bộ phận quản lý') {
                     addRowToTable(idx + 1, subKey, null);
                     addRowToTable('', 'Trong đó:', null);
-
                     Object.keys(depts).forEach(deptName => {
                         addRowToTable('', deptName, depts[deptName]);
                     });
@@ -431,11 +462,71 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
 
                 Object.keys(subTotal).forEach(k => subTotal[k] += subMetrics[k]);
             });
+        } else if (mainKey === 'HD_68') {
+            // Nhóm III: phân theo Gián tiếp / Trực tiếp (không có chi tiết phòng ban)
+            ['Gián tiếp', 'Trực tiếp'].forEach(subKey => {
+                const depts = groupData[subKey];
+                if (!depts) return;
+
+                const subMetrics = createMetrics();
+                Object.values(depts).forEach(dm => {
+                    finalizeMetrics(dm);
+                    Object.keys(subMetrics).forEach(k => subMetrics[k] += dm[k]);
+                });
+                addRowToTable('', subKey, subMetrics);
+                Object.keys(subTotal).forEach(k => subTotal[k] += subMetrics[k]);
+            });
+        } else if (mainKey === 'HD_VU_VIEC') {
+            // Nhóm IV: phân theo Gián tiếp / Trực tiếp, kèm chi tiết đơn vị
+            ['Gián tiếp', 'Trực tiếp'].forEach(subKey => {
+                const depts = groupData[subKey];
+                if (!depts) return;
+
+                const subMetrics = createMetrics();
+                Object.values(depts).forEach(dm => {
+                    finalizeMetrics(dm);
+                    Object.keys(subMetrics).forEach(k => subMetrics[k] += dm[k]);
+                });
+
+                const deptKeys = Object.keys(depts);
+                if (deptKeys.length > 0) {
+                    // Hiển thị tiêu đề nhánh (Gián tiếp / Trực tiếp)
+                    addRowToTable('', subKey, null);
+                    addRowToTable('', 'Trong đó:', null);
+                    deptKeys.forEach(deptName => {
+                        addRowToTable('', deptName, depts[deptName]);
+                    });
+                    addRowToTable('', `Cộng ${subKey.toLowerCase()}`, subMetrics);
+                } else {
+                    // Nếu không có tổ cụ thể -> hiển thị dòng tổng
+                    addRowToTable('', subKey, subMetrics);
+                }
+
+                Object.keys(subTotal).forEach(k => subTotal[k] += subMetrics[k]);
+            });
         }
 
-        const footerLabel = mainKey === 'BIEN_CHE' ? 'Cộng biên chế' :
-            mainKey === 'HD_DAI_HAN' ? 'Cộng HĐ dài hạn' : 'Cộng HĐ vụ việc';
-        addRowToTable('', footerLabel, subTotal);
+        // Dòng chốt cho mỗi nhóm
+        const footerLabel = mainKey === 'BIEN_CHE' ? 'CỘNG BIÊN CHẾ' :
+            mainKey === 'HD_VU_VIEC' ? 'CỘNG HĐ VỤ VIỆC' : null;
+        if (footerLabel) {
+            addRowToTable('', footerLabel, subTotal);
+        }
+
+        // Lưu subtotal riêng cho HĐDH và HĐ68 (FR-02)
+        if (mainKey === 'HD_DAI_HAN') subTotalHDDH = subTotal;
+        if (mainKey === 'HD_68') subTotalHD68 = subTotal;
+
+        // Dòng tổng hợp trung gian sau Mục III (FR-02: display-only)
+        if (mainKey === 'HD_68' && subTotalHDDH) {
+            const combineTotal = createMetrics();
+            Object.keys(combineTotal).forEach(k => {
+                combineTotal[k] = (subTotalHDDH[k] || 0) + (subTotalHD68 ? subTotalHD68[k] : 0);
+            });
+            addRowToTable('', 'CỘNG HĐDH + HĐ 68', combineTotal);
+        }
+
+        // Cộng dồn vào grandTotal (mỗi nhóm 1 lần, KHÔNG cộng dòng display-only)
         Object.keys(grandTotal).forEach(k => grandTotal[k] += subTotal[k]);
     });
 
@@ -604,13 +695,14 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
         // 3. Bold rows based on logic
         for (let i = 0; i < result.length; i++) {
             const rowIdx = 11 + i;
-            const stt = String(result[i][0]).trim();
-            const content = String(result[i][1]).trim();
+            const stt = String(result[i][0] || '').trim();
+            const content = String(result[i][1] || '').trim();
+            const contentLower = content.toLowerCase();
 
-            // Bold if STT is present OR contains "Cộng", "Tổng cộng"
+            // Bold if STT is present (I, II, III, IV, 1, 2...) OR contains "cộng", "tổng cộng" (bất kể hoa/thường)
             const isBold = stt !== '' ||
-                content.includes('Cộng') ||
-                content.includes('Tổng cộng');
+                contentLower.includes('cộng') ||
+                contentLower.includes('tổng cộng');
 
             sheet.getRange(rowIdx, 1, 1, 23).setFontWeight(isBold ? 'bold' : 'normal');
         }
@@ -649,9 +741,10 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     // 4. Các dòng đặc biệt (Bold): Nét liền cho chân dòng
     for (let i = 0; i < result.length; i++) {
         const rowIdx = 11 + i;
-        const stt = String(result[i][0]).trim();
-        const content = String(result[i][1]).trim();
-        if (stt !== '' || content.includes('Cộng') || content.includes('Tổng cộng')) {
+        const stt = String(result[i][0] || '').trim();
+        const content = String(result[i][1] || '').trim();
+        const contentLower = content.toLowerCase();
+        if (stt !== '' || contentLower.includes('cộng') || contentLower.includes('tổng cộng')) {
             sheet.getRange(rowIdx, 1, 1, 23).setBorder(null, null, true, null, null, null, 'black', SpreadsheetApp.BorderStyle.SOLID);
         }
     }
@@ -696,5 +789,499 @@ function getPrintDataPhanBoLuongBHXH(monthStr, location) {
         };
     } catch (e) {
         return { status: "error", message: e.message };
+    }
+}
+
+/**
+ * HÀM THỰC THI AUDIT: Bóc tách chi tiết từng nhân sự và phân loại vào các nhóm/dòng của Bảng Phân Bổ Tiền Lương & BHXH
+ * Xuất kết quả trực tiếp ra Sheet "Audit_PhanBoLuongBHXH" trong file EXPORT_HT_PHAN_BO_LUONG_BHXH
+ * 
+ * @param {string} monthStr Kỳ lương cần audit (VD: 'T06.2026')
+ * @param {string} location Khu vực cần audit (VD: 'Hà Nội', 'Phú Thọ', 'All')
+ */
+function auditChiTietPhanBoLuongBHXH(monthStr = 'T06.2026', location = 'Hà Nội') {
+    Logger.log(`=================== BẮT ĐẦU AUDIT CHI TIẾT PHÂN BỔ TIỀN LƯƠNG & BHXH [${monthStr} - ${location}] ===================`);
+    
+    const EXPORT_FILE_ID = GLOBAL_CONFIG.FILES.EXPORT_HT_PHAN_BO_LUONG_BHXH;
+    const AUDIT_SHEET_NAME = 'Audit_PhanBoLuongBHXH';
+
+    try {
+        const locationNormalized = location && location !== 'All' ? normalizeLocation(location) : null;
+
+        const ssLuong1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_1);
+        const ssMaster = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
+
+        // 1. Đọc Master Data (Setup!K:O)
+        const sheetSetup = ssMaster.getSheetByName('Setup');
+        if (!sheetSetup) throw new Error("Không tìm thấy sheet 'Setup' trong file Master Data");
+        const dataMasterRaw = sheetSetup.getRange("K2:O" + Math.max(2, sheetSetup.getLastRow())).getValues();
+
+        const mapMaster = {};
+        dataMasterRaw.forEach(row => {
+            const ma = String(row[0]).trim();
+            if (ma) {
+                mapMaster[ma] = {
+                    TenDV: row[1],
+                    NhomDV: String(row[3] || 'Khác').trim(), // Tên phòng ban
+                    LoaiDV: String(row[4] || 'Bộ phận trực tiếp').trim() // Bộ phận quản lý / Bộ phận trực tiếp
+                };
+            }
+        });
+
+        // 2. Đọc DataChotNSThang
+        const mapChotNS = {};
+        try {
+            const dataChotRaw = getSheetNSThang().getDataRange().getValues();
+            if (dataChotRaw.length > 1) {
+                const headerChot = dataChotRaw[0] || [];
+                const idxChot = {
+                    KyLuong: getIdx(headerChot, ['Kỳ lương', 'KyLuong', 'Ky']),
+                    MaNS: getIdx(headerChot, ['Mã nhân sự', 'Mã NS', 'MaNS', 'Ma']),
+                    HoTen: getIdx(headerChot, ['Họ và tên', 'Họ tên', 'HoTen', 'Tên']),
+                    LoaiHD: getIdx(headerChot, ['Loại hợp đồng', 'LoaiHD']),
+                    MaDonVi: getIdx(headerChot, ['Mã đơn vị', 'MaDonVi', 'MaBP']),
+                    DonVi: getIdx(headerChot, ['Tên đơn vị', 'TenDonVi', 'Đơn vị', 'DonVi']),
+                    KhuVuc: getIdx(headerChot, ['Khu vực', 'KhuVuc', 'Địa phương', 'Khu vuc', 'Địa bàn'])
+                };
+                const targetMonth = monthStr.replace(/^T/, '');
+                dataChotRaw.slice(1).forEach(row => {
+                    const kyRow = String(row[idxChot.KyLuong] || '').trim().replace(/^T/, '');
+                    if (kyRow !== targetMonth) return;
+                    const ma = String(row[idxChot.MaNS] || '').trim();
+                    if (ma) {
+                        const kvIdx = idxChot.KhuVuc !== -1 ? idxChot.KhuVuc : 38;
+                        mapChotNS[ma] = {
+                            MaDonVi: String(row[idxChot.MaDonVi] || '').trim(),
+                            TenDonVi: String(row[idxChot.DonVi] || '').trim(),
+                            HoTen: idxChot.HoTen !== -1 ? String(row[idxChot.HoTen] || '').trim() : '',
+                            LoaiHD: String(row[idxChot.LoaiHD] || '').trim(),
+                            KhuVuc: normalizeLocation(row[kvIdx])
+                        };
+                    }
+                });
+            }
+        } catch (e) {
+            Logger.log("⚠️ Lỗi đọc DataChotNSThang trong audit: " + e.message);
+        }
+
+        // 3. Đọc DataNhanSu Fallback
+        const mapNhanSu = {};
+        try {
+            const shNhanSu = ssMaster.getSheetByName(GLOBAL_CONFIG.SHEETS.DATA_NHAN_SU);
+            const valuesNhanSu = shNhanSu ? shNhanSu.getDataRange().getValues() : [];
+            const headerNhanSu = valuesNhanSu[0] || [];
+            const idxNhanSu = {
+                Ma: getIdx(headerNhanSu, ['Mã nhân sự', 'Mã CB', 'Mã NS', 'MaNS', 'Ma']),
+                HoTen: getIdx(headerNhanSu, ['Họ và tên', 'Họ tên', 'HoTen']),
+                LoaiHD: getIdx(headerNhanSu, ['Loại hợp đồng', 'Loại HĐ', 'LoaiHD']),
+                MaDonVi: getIdx(headerNhanSu, ['Mã đơn vị', 'Mã bộ phận', 'MaDonVi', 'MaBP']),
+                DonVi: getIdx(headerNhanSu, ['Tên đơn vị', 'Đơn vị', 'DonVi']),
+                KhuVuc: getIdx(headerNhanSu, ['Khu vực', 'KhuVuc', 'Địa phương', 'Khu vuc'])
+            };
+            valuesNhanSu.slice(1).forEach(row => {
+                const ma = String(row[idxNhanSu.Ma] || '').trim();
+                if (!ma) return;
+                mapNhanSu[ma] = {
+                    MaDonVi: String(row[idxNhanSu.MaDonVi] || '').trim(),
+                    TenDonVi: String(row[idxNhanSu.DonVi] || '').trim(),
+                    HoTen: idxNhanSu.HoTen !== -1 ? String(row[idxNhanSu.HoTen] || '').trim() : '',
+                    LoaiHD: String(row[idxNhanSu.LoaiHD] || '').trim(),
+                    KhuVuc: normalizeLocation(row[idxNhanSu.KhuVuc])
+                };
+            });
+        } catch (e) {
+            Logger.log("⚠️ Lỗi đọc DataNhanSu fallback: " + e.message);
+        }
+
+        // 4. Bóc tách DataLuong1
+        const sheetL1 = ssLuong1.getSheetByName(GLOBAL_CONFIG.SHEETS.DATA_LUONG_1);
+        if (!sheetL1) throw new Error(`Không tìm thấy sheet '${GLOBAL_CONFIG.SHEETS.DATA_LUONG_1}'`);
+        const dataLuong1Raw = sheetL1.getDataRange().getValues();
+        const hL1 = dataLuong1Raw[0] || [];
+        const idxL1 = {
+            KyLuong: getIdx(hL1, ['Kỳ lương', 'Ky']),
+            MaCB: getIdx(hL1, ['Mã CB', 'Mã nhân sự', 'MaNS', 'Ma', 'Mã NS']),
+            HoTen: getIdx(hL1, ['Họ và tên', 'Họ tên', 'HoTen']),
+            LoaiHD: getIdx(hL1, ['Loại HĐ', 'Loại hợp đồng', 'LoaiHD']),
+            DonVi: getIdx(hL1, ['Đơn vị', 'DonVi', 'Mã đơn vị', 'Mã ĐV']),
+            HSBac: getIdx(hL1, ['HS bậc', 'HS Bậc', 'HSBac']),
+            HSBacBL: getIdx(hL1, ['HS bậc BL', 'HSBacBL']),
+            HSChucVu: getIdx(hL1, ['HS chức vụ', 'HS CV', 'HSCV']),
+            HSVượtKhung: getIdx(hL1, ['HS vượt khung', 'HSVK']),
+            HSNganh: getIdx(hL1, ['HS ngành', 'HS Nghề', 'HSGD']),
+            HSThamNien: getIdx(hL1, ['HS thâm niên', 'HSTN']),
+            HSDocHai: getIdx(hL1, ['HS độc hại', 'HSDH']),
+            HSTrachNhiem: getIdx(hL1, ['HS trách nhiệm', 'HSTNhiem']),
+            HSTuVe: getIdx(hL1, ['HS tự vệ', 'HSTV']),
+            TongLuong: getIdx(hL1, ['Tổng lương', 'TongLuong']),
+            TongLuong1: getIdx(hL1, ['Tổng lương 1', 'TongLuong1', 'Thực lĩnh', 'ThucLinh']),
+            BHXH: getIdx(hL1, ['BHXH']),
+            BHYT: getIdx(hL1, ['BHYT']),
+            BHTN: getIdx(hL1, ['BHTN']),
+            KPCD: getIdx(hL1, ['KPCĐ', 'KPCD']),
+            NuocNgoai: getIdx(hL1, ['Nước ngoài', 'NN']),
+            NghiBHXH: getIdx(hL1, ['Nghỉ BHXH', 'NghiBHXH']),
+            TruKhac: getIdx(hL1, ['Trừ khác', 'TruKhac'])
+        };
+
+        const auditRows = [];
+
+        dataLuong1Raw.slice(1).forEach(row => {
+            if (String(row[idxL1.KyLuong]).trim() !== monthStr) return;
+
+            const thucLinhVal = row[idxL1.TongLuong1];
+            if (thucLinhVal === '' || thucLinhVal === null || thucLinhVal === undefined) return;
+            const tongLuong1 = parseNumber(thucLinhVal);
+            if (tongLuong1 <= 0 || isNaN(tongLuong1)) return;
+
+            const maRaw = row[idxL1.MaCB];
+            const ma = (maRaw && String(maRaw).trim()) || '';
+            if (!ma) return;
+
+            let loaiHD = String(row[idxL1.LoaiHD] || '').trim();
+            const donViRaw = String(row[idxL1.DonVi] || '').trim();
+
+            let rowLocation = normalizeLocation(row[31]); // Cột AF
+            if (ma && mapChotNS[ma] && mapChotNS[ma].KhuVuc) {
+                rowLocation = mapChotNS[ma].KhuVuc;
+            }
+            if (locationNormalized && rowLocation !== locationNormalized) return;
+
+            let maDV = '';
+            let tenDonViDisplay = '';
+            if (ma && mapChotNS[ma]) {
+                let rawCode = String(mapChotNS[ma].MaDonVi || mapChotNS[ma].TenDonVi || '').trim();
+                if (rawCode && !/^DV/i.test(rawCode)) {
+                    const codeMatch = rawCode.match(/^(\d+)(.*)$/);
+                    maDV = 'DV' + (codeMatch ? (codeMatch[1].length < 3 ? codeMatch[1].padStart(3, '0') : codeMatch[1]) + (codeMatch[2] || '') : rawCode);
+                } else {
+                    maDV = rawCode;
+                }
+                tenDonViDisplay = mapChotNS[ma].TenDonVi;
+                const rawLhd = String(mapChotNS[ma].LoaiHD).toUpperCase().trim();
+                if (rawLhd.includes('BIÊN CHẾ') || rawLhd === 'BC') loaiHD = 'Biên chế';
+                else if (rawLhd.includes('68') || rawLhd.includes('LƯƠNG CỐ ĐỊNH')) loaiHD = 'HĐ 68';
+                else if (rawLhd.includes('DÀI HẠN') || rawLhd.includes('THƯỜNG XUYÊN')) loaiHD = 'HĐ dài hạn';
+                else if (rawLhd.includes('VỤ VIỆC') || rawLhd.includes('NGẮN HẠN')) loaiHD = 'HĐ vụ việc';
+            } else {
+                const rawCode = donViRaw.split('-')[0].trim();
+                maDV = 'DV' + rawCode;
+                if (rawCode.length < 3) {
+                    const codeMatch = rawCode.match(/^(\d+)(.*)$/);
+                    if (codeMatch) {
+                        maDV = 'DV' + codeMatch[1].padStart(3, '0') + (codeMatch[2] || '');
+                    }
+                }
+                tenDonViDisplay = donViRaw;
+            }
+
+            let mainLabel = '';
+            if (loaiHD === 'Biên chế') mainLabel = 'I. Biên chế';
+            else if (loaiHD === 'HĐ dài hạn') mainLabel = 'II. HĐ dài hạn';
+            else if (loaiHD === 'HĐ 68') mainLabel = 'III. HĐ 68';
+            else if (loaiHD === 'HĐ vụ việc') mainLabel = 'IV. HĐ vụ việc';
+            else mainLabel = `Khác (${loaiHD})`;
+
+            const master = mapMaster[maDV];
+            let subLabel = '';
+            let deptLabel = '';
+
+            if (loaiHD === 'HĐ 68') {
+                subLabel = (master && master.LoaiDV === 'Bộ phận quản lý') ? 'Gián tiếp' : 'Trực tiếp';
+                deptLabel = subLabel;
+            } else if (loaiHD === 'HĐ vụ việc') {
+                // FR-03: fallback nếu master undefined -> mặc định 'Trực tiếp'
+                subLabel = (master && master.LoaiDV === 'Bộ phận quản lý') ? 'Gián tiếp' : 'Trực tiếp';
+                const chotNS = ma && mapChotNS[ma];
+                const maDonVi = String((chotNS && chotNS.MaDonVi) || maDV || '').trim().replace(/^DV/i, '');
+                const tenDonVi = String((chotNS && chotNS.TenDonVi) || '').trim();
+                deptLabel = maDonVi && tenDonVi ? `${maDonVi}-${tenDonVi}` : (maDonVi || tenDonVi || 'Khác');
+            } else {
+                subLabel = master ? master.LoaiDV : 'Bộ phận trực tiếp';
+                deptLabel = master ? master.NhomDV : 'Khác';
+            }
+
+            const dongPhanBo = `${mainLabel} -> ${subLabel} -> ${deptLabel}`;
+
+            const hsBac = parseNumber(row[idxL1.HSBac]);
+            const hsBacBL = parseNumber(row[idxL1.HSBacBL]);
+            const hsChucVu = parseNumber(row[idxL1.HSChucVu]);
+            const hsVuotKhung = parseNumber(row[idxL1.HSVượtKhung]);
+            const hsNganh = parseNumber(row[idxL1.HSNganh]);
+            const hsThamNien = parseNumber(row[idxL1.HSThamNien]);
+            const hsDocHai = parseNumber(row[idxL1.HSDocHai]);
+            const hsTrachNhiem = parseNumber(row[idxL1.HSTrachNhiem]);
+            const hsTuVe = parseNumber(row[idxL1.HSTuVe]);
+            const tongLuong = parseNumber(row[idxL1.TongLuong]);
+            const bhxh = parseNumber(row[idxL1.BHXH]);
+            const bhyt = parseNumber(row[idxL1.BHYT]);
+            const bhtn = parseNumber(row[idxL1.BHTN]);
+            const kpcd = parseNumber(row[idxL1.KPCD]);
+            const nuocNgoai = parseNumber(row[idxL1.NuocNgoai]);
+            const nghiBHXH = parseNumber(row[idxL1.NghiBHXH]);
+            const quyXH = parseNumber(row[idxL1.TruKhac]);
+            const giamTru = bhxh + bhyt + bhtn + kpcd + nuocNgoai + nghiBHXH + quyXH;
+            const bhTra = nghiBHXH;
+            const soTienLinh = tongLuong - giamTru;
+
+            const hoTen = (mapChotNS[ma] && mapChotNS[ma].HoTen) || (mapNhanSu[ma] && mapNhanSu[ma].HoTen) || (idxL1.HoTen !== -1 ? String(row[idxL1.HoTen] || '').trim() : '');
+
+            auditRows.push({
+                maNS: ma,
+                hoTen: hoTen,
+                maDV: maDV,
+                donVi: tenDonViDisplay,
+                nhomChinh: mainLabel,
+                loaiBP: subLabel,
+                nhomDV: deptLabel,
+                dongPhanBo: dongPhanBo,
+                nguon: 'Lương',
+                hsBac, hsBacBL, hsChucVu, hsVuotKhung, hsNganh, hsThamNien, hsDocHai, hsTrachNhiem, hsTuVe,
+                tongLuong, bhxh, bhyt, bhtn, kpcd, nuocNgoai, nghiBHXH,
+                tamUng: 0, quyXH, giamTru, bhTra, soTienLinh
+            });
+        });
+
+        // 5. Bóc tách điều chỉnh Truy Thu / Truy Lĩnh
+        try {
+            const ssTruyThu = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1);
+            const shTruyThu = ssTruyThu.getSheetByName(GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU);
+            const truyValues = shTruyThu ? shTruyThu.getDataRange().getValues() : [];
+            const hTruy = truyValues[0] || [];
+            const idxTruy = {
+                Ky: getIdx(hTruy, ['Kỳ trả lương', 'Kỳ lương', 'Ky']),
+                Ma: getIdx(hTruy, ['Mã nhân sự', 'Mã CB', 'MaNS', 'Ma']),
+                HoTen: getIdx(hTruy, ['Họ và tên', 'Họ tên', 'HoTen']),
+                BHXH: getIdx(hTruy, ['BHXH']),
+                BHYT: getIdx(hTruy, ['BHYT']),
+                BHTN: getIdx(hTruy, ['BHTN']),
+                ConNhan: getIdx(hTruy, ['Còn nhận', 'ConNhan', 'Con nhan'])
+            };
+
+            truyValues.slice(1).forEach(row => {
+                if (String(row[idxTruy.Ky] || '').trim() !== monthStr) return;
+                const ma = String(row[idxTruy.Ma] || '').trim();
+                if (!ma) return;
+
+                const fallback = mapChotNS[ma] || mapNhanSu[ma];
+                if (locationNormalized && fallback && fallback.KhuVuc && fallback.KhuVuc !== locationNormalized) return;
+
+                const bhxh = parseNumber(row[idxTruy.BHXH]);
+                const bhyt = parseNumber(row[idxTruy.BHYT]);
+                const bhtn = parseNumber(row[idxTruy.BHTN]);
+                if (bhxh === 0 && bhyt === 0 && bhtn === 0) return;
+
+                let loaiHD = fallback ? String(fallback.LoaiHD || '').trim() : '';
+                let mainLabel = 'II. HĐ dài hạn';
+                let subLabel = 'Bộ phận trực tiếp';
+                let deptLabel = 'Khác';
+
+                const rawLhd = loaiHD.toUpperCase();
+                if (rawLhd.includes('BIÊN CHẾ') || rawLhd === 'BC') mainLabel = 'I. Biên chế';
+                else if (rawLhd.includes('68') || rawLhd.includes('LƯƠNG CỐ ĐỊNH')) mainLabel = 'III. HĐ 68';
+                else if (rawLhd.includes('DÀI HẠN') || rawLhd.includes('THƯỜNG XUYÊN')) mainLabel = 'II. HĐ dài hạn';
+                else if (rawLhd.includes('VỤ VIỆC') || rawLhd.includes('NGẮN HẠN')) mainLabel = 'IV. HĐ vụ việc';
+
+                let rawCode = fallback ? String(fallback.MaDonVi || fallback.TenDonVi || '').trim() : '';
+                let maDV = '';
+                if (rawCode && !/^DV/i.test(rawCode)) {
+                    const codeMatch = rawCode.match(/^(\d+)(.*)$/);
+                    maDV = 'DV' + (codeMatch ? (codeMatch[1].length < 3 ? codeMatch[1].padStart(3, '0') : codeMatch[1]) + (codeMatch[2] || '') : rawCode);
+                } else {
+                    maDV = rawCode;
+                }
+                const master = mapMaster[maDV];
+
+                if (mainLabel === 'III. HĐ 68') {
+                    subLabel = (master && master.LoaiDV === 'Bộ phận quản lý') ? 'Gián tiếp' : 'Trực tiếp';
+                    deptLabel = subLabel;
+                } else if (mainLabel === 'IV. HĐ vụ việc') {
+                    subLabel = (master && master.LoaiDV === 'Bộ phận quản lý') ? 'Gián tiếp' : 'Trực tiếp';
+                    const codePart = maDV.replace(/^DV/i, '');
+                    const tenDV = fallback ? String(fallback.TenDonVi || '').trim() : '';
+                    deptLabel = codePart && tenDV ? `${codePart}-${tenDV}` : (codePart || tenDV || 'Khác');
+                } else {
+                    subLabel = master ? master.LoaiDV : 'Bộ phận trực tiếp';
+                    deptLabel = master ? master.NhomDV : 'Khác';
+                }
+
+                const dongPhanBo = `${mainLabel} -> ${subLabel} -> ${deptLabel}`;
+                const conNhanVal = idxTruy.ConNhan !== -1 ? parseNumber(row[idxTruy.ConNhan]) : 1;
+                const nguon = conNhanVal > 0 ? 'Truy lĩnh' : 'Truy thu';
+                const hoTen = (fallback && fallback.HoTen) || (idxTruy.HoTen !== -1 ? String(row[idxTruy.HoTen] || '').trim() : '');
+
+                auditRows.push({
+                    maNS: ma,
+                    hoTen: hoTen,
+                    maDV: maDV,
+                    donVi: (fallback && fallback.TenDonVi) || '',
+                    nhomChinh: mainLabel,
+                    loaiBP: subLabel,
+                    nhomDV: deptLabel,
+                    dongPhanBo: dongPhanBo,
+                    nguon: nguon,
+                    hsBac: 0, hsBacBL: 0, hsChucVu: 0, hsVuotKhung: 0, hsNganh: 0, hsThamNien: 0, hsDocHai: 0, hsTrachNhiem: 0, hsTuVe: 0,
+                    tongLuong: 0, bhxh: bhxh, bhyt: bhyt, bhtn: bhtn, kpcd: 0, nuocNgoai: 0, nghiBHXH: 0,
+                    tamUng: 0, quyXH: 0, giamTru: (bhxh + bhyt + bhtn), bhTra: 0, soTienLinh: -(bhxh + bhyt + bhtn)
+                });
+            });
+        } catch (e) {
+            Logger.log("⚠️ Lỗi bóc tách truy thu trong audit: " + e.message);
+        }
+
+        // Sắp xếp dữ liệu theo Dòng phân bổ, sau đó theo Mã NS
+        auditRows.sort((a, b) => {
+            if (a.dongPhanBo !== b.dongPhanBo) return a.dongPhanBo.localeCompare(b.dongPhanBo);
+            return a.maNS.localeCompare(b.maNS);
+        });
+
+        // 6. Ghi kết quả vào Sheet "Audit_PhanBoLuongBHXH"
+        const ssExport = SpreadsheetApp.openById(EXPORT_FILE_ID);
+        let auditSheet = ssExport.getSheetByName(AUDIT_SHEET_NAME);
+        if (!auditSheet) {
+            auditSheet = ssExport.insertSheet(AUDIT_SHEET_NAME);
+        }
+        auditSheet.clear();
+        auditSheet.getRange("A:AE").clearFormat();
+
+        // Banner Tiêu đề
+        auditSheet.getRange("A1:AE1").merge()
+            .setValue(`BẢNG AUDIT CHI TIẾT PHÂN BỔ TIỀN LƯƠNG VÀ BHXH - THÁNG ${monthStr} - ĐỊA PHƯƠNG: ${location}`)
+            .setFontSize(12).setFontWeight("bold").setBackground("#D1E7DD").setHorizontalAlignment("center");
+        auditSheet.getRange("A2:AE2").merge()
+            .setValue(`Thời gian export audit: ${new Date().toLocaleString("vi-VN")}`)
+            .setFontSize(9).setFontStyle("italic").setHorizontalAlignment("center");
+
+        // Headers 2 tầng (31 cột)
+        const header1 = [
+            "STT", "Mã NS", "Họ và tên", "Mã ĐV", "Tên đơn vị", "Nhóm HĐ chính", "Loại bộ phận", "Phòng ban hạch toán", "Dòng phân bổ báo cáo", "Nguồn",
+            "Tiền lương & Các khoản phụ cấp theo lương", "", "", "", "", "", "", "", "", "Tổng lương",
+            "Các khoản trích nộp theo lương", "", "", "", "", "",
+            "Các khoản khấu trừ & Thực lĩnh", "", "", "", "Số tiền lĩnh"
+        ];
+        const header2 = [
+            "", "", "", "", "", "", "", "", "", "",
+            "HS bậc", "HS bậc BL", "HS chức vụ", "HS vượt khung", "HS ngành", "HS thâm niên", "HS độc hại", "HS trách nhiệm", "HS tự vệ", "",
+            "BHXH", "BHYT", "BHTN", "KPCĐ", "Nước ngoài", "Nghỉ BHXH",
+            "Tạm ứng/giữ", "Quỹ XH", "Tổng giảm trừ", "BH trả", ""
+        ];
+
+        auditSheet.getRange(4, 1, 1, header1.length).setValues([header1]);
+        auditSheet.getRange(5, 1, 1, header2.length).setValues([header2]);
+
+        const merges = [
+            "A4:A5", "B4:B5", "C4:C5", "D4:D5", "E4:E5", "F4:F5", "G4:G5", "H4:H5", "I4:I5", "J4:J5",
+            "K4:S4", "T4:T5", "U4:Z4", "AA4:AD4", "AE4:AE5"
+        ];
+        merges.forEach(m => auditSheet.getRange(m).merge().setVerticalAlignment("middle").setHorizontalAlignment("center"));
+
+        auditSheet.getRange(4, 1, 2, header1.length)
+            .setFontWeight("bold").setBackground("#E2E3E5").setBorder(true, true, true, true, true, true);
+
+        // Chuyển đổi dữ liệu sang mảng 2 chiều
+        const tableData = auditRows.map((r, i) => [
+            i + 1,
+            r.maNS,
+            r.hoTen,
+            r.maDV,
+            r.donVi,
+            r.nhomChinh,
+            r.loaiBP,
+            r.nhomDV,
+            r.dongPhanBo,
+            r.nguon,
+            r.hsBac,
+            r.hsBacBL,
+            r.hsChucVu,
+            r.hsVuotKhung,
+            r.hsNganh,
+            r.hsThamNien,
+            r.hsDocHai,
+            r.hsTrachNhiem,
+            r.hsTuVe,
+            r.tongLuong,
+            r.bhxh,
+            r.bhyt,
+            r.bhtn,
+            r.kpcd,
+            r.nuocNgoai,
+            r.nghiBHXH,
+            r.tamUng,
+            r.quyXH,
+            r.giamTru,
+            r.bhTra,
+            r.soTienLinh
+        ]);
+
+        if (tableData.length > 0) {
+            auditSheet.getRange(6, 1, tableData.length, header1.length).setValues(tableData);
+            // Định dạng số tiền
+            auditSheet.getRange(6, 11, tableData.length, 21).setNumberFormat("#,##0");
+            // Kẻ viền bảng
+            auditSheet.getRange(6, 1, tableData.length, header1.length)
+                .setBorder(true, true, true, true, true, true, 'black', SpreadsheetApp.BorderStyle.SOLID);
+
+            // Căn lề
+            auditSheet.getRange(6, 1, tableData.length, 1).setHorizontalAlignment("center"); // STT
+            auditSheet.getRange(6, 2, tableData.length, 1).setHorizontalAlignment("center"); // Mã NS
+            auditSheet.getRange(6, 4, tableData.length, 1).setHorizontalAlignment("center"); // Mã ĐV
+            auditSheet.getRange(6, 6, tableData.length, 1).setHorizontalAlignment("center"); // Nhóm chính
+            auditSheet.getRange(6, 7, tableData.length, 1).setHorizontalAlignment("center"); // Loại BP
+            auditSheet.getRange(6, 10, tableData.length, 1).setHorizontalAlignment("center"); // Nguồn
+        }
+
+        // Dòng Tổng Cộng
+        const totalRowIdx = 6 + tableData.length;
+        const totalSums = [];
+        for (let colIdx = 10; colIdx < 31; colIdx++) {
+            totalSums.push(auditRows.reduce((sum, r) => {
+                const keys = [
+                    'hsBac', 'hsBacBL', 'hsChucVu', 'hsVuotKhung', 'hsNganh', 'hsThamNien', 'hsDocHai', 'hsTrachNhiem', 'hsTuVe',
+                    'tongLuong', 'bhxh', 'bhyt', 'bhtn', 'kpcd', 'nuocNgoai', 'nghiBHXH', 'tamUng', 'quyXH', 'giamTru', 'bhTra', 'soTienLinh'
+                ];
+                return sum + (r[keys[colIdx - 10]] || 0);
+            }, 0));
+        }
+
+        auditSheet.getRange(totalRowIdx, 1, 1, 10).merge()
+            .setValue(`TỔNG CỘNG (${tableData.length} bản ghi phát sinh)`).setHorizontalAlignment("right");
+        auditSheet.getRange(totalRowIdx, 11, 1, 21).setValues([totalSums]).setNumberFormat("#,##0");
+
+        auditSheet.getRange(totalRowIdx, 1, 1, header1.length)
+            .setFontWeight("bold").setBackground("#FFF3CD").setBorder(true, true, true, true, true, true);
+
+        // Chỉnh độ rộng các cột
+        auditSheet.setColumnWidth(1, 45);   // STT
+        auditSheet.setColumnWidth(2, 90);   // Mã NS
+        auditSheet.setColumnWidth(3, 170);  // Họ và tên
+        auditSheet.setColumnWidth(4, 75);   // Mã ĐV
+        auditSheet.setColumnWidth(5, 170);  // Tên đơn vị
+        auditSheet.setColumnWidth(6, 130);  // Nhóm chính
+        auditSheet.setColumnWidth(7, 130);  // Loại BP
+        auditSheet.setColumnWidth(8, 150);  // Phòng ban hạch toán
+        auditSheet.setColumnWidth(9, 280);  // Dòng phân bổ báo cáo
+        auditSheet.setColumnWidth(10, 80);  // Nguồn
+        for (let c = 11; c <= 31; c++) auditSheet.setColumnWidth(c, 95);
+
+        auditSheet.setFrozenRows(5);
+
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${EXPORT_FILE_ID}/edit#gid=${auditSheet.getSheetId()}`;
+        Logger.log(`✅ AUDIT PHÂN BỔ TIỀN LƯƠNG & BHXH HOÀN TẤT!`);
+        Logger.log(`- Tổng số bản ghi: ${tableData.length}`);
+        Logger.log(`- Link Sheet: ${sheetUrl}`);
+
+        return {
+            status: "success",
+            month: monthStr,
+            location: location,
+            totalRecords: tableData.length,
+            sheetUrl: sheetUrl
+        };
+    } catch (e) {
+        Logger.log(`❌ LỖI TRONG QUÁ TRÌNH AUDIT PHÂN BỔ TIỀN LƯƠNG & BHXH: ${e.message} \n ${e.stack}`);
+        return {
+            status: "error",
+            message: e.message
+        };
     }
 }
