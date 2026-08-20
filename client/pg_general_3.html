@@ -183,9 +183,9 @@
     }
 
     let css = "*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:9.5pt;margin:0;padding:10px;background:#f1f5f9}" +
-      ".page-container{width:100%; max-width:98%; margin:0 auto; background:#fff; padding:0; box-sizing:border-box;}" +
-      "table{width:100%; border-collapse:collapse; table-layout:fixed; margin-top:5px; border:1px solid #000 !important;} " +
-      "th,td{border:1px solid #000; padding:3px 1px; overflow:hidden; word-break:break-word; font-size:8.2pt; line-height:1.1;}" +
+      ".page-container{width:100%; margin:0; background:#fff; padding:0; box-sizing:border-box;}" +
+      "table{width:100%; border-collapse:collapse; table-layout:fixed; margin-top:5px; border:1px solid #000 !important; box-sizing:border-box;} " +
+      "th,td{border:1px solid #000; padding:2px 1px; overflow:hidden; word-break:break-word; font-size:8pt; line-height:1.1; box-sizing:border-box;}" +
       "th:last-child, td:last-child{border-right:1px solid #000 !important;}" +
       "th{background:#f8fafc; font-weight:bold; text-align:center; vertical-align:middle; color:#000;}" +
       "thead{display:table-header-group;}" +
@@ -208,32 +208,32 @@
       ".summary-signature-block table{margin-top:0; border:none !important;}" +
       ".page-container > table:first-of-type{page-break-after:avoid; break-after:avoid-page;}" +
       "@media print{" +
-      "@page{size:A4 landscape; margin:12mm 15mm 15mm 15mm !important; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+      "@page{size:A4 landscape; margin:10mm 10mm 12mm 18mm !important; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
       "body{background:#fff; padding:0; margin:0 !important;}" +
       "thead{display:table-header-group;}" +
       "tfoot{display:table-footer-group;}" +
-      ".page-container{width:100%; max-width:100%; padding:0; box-shadow:none; margin:0; border-radius:0;}" +
+      ".page-container{width:100%; padding:0; box-shadow:none; margin:0; border-radius:0;}" +
       "}";
 
     const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G + _L + "title" + _G + "\u200E" + _S + "title" + _G + _L + "style" + _G + css + _S + "style" + _G + _S + "head" + _G;
 
     const colgroupHtml =
       _L + "colgroup" + _G +
-      _L + "col style='width:2.8%'>" + _S + "col" + _G +
-      _L + "col style='width:4.2%'>" + _S + "col" + _G +
-      _L + "col style='width:12.5%'>" + _S + "col" + _G +
-      _L + "col style='width:9.2%'>" + _S + "col" + _G +
-      _L + "col style='width:6.5%'>" + _S + "col" + _G +
+      _L + "col style='width:2.6%'>" + _S + "col" + _G +
+      _L + "col style='width:4.0%'>" + _S + "col" + _G +
+      _L + "col style='width:12.4%'>" + _S + "col" + _G +
+      _L + "col style='width:9.0%'>" + _S + "col" + _G +
+      _L + "col style='width:6.0%'>" + _S + "col" + _G +
       _L + "col style='width:8.5%'>" + _S + "col" + _G +
-      _L + "col style='width:7.2%'>" + _S + "col" + _G +
-      _L + "col style='width:5.2%'>" + _S + "col" + _G +
-      _L + "col style='width:4.8%'>" + _S + "col" + _G +
-      _L + "col style='width:7.2%'>" + _S + "col" + _G +
-      _L + "col style='width:5.2%'>" + _S + "col" + _G +
-      _L + "col style='width:4.8%'>" + _S + "col" + _G +
+      _L + "col style='width:7.0%'>" + _S + "col" + _G +
+      _L + "col style='width:5.0%'>" + _S + "col" + _G +
+      _L + "col style='width:4.5%'>" + _S + "col" + _G +
+      _L + "col style='width:7.0%'>" + _S + "col" + _G +
+      _L + "col style='width:5.0%'>" + _S + "col" + _G +
+      _L + "col style='width:4.5%'>" + _S + "col" + _G +
       _L + "col style='width:6.5%'>" + _S + "col" + _G +
-      _L + "col style='width:5.2%'>" + _S + "col" + _G +
-      _L + "col style='width:4.8%'>" + _S + "col" + _G +
+      _L + "col style='width:5.0%'>" + _S + "col" + _G +
+      _L + "col style='width:4.5%'>" + _S + "col" + _G +
       _L + "col style='width:5.5%'>" + _S + "col" + _G +
       _S + "colgroup" + _G;
 
