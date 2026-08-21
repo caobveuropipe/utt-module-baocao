@@ -1,5 +1,13 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-08-21] Chuẩn hóa cột lấy dữ liệu TTTL & Loại bỏ dòng 0 khi xuất Excel
+
+### Fixed
+- **Chuẩn hóa cột đọc dữ liệu Truy Thu Lĩnh (`doGet_tongHopExcel.js`)**: Cập nhật hàm `processTTL` bắt buộc đối chiếu kỳ lương qua duy nhất cột `Kỳ trả lương` và ưu tiên lấy số tiền từ cột `Còn nhận` (cột AH) trong sheet `DataTruyThuLinh` áp dụng cho cả File Truy Thu Lương 1 & 2.
+
+### Added
+- **Bộ lọc loại bỏ nhân sự không phát sinh thu nhập (`doGet_tongHopExcel.js`)**: Tự động lọc bỏ các cán bộ ra khỏi file Excel xuất ra nếu đồng thời cả 6 khoản thu nhập/trừ (Tổng lương 1, Lương 2, Tạm giữ, Ăn ca, TTTL L1, TTTL L2) đều bằng 0.
+
 ## [2026-08-21] Bổ sung Ngày công tác & BHXH TTTL vào bảng lương Excel (56 cột)
 
 ### Added

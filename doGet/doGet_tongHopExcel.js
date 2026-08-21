@@ -418,9 +418,9 @@ function buildTongHopSalaryExcelData(monthStr, location) {
       if (!shTTL) return;
       const dataTTL = shTTL.getDataRange().getValues();
       const requiredCols = [
-        ['Kỳ lương', 'Kỳ trả lương'],
+        'Kỳ trả lương',
         ['Mã CB', 'Mã nhân sự'],
-        ['Tổng tiền (VNĐ)', 'Còn nhận', 'Tổng cộng', 'Thực nhận']
+        ['Còn nhận', 'Tổng tiền (VNĐ)', 'Tổng cộng', 'Thực nhận']
       ];
       if (isL1) {
         requiredCols.push(
@@ -434,10 +434,10 @@ function buildTongHopSalaryExcelData(monthStr, location) {
       let unmatched = 0;
       for (let i = 1; i < dataTTL.length; i++) {
         const r = dataTTL[i];
-        if (String(r[mapTTL['Kỳlương']]).trim() !== monthKey) continue;
+        if (String(r[mapTTL['Kỳtrảlương']]).trim() !== monthKey) continue;
         const maCB = String(r[mapTTL['MãCB']]).trim();
         if (!ensureEmployee(maCB)) { unmatched++; continue; }
-        baseMap[maCB][fieldName] += parseMoneyVN(r[mapTTL['Tổngtiền(VNĐ)']]);
+        baseMap[maCB][fieldName] += parseMoneyVN(r[mapTTL['Cònnhận']]);
         if (isL1) {
           baseMap[maCB].bhxhTTTL += parseMoneyVN(r[mapTTL['BHXH']]);
           baseMap[maCB].bhytTTTL += parseMoneyVN(r[mapTTL['BHYT']]);
@@ -506,8 +506,21 @@ function buildTongHopSalaryExcelData(monthStr, location) {
     return String(numA).localeCompare(String(numB));
   });
 
-  const rows = orderedCB.map(maCB => {
+  const rows = [];
+  orderedCB.forEach(maCB => {
     const d = baseMap[maCB];
+    const tongLuong1 = d.l1[23] || 0; // d.l1[23] là Tổng lương 1
+    const luong2 = d.l2[8] || 0;      // d.l2[8] là Lương 2
+    const tamGiu = d.l2[9] || 0;      // d.l2[9] là Tạm giữ
+    const ac = d.ac || 0;
+    const tttl1 = d.tttl1 || 0;
+    const tttl2 = d.tttl2 || 0;
+
+    // Nếu đồng thời cả 6 khoản bằng 0 thì bỏ qua không xuất ra Excel
+    if (tongLuong1 === 0 && luong2 === 0 && tamGiu === 0 && ac === 0 && tttl1 === 0 && tttl2 === 0) {
+      return;
+    }
+
     const l1WithBHTraChinh = [
       ...d.l1.slice(0, 23),
       d.l1[20],
@@ -518,7 +531,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
     const nsInfoOut = [...d.nsInfo];
     nsInfoOut[1] = String(nsInfoOut[1]).replace(/^CB/i, '');
 
-    return [
+    rows.push([
       ...nsInfoOut,
       ...l1WithBHTraChinh,
       ...d.l2,
@@ -529,7 +542,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
       d.bhtnTTTL,
       d.kpcdTTTL,
       d.tttl2
-    ];
+    ]);
   });
 
   return { headers, rows, warnings };
