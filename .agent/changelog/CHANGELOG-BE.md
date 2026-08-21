@@ -1,5 +1,12 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-08-21] Bổ sung Ngày công tác & BHXH TTTL vào bảng lương Excel (56 cột)
+
+### Added
+- **Tách 3 cột Ngày công tác (`doGet_tongHopExcel.js`)**: Bổ sung hàm `parseWorkDates(val)` phân tách chuỗi ngày công tác `NgayBienChe|NgayVaoNganh|NgayKTHD` từ `DataChotNSThang` (cột AR) thành 3 cột riêng biệt: `Ngày vào biên chế`, `Ngày vào ngành`, `Ngày kết thúc hợp đồng` (định dạng `yyyy-mm-dd`).
+- **Trích xuất 4 khoản BHXH-TTTL (`doGet_tongHopExcel.js`)**: Nâng cấp hàm `processTTL` đọc thêm 4 cột `BHXH`, `BHYT`, `BHTN`, `KPCĐ` từ sheet `DataTruyThuLinh` (Lương 1) và cộng dồn với hậu tố `-TTTL`: `BHXH-TTTL`, `BHYT-TTTL`, `BHTN-TTTL`, `KPCĐ-TTTL`.
+- **Mở rộng bảng Excel sang 56 cột**: Mở rộng mảng `headers` và mapping `rows` từ 49 cột lên 56 cột, hoàn thiện cấu trúc dữ liệu xuất file Excel tổng hợp lương.
+
 ## [2026-08-20] Hỗ trợ Bảng treo lương Phú Thọ (In & Xuất Excel) và xóa dòng trắng thừa
 
 ### Added

@@ -2,7 +2,7 @@
  * MODULE: XUẤT EXCEL (doGet_tongHopExcel)
  * 
  * MÔ TẢ:
- * File chứa logic build dữ liệu bảng lương 49 cột từ 6 nguồn khác nhau,
+ * File chứa logic build dữ liệu bảng lương 56 cột từ 6 nguồn khác nhau,
  * trả về cho endpoint doGet.
  */
 
@@ -123,6 +123,37 @@ function parseMoneyVN(val) {
 }
 
 /**
+ * Tách chuỗi Ngày công tác dạng "NgayBienChe|NgayVaoNganh|NgayKTHD" thành mảng 3 phần tử [ngayBC, ngayNganh, ngayKTHD].
+ * Đảm bảo an toàn khi val là Date Object, null, undefined, hoặc chứa khoảng trắng thừa.
+ * @param {any} val Giá trị ô Ngày công tác
+ * @returns {Array<String>} [ngayBienChe, ngayVaoNganh, ngayKTHD]
+ */
+function parseWorkDates(val) {
+  if (!val) return ['', '', ''];
+
+  let str = '';
+  if (val instanceof Date) {
+    // Format Date sang yyyy-mm-dd
+    const yyyy = val.getFullYear();
+    const mm = String(val.getMonth() + 1).padStart(2, '0');
+    const dd = String(val.getDate()).padStart(2, '0');
+    str = `${yyyy}-${mm}-${dd}`;
+  } else {
+    str = String(val).trim();
+  }
+
+  if (!str) return ['', '', ''];
+
+  const parts = str.split('|').map(p => p.trim());
+  return [
+    parts[0] || '',
+    parts[1] || '',
+    parts[2] || ''
+  ];
+}
+
+
+/**
  * Lọc và nối dữ liệu từ 6 nguồn
  * @param {String} monthStr Tháng (ví dụ 03/2026)
  * @param {String} location Khu vực cần lọc (Tất cả, Hà Nội, Phú Thọ)
@@ -191,7 +222,8 @@ function buildTongHopSalaryExcelData(monthStr, location) {
   if (!shNS) throw new Error("Không tìm thấy sheet " + GLOBAL_CONFIG.SHEETS.DATA_CHOT_NS);
   const dataNS = shNS.getDataRange().getValues();
   const mapNS = requireColumns(GLOBAL_CONFIG.SHEETS.DATA_CHOT_NS, dataNS[0], [
-    'Kỳ lương', 'Mã nhân sự', 'Họ tên', 'Loại hợp đồng', 'Mã đơn vị', 'Tên đơn vị', 'Mã ngạch', 'Trạng thái', 'Khu vực'
+    'Kỳ lương', 'Mã nhân sự', 'Họ tên', 'Loại hợp đồng', 'Mã đơn vị', 'Tên đơn vị', 'Mã ngạch', 'Trạng thái', 'Khu vực',
+    ['Ngày công tác', 'Ngày CT', 'NgayCongTac']
   ]);
 
   // Lọc NS gốc
@@ -225,6 +257,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
     let kv = '';
     let soTK = '';
     let tenNH = '';
+    let rawWorkDates = '';
 
     // 1) Tìm trong chốt nhân sự tháng này
     let r = chotNSMap[monthKey] && chotNSMap[monthKey][maCB];
@@ -236,6 +269,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
       maNgach = String(r[mapNS['Mãngạch']]).trim();
       trangThai = String(r[mapNS['Trạngthái']]).trim();
       kv = normalizeLocation(r[mapNS['Khuvực']]);
+      rawWorkDates = r[mapNS['Ngàycôngtác']];
       const bInfo = bankMap[maCB] || { soTaiKhoan: '', nganHang: '' };
       soTK = bInfo.soTaiKhoan;
       tenNH = bInfo.nganHang;
@@ -251,6 +285,7 @@ function buildTongHopSalaryExcelData(monthStr, location) {
         maNgach = String(r[mapNS['Mãngạch']]).trim();
         trangThai = String(r[mapNS['Trạngthái']]).trim();
         kv = normalizeLocation(r[mapNS['Khuvực']]);
+        rawWorkDates = r[mapNS['Ngàycôngtác']];
         const bInfo = bankMap[maCB] || { soTaiKhoan: '', nganHang: '' };
         soTK = bInfo.soTaiKhoan;
         tenNH = bInfo.nganHang;
@@ -271,16 +306,23 @@ function buildTongHopSalaryExcelData(monthStr, location) {
     // Lọc theo cơ sở nếu có yêu cầu
     if (locKey && kv !== locKey) return false;
 
+    const parsedDates = parseWorkDates(rawWorkDates);
+
     baseMap[maCB] = {
       nsInfo: [
         ky, maCB, hoTen, loaiHD, maDonVi, tenDonVi, maNgach, trangThai, kv,
-        soTK, tenNH
+        soTK, tenNH,
+        parsedDates[0], parsedDates[1], parsedDates[2]
       ],
       l1: new Array(24).fill(0),
       l2: new Array(10).fill(0),
       ac: 0,
       tttl1: 0,
-      tttl2: 0
+      tttl2: 0,
+      bhxhTTTL: 0,
+      bhytTTTL: 0,
+      bhtnTTTL: 0,
+      kpcdTTTL: 0
     };
     orderedCB.push(maCB);
     return true;
@@ -369,17 +411,26 @@ function buildTongHopSalaryExcelData(monthStr, location) {
   }
 
   // 5. DATA TRUY THU LĨNH L1 & L2 (Chỉ có 1 file TRUY_THU_LUONG_1 chứa DataTruyThuLinh cho cả L1 và TRUY_THU_LUONG_2 chứa L2)
-  const processTTL = (fileId, sheetName, fieldName) => {
+  const processTTL = (fileId, sheetName, fieldName, isL1 = false) => {
     try {
       const ssTTL = SpreadsheetApp.openById(fileId);
       const shTTL = ssTTL.getSheetByName(sheetName);
       if (!shTTL) return;
       const dataTTL = shTTL.getDataRange().getValues();
-      const mapTTL = requireColumns(sheetName, dataTTL[0], [
+      const requiredCols = [
         ['Kỳ lương', 'Kỳ trả lương'],
         ['Mã CB', 'Mã nhân sự'],
         ['Tổng tiền (VNĐ)', 'Còn nhận', 'Tổng cộng', 'Thực nhận']
-      ]);
+      ];
+      if (isL1) {
+        requiredCols.push(
+          ['BHXH', 'Bảo hiểm xã hội', 'Bảo hiểm XH'],
+          ['BHYT', 'Bảo hiểm y tế'],
+          ['BHTN', 'Bảo hiểm thất nghiệp'],
+          ['KPCĐ', 'KP CĐ', 'Đoàn phí CĐ', 'Kinh phí công đoàn']
+        );
+      }
+      const mapTTL = requireColumns(sheetName, dataTTL[0], requiredCols);
       let unmatched = 0;
       for (let i = 1; i < dataTTL.length; i++) {
         const r = dataTTL[i];
@@ -387,6 +438,12 @@ function buildTongHopSalaryExcelData(monthStr, location) {
         const maCB = String(r[mapTTL['MãCB']]).trim();
         if (!ensureEmployee(maCB)) { unmatched++; continue; }
         baseMap[maCB][fieldName] += parseMoneyVN(r[mapTTL['Tổngtiền(VNĐ)']]);
+        if (isL1) {
+          baseMap[maCB].bhxhTTTL += parseMoneyVN(r[mapTTL['BHXH']]);
+          baseMap[maCB].bhytTTTL += parseMoneyVN(r[mapTTL['BHYT']]);
+          baseMap[maCB].bhtnTTTL += parseMoneyVN(r[mapTTL['BHTN']]);
+          baseMap[maCB].kpcdTTTL += parseMoneyVN(r[mapTTL['KPCĐ']]);
+        }
       }
       if (unmatched > 0) warnings.push(`${unmatched} dòng Truy thu lĩnh ${fieldName} bị loại do Mã CB không hợp lệ.`);
     } catch (e) {
@@ -394,13 +451,14 @@ function buildTongHopSalaryExcelData(monthStr, location) {
     }
   };
 
-  processTTL(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU, 'tttl1');
-  processTTL(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_2, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU, 'tttl2');
+  processTTL(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU, 'tttl1', true);
+  processTTL(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_2, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU, 'tttl2', false);
 
   // BUILD FINAL EXCEL DATA
   const headers = [
     'Kỳ lương', 'Mã CB', 'Họ tên', 'Loại hợp đồng', 'Mã đơn vị', 'Tên đơn vị', 'Mã ngạch', 'Trạng thái', 'Khu vực',
     'Số tài khoản', 'Ngân hàng',
+    'Ngày vào biên chế', 'Ngày vào ngành', 'Ngày kết thúc hợp đồng',
     'HS bậc', 'HS bậc BL', 'HS chức vụ', 'TL vượt khung', 'HS vượt khung', 'TL ngành', 'HS ngành',
     'TL thâm niên', 'HS thâm niên', 'HS độc hại', 'HS trách nhiệm', 'HS tự vệ', 'Tổng hệ số', 'Lương CĐ', 'Tổng lương',
     'BHXH', 'BHYT', 'BHTN', 'Đoàn phí CĐ', 'Nước ngoài', 'Nghỉ BHXH', 'Trừ khác', 'Tổng giảm trừ',
@@ -408,7 +466,9 @@ function buildTongHopSalaryExcelData(monthStr, location) {
     'Tổng lương 1',
     'Ổn định thu nhập', 'Quản lý', 'Hỗ trợ hành chính phục vụ', 'Thu hút lao động', 'Hỗ trợ khác',
     'Tạm ứng nghiên cứu sinh', 'Tạm trừ thuế', 'Quyết toán thuế', 'Lương 2', 'Tạm giữ',
-    'Ăn ca', 'TTTL L1', 'TTTL L2'
+    'Ăn ca', 'TTTL L1',
+    'BHXH-TTTL', 'BHYT-TTTL', 'BHTN-TTTL', 'KPCĐ-TTTL',
+    'TTTL L2'
   ];
 
   // ====== SẮP XẾP MẢNG orderedCB ======
@@ -464,6 +524,10 @@ function buildTongHopSalaryExcelData(monthStr, location) {
       ...d.l2,
       d.ac,
       d.tttl1,
+      d.bhxhTTTL,
+      d.bhytTTTL,
+      d.bhtnTTTL,
+      d.kpcdTTTL,
       d.tttl2
     ];
   });
