@@ -1,5 +1,14 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-08-21] Tạm vô hiệu đọc DataTruyThuLinh trong Bảng phân bổ lương & BHXH
+
+### Changed
+- **Feature flag `APPLY_TRUY_THU` (`doGet_phanBoLuongBHXH.js`)**: Thêm flag `const APPLY_TRUY_THU = false`
+  và bọc toàn bộ khối đọc `TRUY_THU_LUONG_1` / `DATA_TRUY_THU` trong `if (APPLY_TRUY_THU) { ... }`.
+  - Khi flag là `false`: Bảng phân bổ **không cộng dồn** truy thu / truy lĩnh BHXH, BHYT, BHTN vào kết quả.
+  - Khi flag là `true`: Khôi phục toàn bộ logic điều chỉnh truy thu / truy lĩnh như cũ.
+  - Code gốc không bị xóa, chỉ cần đổi `false → true` để bật lại.
+
 ## [2026-08-21] Chuẩn hóa cột lấy dữ liệu TTTL & Loại bỏ dòng 0 khi xuất Excel
 
 ### Fixed

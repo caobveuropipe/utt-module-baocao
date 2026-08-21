@@ -463,7 +463,7 @@
 
     const body = _L + "body onload='setTimeout(function(){window.print()},800)'" + _G +
       _L + "div class='no-print-header'" + _G +
-      _L + "button class='btn-print' onclick='window.print()'" + _G + _L + "i class='fas fa-print'" + _G + _S + "i" + _G + " IN BAO CAO (PDF)" + _S + "button" + _G +
+      _L + "button class='btn-print' onclick='window.print()'" + _G + _L + "i class='fas fa-print'" + _G + _S + "i" + _G + " IN BÁO CÁO" + _S + "button" + _G +
       _L + "button class='btn-excel' onclick='window.opener.pg_general_4_exportReportGeneric(\"taoBangTongHopLuong\", \"bo co t?ng h?p luong\", \"All\", \"xlsx\")'" + _G + _L + "i class='fas fa-file-excel'" + _G + _S + "i" + _G + " XU?T EXCEL" + _S + "button" + _G +
       _S + "div" + _G +
 
@@ -739,10 +739,6 @@
         let displayVal = val;
         let cellStyle = "";
         
-        if (isBold && (title.toUpperCase().includes("PHÂN BỔ") || title.toUpperCase().includes("HẠCH TOÁN LƯƠNG"))) {
-          cellStyle += "font-size:7.2pt !important;";
-        }
-        
         if (c === 0) {
           if (isCol0Stt) {
             cellStyle += "text-align:center; vertical-align:middle;";
@@ -768,9 +764,6 @@
           cellStyle += "text-align:right; padding-right:5px; vertical-align:middle;";
         } else {
           cellStyle += "text-align:left; padding-left:5px; vertical-align:middle;";
-          if (c === 1) {
-            cellStyle += "font-size:" + (isBaoHiemHT ? "9.4pt" : "9.2pt") + ";";
-          }
         }
         
         rowHtml += _L + "td style='" + cellStyle + "'" + _G + displayVal + _S + "td" + _G;
@@ -783,28 +776,28 @@
     if (data[0]) {
       if (title.toUpperCase().includes("HẠCH TOÁN LƯƠNG")) {
         colgroupHtml = _L + "colgroup" + _G +
-          _L + "col style='width:140px; min-width:140px;'" + _G + // Nội dung
-          _L + "col style='width:85px; min-width:85px;'" + _G +  // Tổng lương
-          _L + "col style='width:70px; min-width:70px;'" + _G +  // LC 100%
-          _L + "col style='width:65px; min-width:65px;'" + _G +  // Treo 60%
-          _L + "col style='width:70px; min-width:70px;'" + _G +  // LC hạch toán
-          _L + "col style='width:65px; min-width:65px;'" + _G +  // Phụ cấp chức vụ
-          _L + "col style='width:55px; min-width:55px;'" + _G +  // PCVK
-          _L + "col style='width:60px; min-width:60px;'" + _G +  // PCGV
-          _L + "col style='width:60px; min-width:60px;'" + _G +  // PCTNGV
-          _L + "col style='width:55px; min-width:55px;'" + _G +  // PCĐH
-          _L + "col style='width:55px; min-width:55px;'" + _G +  // PC TN
-          _L + "col style='width:55px; min-width:55px;'" + _G +  // PC TV
-          _L + "col style='width:65px; min-width:65px;'" + _G +  // BHXH
-          _L + "col style='width:60px; min-width:60px;'" + _G +  // BHYT
-          _L + "col style='width:60px; min-width:60px;'" + _G +  // BHTN
-          _L + "col style='width:60px; min-width:60px;'" + _G +  // KPCĐ
-          _L + "col style='width:55px; min-width:55px;'" + _G +  // Quỹ TN
-          _L + "col style='width:55px; min-width:55px;'" + _G +  // Hưởng 40%
-          _L + "col style='width:55px; min-width:55px;'" + _G +  // Tạm ứng
-          _L + "col style='width:55px; min-width:55px;'" + _G +  // Treo lương
-          _L + "col style='width:60px; min-width:60px;'" + _G +  // Thuế TNCN
-          _L + "col style='width:85px; min-width:85px;'" + _G +  // Thực lĩnh
+          _L + "col style='width:180px; min-width:180px;'" + _G + // Nội dung (1)
+          _L + "col style='width:95px; min-width:95px;'" + _G +   // Tổng lương (2)
+          _L + "col style='width:78px; min-width:78px;'" + _G +   // LC 100% (3)
+          _L + "col style='width:68px; min-width:68px;'" + _G +   // Treo 60% (4)
+          _L + "col style='width:78px; min-width:78px;'" + _G +   // LC hạch toán (5)
+          _L + "col style='width:72px; min-width:72px;'" + _G +   // Phụ cấp chức vụ (6)
+          _L + "col style='width:68px; min-width:68px;'" + _G +   // PCVK (7)
+          _L + "col style='width:88px; min-width:88px;'" + _G +   // PCGV (8)
+          _L + "col style='width:80px; min-width:80px;'" + _G +   // PCTNGV (9)
+          _L + "col style='width:65px; min-width:65px;'" + _G +   // PCĐH (10)
+          _L + "col style='width:65px; min-width:65px;'" + _G +   // PC TN (11)
+          _L + "col style='width:52px; min-width:52px;'" + _G +   // PC TV (12)
+          _L + "col style='width:78px; min-width:78px;'" + _G +   // BHXH (13)
+          _L + "col style='width:68px; min-width:68px;'" + _G +   // BHYT (14)
+          _L + "col style='width:68px; min-width:68px;'" + _G +   // BHTN (15)
+          _L + "col style='width:68px; min-width:68px;'" + _G +   // Đoàn phí CĐ (16)
+          _L + "col style='width:52px; min-width:52px;'" + _G +   // Quỹ TN (17)
+          _L + "col style='width:52px; min-width:52px;'" + _G +   // Hưởng 40% (18)
+          _L + "col style='width:52px; min-width:52px;'" + _G +   // Tạm ứng (19)
+          _L + "col style='width:52px; min-width:52px;'" + _G +   // Treo lương (20)
+          _L + "col style='width:60px; min-width:60px;'" + _G +   // Thuế TNCN (21)
+          _L + "col style='width:98px; min-width:98px;'" + _G +   // Thực lĩnh (22)
           _S + "colgroup" + _G;
       } else if (data[0].length === 23) {
         colgroupHtml = _L + "colgroup" + _G +
@@ -966,10 +959,10 @@
       "tr{page-break-inside:avoid;}" +
       "tr.detail-row td{border-bottom:1px dotted #000 !important;border-top:none !important;}" +
       "tr.bold-row td{font-weight:bold !important;border-top:1px solid #000 !important;border-bottom:1px solid #000 !important;}" +
-      ".phanbo-table{table-layout:fixed !important;width:100% !important;min-width:1410px !important;margin:5px 0 !important;}" +
-      ".phanbo-table th{font-size:7.5pt !important;padding:5px 2px !important;font-family:Tahoma,Arial,sans-serif !important;font-weight:bold !important;word-break:normal !important;white-space:normal !important;line-height:1.2;}" +
-      ".phanbo-table .formula-row th{font-size:5.5pt !important;padding:3px 1px !important;line-height:1.15;word-break:break-word !important;}" +
-      ".phanbo-table td{font-size:7.2pt !important;white-space:nowrap !important;padding:5px 3px !important;font-family:Tahoma,Arial,sans-serif !important;font-weight:500 !important;border-left:1px solid #000 !important;border-right:1px solid #000 !important;border-top:none !important;border-bottom:1px dotted #000 !important;}" +
+      ".phanbo-table{table-layout:fixed !important;width:100% !important;min-width:1720px !important;margin:5px 0 !important;border-collapse:collapse !important;}" +
+      ".phanbo-table th{font-size:9.5pt !important;padding:5px 2px !important;font-family:'Arial Narrow', Arial, sans-serif !important;font-weight:bold !important;word-break:normal !important;white-space:normal !important;line-height:1.2;}" +
+      ".phanbo-table .formula-row th{font-size:7.5pt !important;padding:3px 1px !important;line-height:1.15;word-break:break-word !important;}" +
+      ".phanbo-table td{font-size:9.5pt !important;white-space:nowrap !important;padding:4px 2px !important;font-family:'Arial Narrow', Arial, sans-serif !important;font-weight:500 !important;border-left:1px solid #000 !important;border-right:1px solid #000 !important;border-top:none !important;border-bottom:1px dotted #000 !important;}" +
       ".phanbo-table tr.bold-row td{font-weight:bold !important;border-top:1px solid #000 !important;border-bottom:1px solid #000 !important;}" +
       ".report-header{width:100%;margin-bottom:" + reportHeaderMarginBottom + ";}" +
       ".school-header-block{display:inline-flex;flex-direction:column;align-items:center;text-align:center;}" +
@@ -980,8 +973,8 @@
       ".no-print-header{display:flex;justify-content:center;gap:15px;margin-bottom:15px;padding:10px;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.05);width:98%;margin-left:auto;margin-right:auto;}" +
       ".btn-print{padding:8px 20px;background:#6366f1;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:8px;}" +
       ".sig-table-row td{font-size:9.5pt !important; padding:4px 0 !important;}" +
-      "@page{size:A4 " + (isLandscape ? "landscape" : "portrait") + "; margin: " + (isLandscape ? "8mm 8mm 12mm 21mm" : "12mm 10mm 20mm 20mm") + "; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
-      "@media print{.no-print-header{display:none;}body{background:#fff;padding:0;margin:0}.page-container{width:100%;box-shadow:none;padding:0mm;margin:0 auto;overflow:visible;" + (isLandscape ? "zoom:76%;" : "") + "}.phanbo-table{min-width:unset !important;width:100% !important;table-layout:fixed !important;}}";
+      "@page{size:A4 " + (isLandscape ? "landscape" : "portrait") + "; margin: " + (isLandscape ? "8mm 6mm 10mm 6mm" : "12mm 10mm 20mm 20mm") + "; @bottom-center{content:\"Trang \" counter(page); font-family:'Times New Roman',serif; font-size:8.5pt; font-weight:normal; color:#000;}}" +
+      "@media print{.no-print-header{display:none;}body{background:#fff;padding:0;margin:0}.page-container{width:100%;box-shadow:none;padding:0mm;margin:0 auto;overflow:visible;" + (isLandscape ? "zoom:81%;" : "") + "}.phanbo-table{min-width:unset !important;width:100% !important;table-layout:fixed !important;box-sizing:border-box !important;}.phanbo-table td:last-child, .phanbo-table th:last-child{border-right:1.5px solid #000 !important;}}";
 
     const head = _L + "html" + _G + _L + "head" + _G + _L + "meta charset='UTF-8'" + _G +
       _L + "link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'" + _G +

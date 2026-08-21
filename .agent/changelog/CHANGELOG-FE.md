@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-08-21
+
+### chore(export-ui): loại bỏ tùy chọn xuất PDF khỏi các dialog báo cáo
+- Xóa nút **Xuất PDF** và toàn bộ event listener `swal-btn-pdf` khỏi các dialog:
+  - Báo cáo các khoản trừ (`taoBangTongHopKhoanTru`)
+  - Báo cáo Đoàn phí CĐ (`taoBangTongHopKPCD`)
+  - Báo cáo generic (bao gồm `taoBangHachToanBaoHiem`)
+- Hàm `pg_general_4_exportDanhMucDonVi`: Bỏ dialog chọn In / Excel, nay gọi thẳng `printDanhMucDonVi()`.
+- **Files:** `client/pg_general_4.html`, `client/pg_general_3.html`
+
 ## 2026-08-20
 
 ### feat(ck-ui): bổ sung tùy chọn in và xuất Excel danh sách treo lương cơ sở Phú Thọ

@@ -299,8 +299,15 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     });
     Logger.log(`Kết quả lọc: Tìm thấy ${matchedRows} dòng tháng ${monthStr}. Khớp Master: ${masterMatched}. Khớp Nhóm: ${groupMatched}`);
 
+    // -------------------------------------------------------------------------
+    // APPLY_TRUY_THU: Đặt thành true để bật lại điều chỉnh truy thu / truy lĩnh.
+    // Hiện tại tạm vô hiệu (false) theo yêu cầu nghiệp vụ ngày 21.08.2026.
+    // -------------------------------------------------------------------------
+    const APPLY_TRUY_THU = false;
+
     // Apply insurance arrears/recoveries directly to the existing "HĐ dài hạn - Bộ phận trực tiếp"
     // aggregate. This keeps the report layout unchanged while reconciling it with accounting.
+    if (APPLY_TRUY_THU) {
     try {
         const ssTruyThu = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1);
         const shTruyThu = ssTruyThu.getSheetByName(GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU);
@@ -382,6 +389,7 @@ function doGet_taoBangPhanBoLuongBHXH(monthStr, location) {
     } catch (e) {
         throw new Error('Không thể áp dụng điều chỉnh truy lĩnh/truy thu vào bảng phân bổ: ' + e.message);
     }
+    } // end if (APPLY_TRUY_THU)
 
     // 4. BUILD OUTPUT ARRAY
     const result = [];

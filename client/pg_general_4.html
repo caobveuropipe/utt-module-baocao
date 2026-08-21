@@ -17,31 +17,7 @@
                 return;
             }
 
-            let format = formatParam;
-
-            // Nếu chưa có định dạng thì mới hỏi
-            if (!format) {
-                // --- CHỌN ĐỊNH DẠNG XUẤT ---
-                const resultSwal = await Swal.fire({
-                    title: 'Tùy chọn xuất báo cáo',
-                    html: `Vui lòng chọn định dạng cho <b>${label}</b><br>Kỳ tháng: <b>${monthStr}</b>`,
-                    icon: 'info',
-                    iconHtml: '<i class="fas fa-map-marker-alt"></i>',
-                    showCancelButton: true,
-                    showDenyButton: true,
-                    confirmButtonColor: '#ef4444', // Red for PDF
-                    denyButtonColor: '#22c55e',    // Green for Excel
-                    cancelButtonColor: '#94a3b8',
-                    confirmButtonText: '<i class="fas fa-file-pdf"></i> Xuất PDF',
-                    denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
-                    cancelButtonText: 'Hủy bỏ'
-                });
-
-                if (resultSwal.isConfirmed) format = 'pdf';
-                else if (resultSwal.isDenied) format = 'xlsx';
-
-                if (!format) return;
-            }
+            let format = formatParam || 'xlsx';
 
             // Hiển thị spinner với nút hủy
             currentAbortController = new AbortController();
@@ -132,9 +108,6 @@
                         <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-print"></i> In
                         </button>
-                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
-                            <i class="fas fa-file-pdf"></i> PDF
-                        </button>
                         <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-file-excel"></i> Excel
                         </button>
@@ -150,10 +123,6 @@
             cancelButtonColor: '#94a3b8',
             didOpen: () => {
                 const getLoc = () => document.getElementById('swal-location-select-thl').value;
-                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
-                    Swal.close();
-                    pg_general_4_exportReportGeneric('taoBangTongHopLuong', 'báo cáo tổng hợp lương', getLoc(), 'pdf');
-                });
                 document.getElementById('swal-btn-excel').addEventListener('click', () => {
                     Swal.close();
                     pg_general_4_exportReportGeneric('taoBangTongHopLuong', 'báo cáo tổng hợp lương', getLoc(), 'xlsx');
@@ -244,9 +213,6 @@
                         <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-print"></i> In
                         </button>
-                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
-                            <i class="fas fa-file-pdf"></i> PDF
-                        </button>
                         <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-file-excel"></i> Excel
                         </button>
@@ -261,10 +227,6 @@
             cancelButtonColor: '#94a3b8',
             didOpen: () => {
                 const getLoc = () => document.getElementById('swal-location-select-thbh').value;
-                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
-                    Swal.close();
-                    pg_general_4_exportReportGeneric('taoBangTongHopBaoHiem', 'báo cáo tổng hợp bảo hiểm', getLoc(), 'pdf');
-                });
                 document.getElementById('swal-btn-excel').addEventListener('click', () => {
                     Swal.close();
                     pg_general_4_exportReportGeneric('taoBangTongHopBaoHiem', 'báo cáo tổng hợp bảo hiểm', getLoc(), 'xlsx');
@@ -305,9 +267,6 @@
                         <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-print"></i> In
                         </button>
-                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
-                            <i class="fas fa-file-pdf"></i> PDF
-                        </button>
                         <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-file-excel"></i> Excel
                         </button>
@@ -322,10 +281,6 @@
             cancelButtonColor: '#94a3b8',
             didOpen: () => {
                 const getLoc = () => document.getElementById('swal-location-select-khoantru').value;
-                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
-                    Swal.close();
-                    pg_general_4_exportReportGeneric('taoBangTongHopKhoanTru', 'báo cáo các khoản trừ', getLoc(), 'pdf');
-                });
                 document.getElementById('swal-btn-excel').addEventListener('click', () => {
                     Swal.close();
                     pg_general_4_exportReportGeneric('taoBangTongHopKhoanTru', 'báo cáo các khoản trừ', getLoc(), 'xlsx');
@@ -444,9 +399,6 @@
                         <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-print"></i> In
                         </button>
-                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
-                            <i class="fas fa-file-pdf"></i> PDF
-                        </button>
                         <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-file-excel"></i> Excel
                         </button>
@@ -461,10 +413,6 @@
             cancelButtonColor: '#94a3b8',
             didOpen: () => {
                 const getLoc = () => document.getElementById('swal-location-select-kpcd').value;
-                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
-                    Swal.close();
-                    pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo Đoàn phí CĐ', getLoc(), 'pdf');
-                });
                 document.getElementById('swal-btn-excel').addEventListener('click', () => {
                     Swal.close();
                     pg_general_4_exportReportGeneric('taoBangTongHopKPCD', 'báo cáo Đoàn phí CĐ', getLoc(), 'xlsx');
@@ -535,9 +483,6 @@
                         <button id="swal-btn-print" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #6366f1; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-print"></i> In
                         </button>
-                        <button id="swal-btn-pdf" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #ef4444; color: white; cursor: pointer; transition: background-color 0.2s;">
-                            <i class="fas fa-file-pdf"></i> PDF
-                        </button>
                         <button id="swal-btn-excel" style="flex: 1; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background-color: #22c55e; color: white; cursor: pointer; transition: background-color 0.2s;">
                             <i class="fas fa-file-excel"></i> Excel
                         </button>
@@ -552,14 +497,6 @@
             cancelButtonColor: '#94a3b8',
             didOpen: () => {
                 const getLoc = () => document.getElementById('swal-location-select-generic').value;
-                document.getElementById('swal-btn-pdf').addEventListener('click', () => {
-                    Swal.close();
-                    if (type === 'taoBangHachToanBaoHiem') {
-                        pg_general_4_askAndExportHachToanBaoHiem('pdf', getLoc());
-                    } else {
-                        pg_general_4_exportReportGeneric(type, label, getLoc(), 'pdf');
-                    }
-                });
                 document.getElementById('swal-btn-excel').addEventListener('click', () => {
                     Swal.close();
                     if (type === 'taoBangHachToanBaoHiem') {
@@ -803,50 +740,7 @@
      * Xuất danh mục đơn vị: Chọn In hoặc Xuất Excel
      */
     function pg_general_4_exportDanhMucDonVi() {
-        Swal.fire({
-            title: 'Danh mục đơn vị',
-            text: 'Vui lòng chọn hình thức xuất danh mục đơn vị',
-            icon: 'info',
-            iconHtml: '<i class="fas fa-file-alt"></i>',
-            showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#6366f1', // Indigo for In
-            denyButtonColor: '#22c55e',    // Green for Excel
-            cancelButtonColor: '#94a3b8',
-            confirmButtonText: '<i class="fas fa-print"></i> In HTML',
-            denyButtonText: '<i class="fas fa-file-excel"></i> Xuất Excel',
-            cancelButtonText: 'Hủy bỏ'
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                printDanhMucDonVi();
-            } else if (result.isDenied) {
-                // Xuất Excel
-                try {
-                    const monthStr = $('#modal_dataluong_2_ChonThang').val();
-                    if (!monthStr) {
-                        digicoreToast('Vui lòng chọn tháng', 'warning');
-                        return;
-                    }
-                    // Hiển thị spinner
-                    digicoreSpinner.show("Đang tạo tệp Excel danh mục đơn vị...");
-                    const apiUrl = `${url_api_doGet}?type=exportDanhMucDonVi&exportFormat=xlsx&month=${encodeURIComponent(monthStr)}`;
-                    const response = await fetch(apiUrl);
-                    const resJson = await response.json();
-                    digicoreSpinner.hide();
-
-                    if (resJson.status === 'success') {
-                        window.open(resJson.downloadUrl, '_blank');
-                        digicoreToast('Đang tải tệp Excel danh mục đơn vị...', 'success');
-                    } else {
-                        digicoreToast('Lỗi khi xuất danh mục đơn vị: ' + (resJson.message || 'Không rõ'), 'error');
-                    }
-                } catch (error) {
-                    digicoreSpinner.hide();
-                    console.error('Lỗi khi xuất danh mục đơn vị:', error);
-                    digicoreToast('Lỗi kết nối: ' + error.message, 'error');
-                }
-            }
-        });
+        printDanhMucDonVi();
     }
 
 </script>
