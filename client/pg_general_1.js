@@ -227,7 +227,18 @@ function pg1_ed1_getAllData(forceRefresh = false) {
 }
 
 // ===== CÁC PROXY CALL SANG CORE API (TỰ ĐỘNG ĐÍNH KÈM TOKEN) =====
+/**
+ * Helper kiểm tra quyền bắt buộc trước khi gọi API Core
+ */
+function assertUserHasPermission(requiredRole = 'Tính lương-Xem;') {
+  const strUserRole = userRole();
+  if (!strUserRole.includes(requiredRole)) {
+    throw new Error('Bạn không có quyền thực hiện chức năng này (yêu cầu quyền ' + requiredRole + ').');
+  }
+}
+
 function pg1_ed1_getPrintDataCk(monthStr, location = 'All', isTreoLuong = false) {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDataCk',
     month: monthStr,
@@ -237,6 +248,7 @@ function pg1_ed1_getPrintDataCk(monthStr, location = 'All', isTreoLuong = false)
 }
 
 function pg1_ed1_getPrintDataTongHopLuong(monthStr, location = 'All') {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDataTongHopLuong',
     month: monthStr,
@@ -245,6 +257,7 @@ function pg1_ed1_getPrintDataTongHopLuong(monthStr, location = 'All') {
 }
 
 function pg1_ed1_getPrintDataTongHopBaoHiem(monthStr, location = 'All') {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDataTongHopBaoHiem',
     month: monthStr,
@@ -253,6 +266,7 @@ function pg1_ed1_getPrintDataTongHopBaoHiem(monthStr, location = 'All') {
 }
 
 function pg1_ed1_getPrintDataTongHopKhoanTru(monthStr, location = 'All') {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDataTongHopKhoanTru',
     month: monthStr,
@@ -261,6 +275,7 @@ function pg1_ed1_getPrintDataTongHopKhoanTru(monthStr, location = 'All') {
 }
 
 function pg1_ed1_getPrintDataTongHopKPCD(monthStr, location = 'All') {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDataTongHopKPCD',
     month: monthStr,
@@ -269,6 +284,7 @@ function pg1_ed1_getPrintDataTongHopKPCD(monthStr, location = 'All') {
 }
 
 function pg1_ed1_getPrintDataHachToanBaoHiem(monthStr, location = 'All', addContent = '', addAmount = 0) {
+  assertUserHasPermission('Tính lương-Xem;');
   const params = {
     type: 'getPrintDataHachToanBaoHiem',
     month: monthStr,
@@ -282,6 +298,7 @@ function pg1_ed1_getPrintDataHachToanBaoHiem(monthStr, location = 'All', addCont
 }
 
 function pg1_ed1_getPrintDataHachToanKPCD(monthStr, location = 'All') {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDataHachToanKPCD',
     month: monthStr,
@@ -290,6 +307,7 @@ function pg1_ed1_getPrintDataHachToanKPCD(monthStr, location = 'All') {
 }
 
 function pg1_ed1_getPrintDataPhanBoLuongBHXH(monthStr, location = 'All') {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDataPhanBoLuongBHXH',
     month: monthStr,
@@ -298,6 +316,7 @@ function pg1_ed1_getPrintDataPhanBoLuongBHXH(monthStr, location = 'All') {
 }
 
 function pg1_ed1_getPrintDataHachToanLuongVaTruyLinh(monthStr, location = 'All') {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDataHachToanLuongVaTruyLinh',
     month: monthStr,
@@ -306,6 +325,7 @@ function pg1_ed1_getPrintDataHachToanLuongVaTruyLinh(monthStr, location = 'All')
 }
 
 function pg1_ed1_getPrintDataTruKPCDVaCacQuy(monthStr, location = 'All') {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDataTruKPCDVaCacQuy',
     month: monthStr,
@@ -314,6 +334,7 @@ function pg1_ed1_getPrintDataTruKPCDVaCacQuy(monthStr, location = 'All') {
 }
 
 function pg1_ed1_getPrintDanhMucDonVi(monthStr) {
+  assertUserHasPermission('Tính lương-Xem;');
   return fetchCoreApi({
     type: 'getPrintDanhMucDonVi',
     month: monthStr
@@ -321,11 +342,7 @@ function pg1_ed1_getPrintDanhMucDonVi(monthStr) {
 }
 
 function proxyExportExcel(monthStr, location = 'All') {
-  const strUserRole = userRole();
-  const quyenXem = 'Tính lương-Xem;';
-  if (!strUserRole.includes(quyenXem)) {
-    return { status: 'no permission', message: 'Bạn không có quyền thực hiện chức năng này.' };
-  }
+  assertUserHasPermission('Tính lương-Xem;');
 
   return fetchCoreApi({
     type: 'exportTongHopExcel',

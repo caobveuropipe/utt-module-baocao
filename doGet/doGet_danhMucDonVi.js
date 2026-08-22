@@ -15,14 +15,19 @@ function doGet_getDanhMucDonViData(month) {
     throw new Error("Vui lòng chọn tháng để lấy danh mục đơn vị.");
   }
 
-  const ssChotNS = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DB_DATA_CHOT_NS);
-  const sheetChotNS = ssChotNS.getSheetByName('DataChotNSThang');
-  if (!sheetChotNS) {
-    throw new Error("Không tìm thấy sheet 'DataChotNSThang' trong file Chốt Nhân sự");
+  const cache = CacheService.getScriptCache();
+  const CACHE_KEY = `cache_dm_donvi_${month}`;
+  const cached = cache.get(CACHE_KEY);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      Logger.log("Lỗi parse cache_dm_donvi: " + e.message);
+    }
   }
 
-  const values = sheetChotNS.getDataRange().getValues();
-  if (values.length < 2) {
+  const values = fastReadSheetValues(GLOBAL_CONFIG.FILES.DB_DATA_CHOT_NS, 'DataChotNSThang');
+  if (!values || values.length < 2) {
     return [];
   }
 
@@ -75,6 +80,12 @@ function doGet_getDanhMucDonViData(month) {
 
   // Sắp xếp theo mã đơn vị tăng dần
   result.sort((a, b) => a.maDonVi.localeCompare(b.maDonVi, undefined, { numeric: true, sensitivity: 'base' }));
+
+  try {
+    cache.put(CACHE_KEY, JSON.stringify(result), 21600); // Cache 6 tiếng
+  } catch (err) {
+    Logger.log("Lỗi ghi cache_dm_donvi: " + err.message);
+  }
 
   return result;
 }

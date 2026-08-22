@@ -996,14 +996,14 @@ function numberToVietnameseWords(num) {
 function getPrintDataCk(monthStr, location = 'All', isTreoLuong = false) {
   try {
     const isTreo = (isTreoLuong === true || isTreoLuong === 'true' || isTreoLuong === '1');
-    const ssLuong1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_1);
-    const ssLuong2 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_2);
-    const ssTruyThu1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1);
-    const ssTruyThu2 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_2);
-    const ssAnCa = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_AN_CA);
-    const ssMaster = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
-
-    const resources = { ssLuong1, ssLuong2, ssTruyThu1, ssTruyThu2, ssAnCa, ssMaster };
+    const resources = {
+      ssLuong1: GLOBAL_CONFIG.FILES.DATA_LUONG_1,
+      ssLuong2: GLOBAL_CONFIG.FILES.DATA_LUONG_2,
+      ssTruyThu1: GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1,
+      ssTruyThu2: GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_2,
+      ssAnCa: GLOBAL_CONFIG.FILES.DATA_AN_CA,
+      ssMaster: GLOBAL_CONFIG.FILES.MASTER_DATA
+    };
     const data = doGet_tongHopDiNganHang(monthStr, resources, location, isTreo);
 
     if (!data || data.length === 0) throw new Error("Không có dữ liệu cho kỳ này");

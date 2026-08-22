@@ -29,11 +29,6 @@ function doGet_tongHopKPCD(monthStr, resources, location = 'All') {
     const ALL_LOCATIONS = new Set();
     const groups = {}; // { groupKey: { total: 0, locs: { loc: val } } }
 
-    function getData(ss, sheetName) {
-        if (!ss) return [];
-        const sh = ss.getSheetByName(sheetName);
-        return sh ? sh.getDataRange().getValues() : [];
-    }
     function getIdx(header, name) {
         return header.indexOf(name);
     }
@@ -300,38 +295,47 @@ function doGet_taoBangTongHopKPCD(monthStr, location = 'All') {
 }
 
 /**
- * Cung cấp dữ liệu JSON cho việc in ấn Bảng tổng hợp KPCĐ trên Client
+ * Xây dựng dữ liệu Bảng tổng hợp KPCĐ thuần In-Memory (dùng chung cho In HTML và Export Sheet)
+ */
+function buildTongHopKPCDData(monthStr, location = 'All') {
+    const resources = {
+        ssMaster: GLOBAL_CONFIG.FILES.MASTER_DATA,
+        ssLuong1: GLOBAL_CONFIG.FILES.DATA_LUONG_1
+    };
+
+    const result = doGet_tongHopKPCD(monthStr, resources, location);
+    if (!result || !result.data || result.data.length === 0) {
+        throw new Error('Không có dữ liệu KPCĐ cho kỳ ' + monthStr);
+    }
+
+    const { data, locations } = result;
+    const numLocs = locations.length;
+    const totalCols = 3 + numLocs + 1;
+
+    const h1 = ['STT', 'NỘI DUNG', 'TỔNG TIỀN', 'Trong đó', ...new Array(numLocs - 1).fill(''), 'GHI CHÚ'];
+    const h2 = ['', '', '', ...locations.map(l => l.toUpperCase()), ''];
+
+    const fullData = [h1, h2].concat(data);
+    return { fullData, locations, data };
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng tổng hợp KPCĐ trên Client (Pure In-Memory)
  */
 function getPrintDataTongHopKPCD(monthStr, location) {
     try {
-        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
-        doGet_taoBangTongHopKPCD(monthStr, location);
-
-        // 2. Đọc giá trị đã tính toán từ sheet
-        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_DKB_TH_KPCD);
-        const sheet = ss.getSheetByName(GLOBAL_CONFIG.SHEETS.SHEET_TH_KPCD);
-        const lastRow = sheet.getLastRow();
-        const lastCol = sheet.getLastColumn();
-
-        // Tiêu đề/Header bắt đầu từ dòng 5
-        const data = sheet.getRange(5, 1, lastRow - 4, lastCol).getValues();
+        const { fullData, locations } = buildTongHopKPCDData(monthStr, location);
 
         const monthParts = monthStr.substring(1).split('.');
         const month = monthParts[0];
         const year = monthParts[1];
 
-        // Lấy danh sách địa phương
-        const resources = {
-            ssMaster: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA)
-        };
-        const resultRaw = doGet_tongHopKPCD(monthStr, resources, location);
-
         return {
             status: "success",
             month: month,
             year: year,
-            data: data,
-            locations: resultRaw ? resultRaw.locations : [],
+            data: fullData,
+            locations: locations,
             dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
         };
     } catch (e) {

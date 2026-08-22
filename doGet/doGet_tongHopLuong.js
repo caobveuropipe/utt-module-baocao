@@ -925,22 +925,21 @@ function writeDebugLuong2Sheet_(ss, monthStr, targetLocation, rows) {
 }
 
 /**
- * Cung cấp dữ liệu JSON cho việc in ấn Bảng tổng hợp lương trên Client
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng tổng hợp lương trên Client (Pure In-Memory)
  */
 function getPrintDataTongHopLuong(monthStr, location) {
     try {
-        const ssMaster = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
         const resources = {
-            ssMaster,
-            ssLuong1: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_1),
-            ssLuong2: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_LUONG_2),
-            ssTruyThu1: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1),
-            ssTruyThu2: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_2),
-            ssAnCa: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.DATA_AN_CA)
+            ssMaster: GLOBAL_CONFIG.FILES.MASTER_DATA,
+            ssLuong1: GLOBAL_CONFIG.FILES.DATA_LUONG_1,
+            ssLuong2: GLOBAL_CONFIG.FILES.DATA_LUONG_2,
+            ssTruyThu1: GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1,
+            ssTruyThu2: GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_2,
+            ssAnCa: GLOBAL_CONFIG.FILES.DATA_AN_CA
         };
 
         const result = doGet_tongHopLuong(monthStr, resources, location);
-        if (!result || !result.data.length) throw new Error("Không có dữ liệu cho kỳ này");
+        if (!result || !result.data || !result.data.length) throw new Error("Không có dữ liệu cho kỳ này");
 
         const monthParts = monthStr.substring(1).split('.');
         const month = monthParts[0];

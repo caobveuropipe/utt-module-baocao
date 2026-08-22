@@ -78,9 +78,9 @@ function doGet(e) {
     const exportFormat = e?.parameter?.exportFormat || 'pdf'; // định dạng xuất (pdf, xlsx, sheet)
     const reqToken = e?.parameter?.token || '';
 
-    // ====== CENTRALIZED AUTH GATE (Bảo mật tập trung Core API) ======
+    // ====== CENTRALIZED AUTH GATE (Bảo mật tập trung Core API - Fail Closed) ======
     const validToken = PropertiesService.getScriptProperties().getProperty('API_SECRET_TOKEN');
-    if (validToken && reqToken !== validToken) {
+    if (!validToken || !reqToken || reqToken !== validToken) {
       return ContentService.createTextOutput(JSON.stringify({
         status: "error",
         message: "Unauthorized: Invalid or missing API token."

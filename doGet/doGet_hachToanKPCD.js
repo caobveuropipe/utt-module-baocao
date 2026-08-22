@@ -15,8 +15,8 @@ function test_doGet_taoBangKPCD() {
     Logger.log(doGet_taoBangHachToanKPCD(monthStr, 'Hà Nội'));
 }
 
-function doGet_tongHopHachToanKPCD(monthStr, resources, targetLocation) {
-    Logger.log(`Starting doGet_tongHopHachToanKPCD for month: ${monthStr}`);
+function doGet_hachToanKPCD(monthStr, resources, targetLocation) {
+    Logger.log(`Starting doGet_hachToanKPCD for month: ${monthStr}`);
 
     // 1. Load Setup Data for Direct/Indirect mapping
     const ssFileData = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
@@ -276,8 +276,8 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
     const ssTruyThu1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1);
     const resources = { ssLuong1, ssTruyThu1 };
 
-    // 1. Get Data
-    const data = doGet_tongHopHachToanKPCD(monthStr, resources, location);
+    // 1. Lấy dữ liệu
+    const data = doGet_hachToanKPCD(monthStr, resources, location);
 
     // 2. Prepare Header
     const headerRow = ['SỐ TT', 'Nội dung', 'Đoàn phí công đoàn 2%', 'Ghi chú'];
@@ -409,21 +409,30 @@ function doGet_taoBangHachToanKPCD(monthStr, location) {
 }
 
 /**
- * Cung cấp dữ liệu JSON cho việc in ấn Bảng hạch toán KPCĐ trên Client
+ * Xây dựng dữ liệu Bảng hạch toán KPCĐ thuần In-Memory (dùng chung cho In HTML và Export Sheet)
+ */
+function buildHachToanKPCDData(monthStr, location) {
+    const resources = {
+        ssMaster: GLOBAL_CONFIG.FILES.MASTER_DATA,
+        ssLuong1: GLOBAL_CONFIG.FILES.DATA_LUONG_1,
+        ssTruyThu1: GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1
+    };
+
+    const data = doGet_hachToanKPCD(monthStr, resources, location);
+    if (!data || data.length === 0) {
+        throw new Error('Không có dữ liệu hạch toán KPCĐ cho kỳ ' + monthStr);
+    }
+
+    const headerRow = ['SỐ TT', 'Nội dung', 'Đoàn phí công đoàn 2%', 'Ghi chú'];
+    return [headerRow].concat(data);
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng hạch toán KPCĐ trên Client (Pure In-Memory)
  */
 function getPrintDataHachToanKPCD(monthStr, location) {
     try {
-        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
-        doGet_taoBangHachToanKPCD(monthStr, location);
-
-        // 2. Đọc giá trị đã tính toán từ sheet
-        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_HT_TH_KPCD);
-        const sheet = ss.getSheetByName(GLOBAL_CONFIG.SHEETS.SHEET_TH_KPCD);
-        const lastRow = sheet.getLastRow();
-        const lastCol = sheet.getLastColumn();
-
-        // Tiêu đề/Header bắt đầu từ dòng 6
-        const data = sheet.getRange(6, 1, lastRow - 5, lastCol).getValues();
+        const fullData = buildHachToanKPCDData(monthStr, location);
 
         const monthParts = monthStr.substring(1).split('.');
         const month = monthParts[0];
@@ -433,7 +442,7 @@ function getPrintDataHachToanKPCD(monthStr, location) {
             status: "success",
             month: month,
             year: year,
-            data: data,
+            data: fullData,
             dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
         };
     } catch (e) {

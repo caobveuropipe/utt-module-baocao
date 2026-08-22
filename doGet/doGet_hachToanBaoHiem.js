@@ -24,16 +24,16 @@ function test_auditChiTietHachToanBaoHiem() {
 }
 
 /**
- * Hàm xử lý dữ liệu hạch toán bảo hiểm (Nội bộ cho file này)
+ * Hàm xử lý dữ liệu hạch toán bảo hiểm
  */
-function processDataHachToanBaoHiem(monthStr, resources, targetLocation, addContent = '', addAmount = 0) {
+function doGet_hachToanBaoHiem(monthStr, resources, targetLocation, addContent = '', addAmount = 0) {
     const RATES = {
         BHXH: { EMP: 8, SCHOOL: 17.5 },
         BHYT: { EMP: 1.5, SCHOOL: 3 },
         BHTN: { EMP: 1, SCHOOL: 1 }
     };
 
-    Logger.log(`Starting processDataHachToanBaoHiem for month: ${monthStr}`);
+    Logger.log(`Starting doGet_hachToanBaoHiem for month: ${monthStr}`);
 
     // 1. Load Setup Data for Direct/Indirect mapping
     const ssFileData = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA);
@@ -374,8 +374,8 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location, addContent = '', addAm
     const ssTruyThu1 = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1);
     const resources = { ssLuong1, ssTruyThu1 };
 
-    // 1. Lấy dữ liệu (Sử dụng hàm nội bộ đã đổi tên)
-    const data = processDataHachToanBaoHiem(monthStr, resources, location, addContent, addAmount);
+    // 1. Lấy dữ liệu
+    const data = doGet_hachToanBaoHiem(monthStr, resources, location, addContent, addAmount);
 
     if (!data || data.length === 0) {
         throw new Error('Không có dữ liệu hạch toán bảo hiểm cho kỳ ' + monthStr);
@@ -546,21 +546,43 @@ function doGet_taoBangHachToanBaoHiem(monthStr, location, addContent = '', addAm
 }
 
 /**
- * Cung cấp dữ liệu JSON cho việc in ấn Bảng hạch toán bảo hiểm trên Client
+ * Xây dựng dữ liệu Bảng hạch toán bảo hiểm thuần In-Memory (dùng chung cho In HTML và Export Sheet)
+ */
+function buildHachToanBaoHiemData(monthStr, location, addContent = '', addAmount = 0) {
+    const resources = {
+        ssMaster: GLOBAL_CONFIG.FILES.MASTER_DATA,
+        ssLuong1: GLOBAL_CONFIG.FILES.DATA_LUONG_1,
+        ssTruyThu1: GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1
+    };
+
+    const data = doGet_hachToanBaoHiem(monthStr, resources, location, addContent, addAmount);
+    if (!data || data.length === 0) {
+        throw new Error('Không có dữ liệu hạch toán bảo hiểm cho kỳ ' + monthStr);
+    }
+
+    const headerRow1 = [
+        'STT', 'Nội dung',
+        'Người lao động trả', '', '', '',
+        'Nhà trường trả', '', '', '',
+        'Tổng tiền'
+    ];
+
+    const headerRow2 = [
+        '', '',
+        'BHXH 8%', 'BHYT 1.5%', 'BHTN 1%', 'Thành tiền',
+        'BHXH 17.5%', 'BHYT 3%', 'BHTN 1%', 'Thành tiền',
+        ''
+    ];
+
+    return [headerRow1, headerRow2].concat(data);
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng hạch toán bảo hiểm trên Client (Pure In-Memory)
  */
 function getPrintDataHachToanBaoHiem(monthStr, location, addContent = '', addAmount = 0) {
     try {
-        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
-        doGet_taoBangHachToanBaoHiem(monthStr, location, addContent, addAmount);
-
-        // 2. Đọc giá trị đã tính toán từ sheet
-        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_HT_TH_BH);
-        const sheet = ss.getSheetByName(GLOBAL_CONFIG.SHEETS.SHEET_TH_BH);
-        const lastRow = sheet.getLastRow();
-        const lastCol = sheet.getLastColumn();
-
-        // Tiêu đề/Header bắt đầu từ dòng 5
-        const data = sheet.getRange(5, 1, lastRow - 4, lastCol).getValues();
+        const fullData = buildHachToanBaoHiemData(monthStr, location, addContent, addAmount);
 
         const monthParts = monthStr.substring(1).split('.');
         const month = monthParts[0];
@@ -570,7 +592,7 @@ function getPrintDataHachToanBaoHiem(monthStr, location, addContent = '', addAmo
             status: "success",
             month: month,
             year: year,
-            data: data,
+            data: fullData,
             dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
         };
     } catch (e) {

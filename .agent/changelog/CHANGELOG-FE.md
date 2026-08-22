@@ -8,6 +8,18 @@
 
 ## 2026-08-22
 
+### feat(reports-ui): nâng cấp giao diện bản in Kho Bạc & Hạch Toán, thanh tiến trình % và nút hủy
+- **Thanh tiến trình (% Hoàn thành) & Nút Hủy (`client/modal_spinner_2.html`, `client/pg_general_2.html`):**
+  - Tích hợp thanh Progress Bar động hiển thị % hoàn thành (`5% -> 92% -> 100%`) cùng nhãn trạng thái trực quan bên dưới spinner.
+  - Bổ sung nút "Hủy thực thi" kèm cơ chế `AbortController` và `currentActiveRequestId`, cho phép hủy ngay lập tức các yêu cầu đang chạy.
+- **Trải nghiệm mở Tab In Async (`client/pg_general_3.html`):**
+  - Loại bỏ hoàn toàn tab trắng chờ; chỉ mở tab in khi dữ liệu đã tổng hợp hoàn tất 100%.
+  - Tích hợp helper `openReportWindow` với fallback qua `Blob URL` chống bị trình duyệt chặn popup bất đồng bộ.
+- **Chuẩn hóa Layout & Typography Bản In (`client/pg_general_3.html`):**
+  - Tinh chỉnh lề in (`@page`), cỡ chữ (`font-size`), độ giãn dòng (`line-height`), và độ rộng các cột (`colgroup`) cho từng báo cáo (Bảng TH Lương, TH Bảo Hiểm, TH Khoản Trừ, TH KPCĐ, Hạch toán Bảo hiểm, Hạch toán KPCĐ).
+  - Tăng lề trái bản in A4 Landscape lên `16mm` phục vụ đóng gáy hồ sơ kế toán; thu hẹp cột Nội dung và mở rộng cột Ghi chú cho bảng KPCĐ.
+- **Files:** `client/modal_spinner_2.html`, `client/pg_general_2.html`, `client/pg_general_3.html`
+
 ### feat(init-ui): áp dụng SSR nạp sẵn danh sách tháng, nút refresh và dọn dẹp thư viện
 - **Server-Side Data Injection (SSR):** Nhúng sẵn dữ liệu `initialData` (`listThang`, `listDiaPhuong`) từ server template vào `window.__INITIAL_DATA__`, đổ trực tiếp vào dropdown Select2 `#modal_dataluong_2_ChonThang` ngay khi mở trang, giảm thời gian render sẵn sàng từ ~4-6s xuống < 500ms mà không cần xoay spinner.
 - **Nút Refresh Danh Sách Tháng:** Bổ sung nút refresh tròn nhỏ cạnh dropdown chọn tháng, hỗ trợ hàm `refreshListThang()` kèm hiệu ứng xoay icon `fa-spin` để đồng bộ dữ liệu mới nhất từ Google Sheets khi cần.

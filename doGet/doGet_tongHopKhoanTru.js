@@ -36,11 +36,6 @@ function doGet_tongHopKhoanTru(monthStr, resources, location = 'All') {
     const ALL_LOCATIONS = new Set();
     const groups = {}; // { groupKey: { kpcd: { total: 0, locs: {} }, ... } }
 
-    function getData(ss, sheetName) {
-        if (!ss) return [];
-        const sh = ss.getSheetByName(sheetName);
-        return sh ? sh.getDataRange().getValues() : [];
-    }
     function getIdx(header, name) {
         return header.indexOf(name);
     }
@@ -341,38 +336,48 @@ function doGet_taoBangTongHopKhoanTru(monthStr, location = 'All') {
 }
 
 /**
- * Cung cấp dữ liệu JSON cho việc in ấn Bảng tổng hợp các khoản trừ trên Client
+ * Xây dựng dữ liệu Bảng tổng hợp các khoản trừ thuần In-Memory (dùng chung cho In HTML và Export Sheet)
+ */
+function buildTongHopKhoanTruData(monthStr, location = 'All') {
+    const resources = {
+        ssMaster: GLOBAL_CONFIG.FILES.MASTER_DATA,
+        ssLuong1: GLOBAL_CONFIG.FILES.DATA_LUONG_1,
+        ssTruyThu1: GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1
+    };
+
+    const result = doGet_tongHopKhoanTru(monthStr, resources, location);
+    if (!result || !result.data || result.data.length === 0) {
+        throw new Error('Không có dữ liệu khoản trừ cho kỳ ' + monthStr);
+    }
+
+    const { data, locations } = result;
+    const numLocs = locations.length;
+    const totalCols = 3 + numLocs + 1;
+
+    const h1 = ['Số TT', 'Nội dung', 'Tổng tiền', 'Trong đó', ...new Array(numLocs - 1).fill(''), 'Ghi chú'];
+    const h2 = ['', '', '', ...locations.map(l => l.toUpperCase()), ''];
+
+    const fullData = [h1, h2].concat(data);
+    return { fullData, locations, data };
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng tổng hợp các khoản trừ trên Client (Pure In-Memory)
  */
 function getPrintDataTongHopKhoanTru(monthStr, location) {
     try {
-        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
-        doGet_taoBangTongHopKhoanTru(monthStr, location);
-
-        // 2. Đọc giá trị đã tính toán từ sheet
-        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_DKB_TH_KHOAN_TRU);
-        const sheet = ss.getSheetByName('THKPCD');
-        const lastRow = sheet.getLastRow();
-        const lastCol = sheet.getLastColumn();
-
-        // Tiêu đề/Header bắt đầu từ dòng 5
-        const data = sheet.getRange(5, 1, lastRow - 4, lastCol).getValues();
+        const { fullData, locations } = buildTongHopKhoanTruData(monthStr, location);
 
         const monthParts = monthStr.substring(1).split('.');
         const month = monthParts[0];
         const year = monthParts[1];
 
-        // Lấy danh sách địa phương
-        const resources = {
-            ssMaster: SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.MASTER_DATA)
-        };
-        const resultRaw = doGet_tongHopKhoanTru(monthStr, resources, location);
-
         return {
             status: "success",
             month: month,
             year: year,
-            data: data,
-            locations: resultRaw ? resultRaw.locations : [],
+            data: fullData,
+            locations: locations,
             dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
         };
     } catch (e) {

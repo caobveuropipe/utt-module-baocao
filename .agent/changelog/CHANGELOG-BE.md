@@ -1,5 +1,21 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-08-22] Tối ưu tốc độ xử lý in-memory cho toàn bộ báo cáo Kho Bạc & Hạch Toán
+
+### Added
+- **Sheets API v4 Reader Tối Ưu (`doGet/doGet_function.js`)**:
+  - `fastReadSheetValues(fileId, sheetName, range)` & `fastBatchReadSheetValues(fileId, ranges)` đọc dữ liệu qua Sheets API v4 tốc độ cao, khóa Type Contract `UNFORMATTED_VALUE`, `dateTimeRenderOption: 'FORMATTED_STRING'` và tự động chuẩn hóa padding ô rỗng.
+  - Bộ helper in-memory `createDetailedRow` và `sumArrayRows` tính toán số thực trực tiếp, triệt tiêu 100% việc sinh chuỗi công thức Excel `=SUM(...)` trên JSON trả về client.
+- **Pure In-Memory Calculation cho 8 Loại Báo Cáo (`doGet/doGet_*.js`)**:
+  - Tách hàm `buildTongHopLuongData`, `buildTongHopBaoHiemData`, `buildTongHopKhoanTruData`, `buildTongHopKPCDData`, `buildTongHopCkData` trong nhóm Kho Bạc.
+  - Tách hàm `buildHachToanBaoHiemData`, `buildHachToanKPCDData`, `buildPhanBoLuongBHXHData`, `buildHachToanLuongVaTruyLinhData` trong nhóm Hạch Toán.
+  - Cập nhật 100% các hàm RPC `getPrintData*` trả dữ liệu trực tiếp trong < 2.5s, không ghi đè Google Sheet template trung gian.
+
+### Security
+- **Thắt chặt Auth Gate & Phân Quyền (`doGet/Code.js`, `client/pg_general_1.js`)**:
+  - Khóa quyền bắt buộc `assertUserHasPermission('Tính lương-Xem;')` trước khi thực thi bất kỳ hàm RPC lấy dữ liệu in ấn hoặc xuất file nào.
+  - Centralized Auth Gate chuyển sang Fail-Closed: từ chối truy cập ngay nếu `API_SECRET_TOKEN` rỗng hoặc không khớp.
+
 ## [2026-08-22] Tối ưu tốc độ load trang với SSR, CacheService và Centralized Auth Gate
 
 ### Added

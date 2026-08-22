@@ -17,28 +17,93 @@
     const userEmail = '<?= userEmail ?>';
     window.__INITIAL_DATA__ = <?!= initialData || 'null' ?>;
 
-    // Biến toàn cục để quản lý việc hủy yêu cầu HTTP
+    // Biến toàn cục để quản lý việc hủy yêu cầu
     let currentAbortController = null;
+    let currentActiveRequestId = 0;
+    let spinnerProgressTimer = null;
 
     /**
-     * Helper để quản lý spinner và các hành động hủy
+     * Helper để quản lý spinner, thanh tiến trình (% hoàn thành) và hủy thực thi bất kỳ lúc nào
      */
     const digicoreSpinner = {
       show: function (message, onCancel) {
+        currentActiveRequestId++;
+        const myReqId = currentActiveRequestId;
+
         $('#spinnerModalMessage').text(message || 'Đang xử lý dữ liệu...');
-        if (onCancel && typeof onCancel === 'function') {
-          $('#btnCancelSpinnerAction').show().off('click').on('click', function () {
-            onCancel();
+        
+        // Reset thanh tiến trình và % hoàn thành
+        if (spinnerProgressTimer) clearInterval(spinnerProgressTimer);
+        let currentPct = 5;
+        $('#spinnerProgressBar').css('width', '5%');
+        $('#spinnerProgressPercent').text('5%');
+        $('#spinnerProgressStatusText').text('Đang kết nối...');
+        $('#spinnerProgressBarContainer').show();
+
+        // Giả lập tăng % tiến trình mượt mà (5% -> 92% trong khi chờ server xử lý)
+        spinnerProgressTimer = setInterval(() => {
+          if (!digicoreSpinner.isCurrentRequest(myReqId)) {
+            clearInterval(spinnerProgressTimer);
+            return;
+          }
+          if (currentPct < 40) {
+            currentPct += 5;
+            $('#spinnerProgressStatusText').text('Đang đọc dữ liệu...');
+          } else if (currentPct < 70) {
+            currentPct += 3;
+            $('#spinnerProgressStatusText').text('Đang tính toán & tổng hợp...');
+          } else if (currentPct < 92) {
+            currentPct += 1;
+            $('#spinnerProgressStatusText').text('Đang chuẩn bị bản in...');
+          }
+          $('#spinnerProgressBar').css('width', currentPct + '%');
+          $('#spinnerProgressPercent').text(currentPct + '%');
+        }, 150);
+
+        // Luôn hiển thị nút Hủy thực thi
+        $('#btnCancelSpinnerAction')
+          .show()
+          .off('click')
+          .on('click', function () {
+            if (spinnerProgressTimer) clearInterval(spinnerProgressTimer);
+            // Tự động hủy nếu có AbortController (fetch HTTP)
+            if (currentAbortController) {
+              currentAbortController.abort();
+              currentAbortController = null;
+            }
+            // Vô hiệu hóa callback cho các lời gọi google.script.run cũ
+            currentActiveRequestId++;
+
+            if (onCancel && typeof onCancel === 'function') {
+              onCancel();
+            }
             digicoreSpinner.hide();
-            digicoreToast('Hành động đã bị hủy bởi người dùng', 'info');
+            digicoreToast('Đã dừng thực thi theo yêu cầu.', 'info');
           });
-        } else {
-          $('#btnCancelSpinnerAction').hide();
-        }
+
         $('#spinnerModal').modal('show');
       },
+      setProgress: function (pct, statusText) {
+        if (spinnerProgressTimer) clearInterval(spinnerProgressTimer);
+        const safePct = Math.min(100, Math.max(0, pct));
+        $('#spinnerProgressBar').css('width', safePct + '%');
+        $('#spinnerProgressPercent').text(safePct + '%');
+        if (statusText) $('#spinnerProgressStatusText').text(statusText);
+      },
       hide: function () {
-        $('#spinnerModal').modal('hide');
+        if (spinnerProgressTimer) clearInterval(spinnerProgressTimer);
+        $('#spinnerProgressBar').css('width', '100%');
+        $('#spinnerProgressPercent').text('100%');
+        $('#spinnerProgressStatusText').text('Hoàn tất!');
+        setTimeout(() => {
+          $('#spinnerModal').modal('hide');
+        }, 150);
+      },
+      isCurrentRequest: function (reqId) {
+        return reqId === currentActiveRequestId;
+      },
+      getCurrentRequestId: function () {
+        return currentActiveRequestId;
       }
     };
   </script>

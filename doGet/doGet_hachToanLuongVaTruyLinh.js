@@ -923,21 +923,42 @@ function doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location) {
 }
 
 /**
- * Cung cấp dữ liệu JSON cho việc in ấn Bảng hạch toán lương và truy lĩnh trên Client
+ * Xây dựng dữ liệu Bảng hạch toán lương và truy lĩnh thuần In-Memory (dùng chung cho In HTML và Export Sheet)
+ */
+function buildHachToanLuongVaTruyLinhData(monthStr, location) {
+    const setupData = getData(GLOBAL_CONFIG.FILES.MASTER_DATA, 'Setup');
+    const dataLuong1 = getData(GLOBAL_CONFIG.FILES.DATA_LUONG_1, GLOBAL_CONFIG.SHEETS.DATA_LUONG_1);
+    const dataLuong2 = getData(GLOBAL_CONFIG.FILES.DATA_LUONG_2, GLOBAL_CONFIG.SHEETS.DATA_LUONG_2);
+    const truyThu1 = getData(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_1, GLOBAL_CONFIG.SHEETS.DATA_TRUY_THU);
+    const truyThu2 = getData(GLOBAL_CONFIG.FILES.TRUY_THU_LUONG_2, 'DataTruyThuLinh');
+    const dataAnCa = getData(GLOBAL_CONFIG.FILES.DATA_AN_CA, GLOBAL_CONFIG.SHEETS.DATA_AN_CA);
+    const dataNS = getData(GLOBAL_CONFIG.FILES.DB_DATA_CHOT_NS, GLOBAL_CONFIG.SHEETS.DATA_CHOT_NS);
+
+    const result = doGet_processHachToanLuongVaTruyLinh(monthStr, setupData, dataLuong1, dataLuong2, truyThu1, truyThu2, dataAnCa, dataNS, location);
+    if (!result || result.length === 0) {
+        throw new Error('Không có dữ liệu hạch toán lương cho kỳ ' + monthStr);
+    }
+
+    const header1 = [
+        "Nội dung", "Tổng lương, PC theo lương và truy lĩnh", "Lương chính tháng " + monthStr, "", "",
+        "Phụ cấp chức vụ", "Các khoản phụ cấp theo lương", "", "", "", "", "",
+        "Các khoản khấu trừ", "", "", "", "", "", "", "", "", "Thực lĩnh"
+    ];
+    const header2 = [
+        "", "", "LC 100%", "Treo 60% NN+Th.sản", "LC hạch toán",
+        "PCCV", "PCVK", "PCGV", "PCTNGV", "PCĐH", "PC TN", "PC TV",
+        "BHXH", "BHYT", "BHTN", "Đoàn phí CĐ", "Quỹ TN", "hưởng 40% đi NN", "Tạm ứng", "treo lương", "Thuế TNCN", ""
+    ];
+
+    return [header1, header2].concat(result);
+}
+
+/**
+ * Cung cấp dữ liệu JSON cho việc in ấn Bảng hạch toán lương và truy lĩnh trên Client (Pure In-Memory)
  */
 function getPrintDataHachToanLuongVaTruyLinh(monthStr, location) {
     try {
-        // 1. Tạo bảng và tính toán các công thức trên Google Sheets
-        doGet_taoBangHachToanLuongVaTruyLinh(monthStr, location);
-
-        // 2. Đọc giá trị đã tính toán từ sheet
-        const ss = SpreadsheetApp.openById(GLOBAL_CONFIG.FILES.EXPORT_HT_TH_LUONG_VA_TTTL);
-        const sheet = ss.getSheetByName('THHachToanLuong');
-        const lastRow = sheet.getLastRow();
-        const lastCol = sheet.getLastColumn();
-
-        // Tiêu đề/Header bắt đầu từ dòng 5
-        const data = sheet.getRange(5, 1, lastRow - 4, lastCol).getValues();
+        const fullData = buildHachToanLuongVaTruyLinhData(monthStr, location);
 
         const monthParts = monthStr.substring(1).split('.');
         const month = monthParts[0];
@@ -947,7 +968,7 @@ function getPrintDataHachToanLuongVaTruyLinh(monthStr, location) {
             status: "success",
             month: month,
             year: year,
-            data: data,
+            data: fullData,
             dateExport: `Ngày ${new Date().getDate()} tháng ${month} năm ${year}`
         };
     } catch (e) {
