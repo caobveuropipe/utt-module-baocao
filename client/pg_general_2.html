@@ -15,6 +15,7 @@
     const url_api_doGet = '<?= url_api_doGet ?>';
     const url_api_doPost = '<?= url_api_doPost ?>';
     const userEmail = '<?= userEmail ?>';
+    window.__INITIAL_DATA__ = <?!= initialData || 'null' ?>;
 
     // Biến toàn cục để quản lý việc hủy yêu cầu HTTP
     let currentAbortController = null;
@@ -191,7 +192,7 @@
       </div>
 
       <!-- Month Selector -->
-      <div class="month-selector-container">
+      <div class="month-selector-container d-flex align-items-center justify-content-center">
 
         <!-- Month Selector -->
         <div class="select-wrapper">
@@ -208,6 +209,12 @@
             <option value="">Chọn tháng</option>
           </select>
         </div>
+
+        <!-- Nút Refresh Danh Sách Tháng -->
+        <button type="button" class="btn btn-sm btn-light border ms-2" onclick="refreshListThang()" title="Làm mới danh sách tháng từ Google Sheets"
+          style="border-radius: 8px; height: 38px; width: 38px; display: flex; align-items: center; justify-content: center; color: #00695c; background: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
+          <i class="fas fa-sync-alt" id="iconRefreshThang" style="font-size: 0.95rem;"></i>
+        </button>
       </div>
     </div>
   </div>

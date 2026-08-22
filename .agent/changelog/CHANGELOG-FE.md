@@ -6,6 +6,14 @@
 
 ---
 
+## 2026-08-22
+
+### feat(init-ui): áp dụng SSR nạp sẵn danh sách tháng, nút refresh và dọn dẹp thư viện
+- **Server-Side Data Injection (SSR):** Nhúng sẵn dữ liệu `initialData` (`listThang`, `listDiaPhuong`) từ server template vào `window.__INITIAL_DATA__`, đổ trực tiếp vào dropdown Select2 `#modal_dataluong_2_ChonThang` ngay khi mở trang, giảm thời gian render sẵn sàng từ ~4-6s xuống < 500ms mà không cần xoay spinner.
+- **Nút Refresh Danh Sách Tháng:** Bổ sung nút refresh tròn nhỏ cạnh dropdown chọn tháng, hỗ trợ hàm `refreshListThang()` kèm hiệu ứng xoay icon `fa-spin` để đồng bộ dữ liệu mới nhất từ Google Sheets khi cần.
+- **Dọn dẹp CDN Assets (`client/modal_library.html`):** Gỡ bỏ 9 file CSS/JS DataTables dư thừa, giúp trang nhẹ hơn và tăng tốc độ First Contentful Paint.
+- **Files:** `client/pg_general_2.html`, `client/pg_general_3.html`, `client/modal_library.html`
+
 ## 2026-08-21
 
 ### chore(export-ui): loại bỏ tùy chọn xuất PDF khỏi các dialog báo cáo

@@ -72,10 +72,21 @@ const GLOBAL_CONFIG = {
 
 function doGet(e) {
   try {
-    const type = e.parameter.type || '';    // lấy tham số loại get từ url
-    const month = e.parameter.month || '';  // lấy tham số tháng get dữ liệu từ url
-    const location = e.parameter.location || ''; // lấy tham số địa phương
-    const exportFormat = e.parameter.exportFormat || 'pdf'; // định dạng xuất (pdf, xlsx, sheet)
+    const type = e?.parameter?.type || '';    // lấy tham số loại get từ url
+    const month = e?.parameter?.month || '';  // lấy tham số tháng get dữ liệu từ url
+    const location = e?.parameter?.location || ''; // lấy tham số địa phương
+    const exportFormat = e?.parameter?.exportFormat || 'pdf'; // định dạng xuất (pdf, xlsx, sheet)
+    const reqToken = e?.parameter?.token || '';
+
+    // ====== CENTRALIZED AUTH GATE (Bảo mật tập trung Core API) ======
+    const validToken = PropertiesService.getScriptProperties().getProperty('API_SECRET_TOKEN');
+    if (validToken && reqToken !== validToken) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: "Unauthorized: Invalid or missing API token."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    // ================================================================
 
     // ====== ROUTING GUIDE / BẢNG CHỈ DẪN ======
     const ROUTE_MAP = {
@@ -117,19 +128,6 @@ function doGet(e) {
       const handlerInfo = ROUTE_MAP[type];
       try {
         Logger.log(`Executing route: ${type} (${handlerInfo.desc}) - Location: ${location} - Format: ${exportFormat}`);
-
-        // ----- SECURITY CHECK -----
-        if (type === 'exportTongHopExcel') {
-          const reqToken = e.parameter.token || '';
-          const validToken = PropertiesService.getScriptProperties().getProperty('API_SECRET_TOKEN');
-          if (!validToken || reqToken !== validToken) {
-            return ContentService.createTextOutput(JSON.stringify({
-              status: "error",
-              message: "Unauthorized: Invalid or missing API token."
-            })).setMimeType(ContentService.MimeType.JSON);
-          }
-        }
-        // --------------------------
 
         let result;
         // Cập nhật: Tất cả các báo cáo cần lọc khu vực được đưa vào đây
@@ -229,7 +227,21 @@ function doGet(e) {
   }
 }
 
-function getAllData() {
+function getAllData(forceRefresh = false) {
+  const cache = CacheService.getScriptCache();
+  const CACHE_KEY = "cache_global_all_data";
+
+  if (!forceRefresh) {
+    const cachedData = cache.get(CACHE_KEY);
+    if (cachedData) {
+      try {
+        return JSON.parse(cachedData);
+      } catch (e) {
+        Logger.log("Lỗi parse cache_global_all_data: " + e.message);
+      }
+    }
+  }
+
   const response = Sheets.Spreadsheets.Values.batchGet(idFileData, {
     ranges: [rngDataThang, rngSetup]
   });
@@ -249,11 +261,10 @@ function getAllData() {
   const TienAnCa_Setup = Setup[3] ? Setup[3][0] : 0;
 
   // --- LẤY DANH SÁCH ĐỊA PHƯƠNG TỰ ĐỘNG ---
-  const cache = CacheService.getScriptCache();
   const cachedLocs = cache.get("listDiaPhuong");
 
   let listDiaPhuong;
-  if (cachedLocs) {
+  if (cachedLocs && !forceRefresh) {
     listDiaPhuong = JSON.parse(cachedLocs);
   } else {
     listDiaPhuong = ["Hà Nội", "Phú Thọ"]; // Mặc định
@@ -274,7 +285,6 @@ function getAllData() {
           });
           if (uniqueLocs.size > 0) {
             listDiaPhuong = Array.from(uniqueLocs).sort();
-            // Cache lại trong 1 giờ (3600 giây)
             cache.put("listDiaPhuong", JSON.stringify(listDiaPhuong), 3600);
           }
         }
@@ -284,7 +294,7 @@ function getAllData() {
     }
   }
 
-  return {
+  const resultObj = {
     listThang: Thang,
     listDiaPhuong: listDiaPhuong,
     NgayCongChuan: NgayCongChuan_Setup,
@@ -292,6 +302,14 @@ function getAllData() {
     TienAnCa: TienAnCa_Setup,
     dataStatusTinhLuong: processedData
   };
+
+  try {
+    cache.put(CACHE_KEY, JSON.stringify(resultObj), 3600);
+  } catch (err) {
+    Logger.log("Lỗi ghi cache_global_all_data: " + err.message);
+  }
+
+  return resultObj;
 }
 
 /**

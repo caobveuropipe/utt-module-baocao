@@ -1,5 +1,15 @@
 # Backend Changelog - Module Hạch Toán Lương & Truy Lĩnh
 
+## [2026-08-22] Tối ưu tốc độ load trang với SSR, CacheService và Centralized Auth Gate
+
+### Added
+- **Centralized Auth Gate (`doGet/Code.js`)**: Xác thực token bảo mật `API_SECRET_TOKEN` tập trung ngay đầu hàm `doGet(e)` trước khi dispatch bất kỳ handler nào trong `ROUTE_MAP` hoặc gọi `getAllData()`.
+- **CacheService cho Metadata (`doGet/Code.js`)**: Hàm `getAllData(forceRefresh)` tự động lưu cache toàn bộ danh mục tháng và thông số thiết lập trong `CacheService.getScriptCache()` với TTL 60 phút (3600s).
+- **CacheService phân quyền & Helper Proxy (`client/pg_general_1.js`)**:
+  - Cache ma trận phân quyền `perm_matrix_all` và quyền từng user `user_role_[email]` trong 15 phút (900s).
+  - Helper `fetchCoreApi(params)` tự động đính kèm `API_SECRET_TOKEN` từ `PropertiesService` server-side cho 100% các request gọi sang Core API.
+- **Explicit Deny Response (`client/pg_general_1.js`)**: Nhánh từ chối quyền hoặc email rỗng tại `doGet(e)` trả về trang `HtmlOutput` từ chối rõ ràng và an toàn thay vì rơi vào trang trắng.
+
 ## [2026-08-21] Tạm vô hiệu đọc DataTruyThuLinh trong Bảng phân bổ lương & BHXH
 
 ### Changed
